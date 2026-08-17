@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
@@ -6,8 +6,10 @@ import {
   notifications,
   tasks,
   telegramConnections,
+  telegramDeliveryLogs,
   users,
 } from "../drizzle/schema";
+import { expandCalendarEvents, getTelegramOccurrenceDueAt, parseRecurrenceRule } from "../shared/recurrence";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -46,7 +48,7 @@ export async function getUserByOpenId(openId: string) {
 }
 
 export type TaskInput = { title: string; description?: string | null; status: "todo" | "in_progress" | "done"; priority: "low" | "medium" | "high"; dueAt?: Date | null; reminderAt?: Date | null };
-export type EventInput = { title: string; description?: string | null; startAt: Date; endAt: Date; reminderAt?: Date | null; telegramReminder: boolean };
+export type EventInput = { title: string; description?: string | null; startAt: Date; endAt: Date; reminderAt?: Date | null; recurrenceRule?: string | null; telegramReminder: boolean };
 
 export async function listTasks(userId: number) {
   const db = await requireDb();
@@ -67,11 +69,15 @@ export async function deleteTask(userId: number, taskId: number) {
 
 export async function listEvents(userId: number) {
   const db = await requireDb();
-  return db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId)).orderBy(asc(calendarEvents.startAt));
+  const events = await db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId)).orderBy(asc(calendarEvents.startAt));
+  const now = new Date();
+  const rangeStart = new Date(now.getTime() - 90 * 86_400_000);
+  const rangeEnd = new Date(now.getTime() + 730 * 86_400_000);
+  return expandCalendarEvents(events, rangeStart, rangeEnd);
 }
 export async function createEvent(userId: number, input: EventInput) {
   const db = await requireDb();
-  const result = await db.insert(calendarEvents).values({ userId, title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, telegramReminder: input.telegramReminder });
+  const result = await db.insert(calendarEvents).values({ userId, title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, recurrenceRule: input.recurrenceRule ?? null, telegramReminder: input.telegramReminder });
   return Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
 }
 export async function getEvent(userId: number, eventId: number) {
@@ -80,7 +86,7 @@ export async function getEvent(userId: number, eventId: number) {
 }
 export async function updateEvent(userId: number, eventId: number, input: EventInput) {
   const db = await requireDb();
-  await db.update(calendarEvents).set({ title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, telegramReminder: input.telegramReminder, telegramSentAt: null, telegramDeliveryError: null }).where(and(eq(calendarEvents.id, eventId), eq(calendarEvents.userId, userId)));
+  await db.update(calendarEvents).set({ title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, recurrenceRule: input.recurrenceRule ?? null, telegramReminder: input.telegramReminder, telegramSentAt: null, telegramDeliveryError: null }).where(and(eq(calendarEvents.id, eventId), eq(calendarEvents.userId, userId)));
 }
 export async function setEventTelegramJob(userId: number, eventId: number, taskUid: string) {
   const db = await requireDb();
@@ -109,25 +115,45 @@ export async function completeTelegramLink(userId: number, linkToken: string, ch
 }
 export async function claimTelegramEventByTaskUid(taskUid: string) {
   const db = await requireDb();
-  const event = (await db.select().from(calendarEvents).where(and(eq(calendarEvents.telegramJobUid, taskUid), isNull(calendarEvents.telegramSentAt))).limit(1))[0];
+  const event = (await db.select().from(calendarEvents).where(eq(calendarEvents.telegramJobUid, taskUid)).limit(1))[0];
   if (!event) return undefined;
-  const result = await db.update(calendarEvents).set({ telegramSentAt: new Date(), telegramDeliveryError: null }).where(and(eq(calendarEvents.id, event.id), isNull(calendarEvents.telegramSentAt)));
+  const isRecurring = Boolean(parseRecurrenceRule(event.recurrenceRule));
+  const dueOccurrence = isRecurring ? getTelegramOccurrenceDueAt(event, new Date()) : null;
+  if (isRecurring && !dueOccurrence?.reminderAt) return undefined;
+  const sentMarker = dueOccurrence?.reminderAt ?? new Date();
+  const result = await db.update(calendarEvents).set({ telegramSentAt: sentMarker, telegramDeliveryError: null }).where(and(
+    eq(calendarEvents.id, event.id),
+    isRecurring ? or(isNull(calendarEvents.telegramSentAt), ne(calendarEvents.telegramSentAt, sentMarker)) : isNull(calendarEvents.telegramSentAt),
+  ));
   if ((result as unknown as [{ affectedRows?: number }])[0]?.affectedRows !== 1) return undefined;
-  return event;
+  return dueOccurrence ? { ...event, startAt: dueOccurrence.startAt, endAt: dueOccurrence.endAt, reminderAt: dueOccurrence.reminderAt } : event;
 }
 export async function setTelegramEventDeliveryError(eventId: number, message: string) {
   const db = await requireDb();
   await db.update(calendarEvents).set({ telegramDeliveryError: message.slice(0, 500) }).where(eq(calendarEvents.id, eventId));
 }
+export async function logTelegramDelivery(userId: number, eventId: number, eventTitle: string, status: "success" | "error", errorMessage?: string | null) {
+  const db = await requireDb();
+  await db.insert(telegramDeliveryLogs).values({ userId, eventId, eventTitle: eventTitle.slice(0, 240), status, errorMessage: errorMessage?.slice(0, 500) || null });
+}
+export async function getTelegramDeliveryHistory(userId: number, limit = 30) {
+  const db = await requireDb();
+  return db.select().from(telegramDeliveryLogs).where(eq(telegramDeliveryLogs.userId, userId)).orderBy(desc(telegramDeliveryLogs.sentAt)).limit(limit);
+}
 
 export async function syncDueNotifications(userId: number) {
   const db = await requireDb(); const now = new Date();
-  const [dueTasks, dueEvents] = await Promise.all([
+  const [dueTasks, userEvents] = await Promise.all([
     db.select().from(tasks).where(and(eq(tasks.userId, userId), lte(tasks.reminderAt, now), ne(tasks.status, "done"))),
-    db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), lte(calendarEvents.reminderAt, now))),
+    listEvents(userId),
   ]);
+  const recurrenceCutoff = new Date(now.getTime() - 24 * 60 * 60_000);
+  const dueEvents = userEvents.filter(event => event.reminderAt && event.reminderAt <= now && event.reminderAt >= recurrenceCutoff);
   for (const task of dueTasks) await db.insert(notifications).values({ userId, sourceKey: `task:${task.id}`, kind: "task", title: "Nhắc việc đến hạn", body: task.title, scheduledFor: task.reminderAt ?? now }).onDuplicateKeyUpdate({ set: { scheduledFor: task.reminderAt ?? now } });
-  for (const event of dueEvents) await db.insert(notifications).values({ userId, sourceKey: `event:${event.id}`, kind: "event", title: "Sự kiện sắp bắt đầu", body: event.title, scheduledFor: event.reminderAt ?? now }).onDuplicateKeyUpdate({ set: { scheduledFor: event.reminderAt ?? now } });
+  for (const event of dueEvents) {
+    const sourceKey = event.isRecurringOccurrence ? `event:${event.id}:${event.startAt.getTime()}` : `event:${event.id}`;
+    await db.insert(notifications).values({ userId, sourceKey, kind: "event", title: "Sự kiện sắp bắt đầu", body: event.title, scheduledFor: event.reminderAt ?? now }).onDuplicateKeyUpdate({ set: { scheduledFor: event.reminderAt ?? now } });
+  }
   return db.select().from(notifications).where(and(eq(notifications.userId, userId), isNull(notifications.readAt))).orderBy(desc(notifications.scheduledFor));
 }
 export async function markNotificationRead(userId: number, notificationId: number) { const db = await requireDb(); await db.update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId))); }

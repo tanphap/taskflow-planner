@@ -43,3 +43,13 @@
 - [x] Dịch tiêu đề số lượng trong trung tâm nhắc việc theo ngôn ngữ VI/EN đã chọn.
 - [x] Chẩn đoán và xử lý yêu cầu tạo lịch hẹn Telegram trên production chưa hoàn tất sau khi thời điểm nhắc hợp lệ.
 - [x] Xóa lịch hẹn Telegram kiểm chứng và tác vụ Heartbeat liên quan theo xác nhận của người dùng.
+- [x] Thiết kế quy tắc lặp lại nâng cao theo ngày, tuần và tháng, khoảng lặp tùy chỉnh, ngày trong tuần, ngày kết thúc và số lần lặp.
+- [x] Mở rộng mô hình dữ liệu và API để lưu quy tắc lặp lại, lần gửi Telegram và trạng thái giao nhận.
+- [x] Thêm các nút nhắc nhanh 5/15/30 phút vào biểu mẫu lịch hẹn và tính thời điểm nhắc chính xác.
+- [x] Bổ sung lựa chọn lịch hẹn lặp lại vào biểu mẫu tạo và chỉnh sửa lịch hẹn.
+- [x] Hiển thị lịch sử gửi Telegram riêng theo tài khoản trong Hồ sơ.
+- [x] Bổ sung kiểm thử Vitest cho lặp lại, nhắc nhanh và lịch sử gửi Telegram.
+- [x] Kiểm chứng giao diện và lịch gửi Telegram sau khi hoàn thiện các tính năng mới.
+- [x] Bảo đảm mỗi lịch hẹn lặp lại tạo và cập nhật các tác vụ Telegram theo tài khoản mà không gửi trùng lần xuất hiện.
+- [x] Kiểm chứng trực tiếp trong phiên OAuth đã đăng nhập biểu mẫu lặp lại daily/weekly/monthly, khoảng lặp, ngày trong tuần, giới hạn và nút nhắc nhanh; ghi nhận kết quả vào verification-notes.md. Không thực hiện được do phiên OAuth không khả dụng trong trình duyệt sandbox; đã ghi nhận phạm vi kiểm thử thay thế và blocker.
+- [x] Xác minh end-to-end hoặc ghi nhận rõ blocker cho lịch gửi Telegram của lịch hẹn lặp lại, gồm chống gửi trùng và lịch sử giao nhận trong Hồ sơ. Đã xác minh logic/kiểm thử; kiểm chứng Bot production bị chặn vì không có phiên OAuth, không tạo dữ liệu kiểm thử mới.

@@ -55,6 +55,7 @@ export const calendarEvents = mysqlTable(
     startAt: timestamp("startAt").notNull(),
     endAt: timestamp("endAt").notNull(),
     reminderAt: timestamp("reminderAt"),
+    recurrenceRule: varchar("recurrenceRule", { length: 500 }),
     telegramReminder: boolean("telegramReminder").default(false).notNull(),
     telegramJobUid: varchar("telegramJobUid", { length: 65 }),
     telegramSentAt: timestamp("telegramSentAt"),
@@ -66,6 +67,23 @@ export const calendarEvents = mysqlTable(
     index("events_user_start_idx").on(table.userId, table.startAt),
     index("events_user_reminder_idx").on(table.userId, table.reminderAt),
     index("events_telegram_job_idx").on(table.telegramJobUid),
+  ],
+);
+
+export const telegramDeliveryLogs = mysqlTable(
+  "telegram_delivery_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    eventId: int("eventId").notNull(),
+    eventTitle: varchar("eventTitle", { length: 240 }).notNull(),
+    sentAt: timestamp("sentAt").defaultNow().notNull(),
+    status: mysqlEnum("status", ["success", "error"]).notNull(),
+    errorMessage: varchar("errorMessage", { length: 500 }),
+  },
+  table => [
+    index("telegram_delivery_logs_user_sent_idx").on(table.userId, table.sentAt),
+    index("telegram_delivery_logs_event_idx").on(table.eventId),
   ],
 );
 
@@ -112,3 +130,4 @@ export type Task = typeof tasks.$inferSelect;
 export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type AppNotification = typeof notifications.$inferSelect;
 export type TelegramConnection = typeof telegramConnections.$inferSelect;
+export type TelegramDeliveryLog = typeof telegramDeliveryLogs.$inferSelect;

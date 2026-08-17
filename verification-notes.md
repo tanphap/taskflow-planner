@@ -63,3 +63,11 @@ Lần tạo lịch hẹn kiểm chứng trên production ban đầu bị từ ch
 Lịch hẹn “Telegram reminder test” đã được lưu với tác vụ Heartbeat `J3m2NqAoSt7CpdqRfHHzDD`. Lịch sử Heartbeat ghi nhận lần thực thi thành công lúc `2026-08-17T12:31:00Z`, phản hồi `{"ok":true,"eventId":1}`. Cơ sở dữ liệu ghi `telegramSentAt` tương ứng và không có `telegramDeliveryError`, xác nhận Bot đã gửi nhắc một lần thành công.
 
 Theo xác nhận của người dùng, lịch hẹn kiểm chứng và tác vụ Heartbeat liên quan đã được xóa. Truy vấn xác minh không còn bản ghi mang tiêu đề “Telegram reminder test”; thông báo trong ứng dụng phát sinh từ lịch hẹn này cũng đã được dọn.
+
+## Mở rộng lịch lặp lại, nhắc nhanh và lịch sử Telegram
+
+Đã chạy thành công `pnpm check` và `pnpm test`: **21 kiểm thử Vitest** đều đạt. Phạm vi kiểm thử gồm chuỗi lặp daily với khoảng tùy chỉnh và bảo toàn độ lệch nhắc, weekly với các ngày đã chọn theo tuần xen kẽ, monthly với ngày 31 tự co về ngày cuối tháng ngắn, giới hạn theo ngày/số lần, tính nhắc nhanh 5/15/30 phút, phân tách lịch sử Telegram theo `userId`, và cron Telegram cho lịch hằng tháng.
+
+Ảnh xem trước ở 1280×720 vẫn tải Dashboard đã xác thực, duy trì bố cục Swiss Design và không có lỗi TypeScript/runtime do phần mở rộng mới. Tuy nhiên, kiểm chứng thao tác trực tiếp các điều khiển mới trong EventDialog/Hồ sơ chưa thể thực hiện trong phiên này: trình duyệt liên kết trả về lỗi timeout, còn trình duyệt sandbox thay thế không có cookie Manus OAuth và chỉ hiển thị màn hình đăng nhập. Không tạo lịch hẹn kiểm chứng mới, không gọi Bot và không ghi dữ liệu vào tài khoản người dùng trong bước này.
+
+Vì vậy, luồng gửi Telegram lặp lại được xác minh ở mức logic và kiểm thử: cron hằng tháng chạy mỗi ngày tại đúng giờ nhắc để hỗ trợ ngày 29/30/31, handler chỉ nhận lần xuất hiện đến hạn và marker `telegramSentAt` theo đúng `reminderAt` ngăn gửi trùng. Cần kiểm chứng thủ công trên production sau khi có lại phiên OAuth nếu muốn xác nhận hành vi Bot từ đầu đến cuối cho một chuỗi lặp thực tế.

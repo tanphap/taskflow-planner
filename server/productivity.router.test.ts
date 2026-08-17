@@ -21,6 +21,7 @@ vi.mock("./db", () => ({
   getEvent: vi.fn(),
   setEventTelegramJob: vi.fn(),
   clearEventTelegramJob: vi.fn(),
+  getTelegramDeliveryHistory: vi.fn(),
 }));
 
 import { appRouter } from "./routers";
@@ -96,7 +97,7 @@ describe("productivity router data isolation", () => {
     await caller.notifications.markRead({ id: 3 });
     await caller.profile.update({ name: "Minh", email: "minh@example.com" });
 
-    expect(db.createEvent).toHaveBeenCalledWith(73, event);
+    expect(db.createEvent).toHaveBeenCalledWith(73, { ...event, recurrenceRule: null });
     expect(db.syncDueNotifications).toHaveBeenCalledWith(73);
     expect(db.markNotificationRead).toHaveBeenCalledWith(73, 3);
     expect(db.updateUserProfile).toHaveBeenCalledWith(73, { name: "Minh", email: "minh@example.com" });
@@ -132,6 +133,27 @@ describe("productivity router data isolation", () => {
     expect(db.createTask).not.toHaveBeenCalled();
   });
 
+  it("validates advanced recurrence and serializes the rule before saving an event", async () => {
+    vi.mocked(db.createEvent).mockResolvedValue(21);
+    const caller = appRouter.createCaller(createUserContext(42));
+    const event = {
+      title: "Lập kế hoạch tuần",
+      description: null,
+      startAt: new Date("2026-08-17T09:00:00.000Z"),
+      endAt: new Date("2026-08-17T10:00:00.000Z"),
+      reminderAt: null,
+      telegramReminder: false,
+      recurrenceRule: { freq: "weekly" as const, interval: 2, daysOfWeek: [1, 3], count: 8 },
+    };
+
+    await caller.calendar.create(event);
+
+    expect(db.createEvent).toHaveBeenCalledWith(42, expect.objectContaining({
+      recurrenceRule: JSON.stringify(event.recurrenceRule),
+    }));
+    await expect(caller.calendar.create({ ...event, recurrenceRule: { freq: "weekly", interval: 1 } })).rejects.toThrow("Lịch hằng tuần cần chọn ít nhất một ngày");
+  });
+
   it("uses the current account when creating and reading a Telegram link", async () => {
     vi.mocked(db.createTelegramLink).mockResolvedValue(undefined);
     vi.mocked(db.getTelegramConnection).mockResolvedValue({
@@ -153,5 +175,14 @@ describe("productivity router data isolation", () => {
     expect(db.createTelegramLink).toHaveBeenCalledWith(73, expect.stringMatching(/^TF-/), expect.any(Date));
     expect(db.getTelegramConnection).toHaveBeenCalledWith(73);
     expect(status).toMatchObject({ connected: true, pending: false });
+  });
+
+  it("returns Telegram delivery history only for the authenticated account", async () => {
+    vi.mocked(db.getTelegramDeliveryHistory).mockResolvedValue([]);
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    await caller.telegram.deliveryHistory({ limit: 12 });
+
+    expect(db.getTelegramDeliveryHistory).toHaveBeenCalledWith(73, 12);
   });
 });
