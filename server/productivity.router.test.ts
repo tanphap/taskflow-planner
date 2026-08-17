@@ -15,6 +15,12 @@ vi.mock("./db", () => ({
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
   updateUserProfile: vi.fn(),
+  getTelegramConnection: vi.fn(),
+  createTelegramLink: vi.fn(),
+  completeTelegramLink: vi.fn(),
+  getEvent: vi.fn(),
+  setEventTelegramJob: vi.fn(),
+  clearEventTelegramJob: vi.fn(),
 }));
 
 import { appRouter } from "./routers";
@@ -82,6 +88,7 @@ describe("productivity router data isolation", () => {
       startAt: new Date("2026-08-19T09:00:00.000Z"),
       endAt: new Date("2026-08-19T10:00:00.000Z"),
       reminderAt: new Date("2026-08-19T08:45:00.000Z"),
+      telegramReminder: false,
     };
 
     await caller.calendar.create(event);
@@ -104,6 +111,7 @@ describe("productivity router data isolation", () => {
       startAt: new Date("2026-08-19T10:00:00.000Z"),
       endAt: new Date("2026-08-19T09:00:00.000Z"),
       reminderAt: null,
+      telegramReminder: false,
     })).rejects.toThrow("Thời gian kết thúc phải sau thời gian bắt đầu");
 
     expect(db.createEvent).not.toHaveBeenCalled();
@@ -122,5 +130,28 @@ describe("productivity router data isolation", () => {
     })).rejects.toThrow("Vui lòng nhập tên công việc");
 
     expect(db.createTask).not.toHaveBeenCalled();
+  });
+
+  it("uses the current account when creating and reading a Telegram link", async () => {
+    vi.mocked(db.createTelegramLink).mockResolvedValue(undefined);
+    vi.mocked(db.getTelegramConnection).mockResolvedValue({
+      id: 1,
+      userId: 73,
+      chatId: "123456",
+      linkToken: null,
+      linkTokenExpiresAt: null,
+      connectedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    const link = await caller.telegram.beginLink();
+    const status = await caller.telegram.status();
+
+    expect(link.code).toMatch(/^TF-/);
+    expect(db.createTelegramLink).toHaveBeenCalledWith(73, expect.stringMatching(/^TF-/), expect.any(Date));
+    expect(db.getTelegramConnection).toHaveBeenCalledWith(73);
+    expect(status).toMatchObject({ connected: true, pending: false });
   });
 });

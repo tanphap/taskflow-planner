@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   int,
   mysqlEnum,
@@ -54,12 +55,35 @@ export const calendarEvents = mysqlTable(
     startAt: timestamp("startAt").notNull(),
     endAt: timestamp("endAt").notNull(),
     reminderAt: timestamp("reminderAt"),
+    telegramReminder: boolean("telegramReminder").default(false).notNull(),
+    telegramJobUid: varchar("telegramJobUid", { length: 65 }),
+    telegramSentAt: timestamp("telegramSentAt"),
+    telegramDeliveryError: text("telegramDeliveryError"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   table => [
     index("events_user_start_idx").on(table.userId, table.startAt),
     index("events_user_reminder_idx").on(table.userId, table.reminderAt),
+    index("events_telegram_job_idx").on(table.telegramJobUid),
+  ],
+);
+
+export const telegramConnections = mysqlTable(
+  "telegram_connections",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    chatId: varchar("chatId", { length: 64 }),
+    linkToken: varchar("linkToken", { length: 96 }),
+    linkTokenExpiresAt: timestamp("linkTokenExpiresAt"),
+    connectedAt: timestamp("connectedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("telegram_connections_user_uq").on(table.userId),
+    uniqueIndex("telegram_connections_link_token_uq").on(table.linkToken),
   ],
 );
 
@@ -87,3 +111,4 @@ export type InsertUser = typeof users.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type AppNotification = typeof notifications.$inferSelect;
+export type TelegramConnection = typeof telegramConnections.$inferSelect;

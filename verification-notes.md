@@ -15,3 +15,7 @@ Kiểm chứng trực tiếp bằng **My Browser** sau đăng nhập: dashboard 
 Trang **Lịch hẹn** đã được kiểm tra trực tiếp ở chế độ tháng và tuần. Chế độ tháng hiển thị lưới 7 cột cùng điều hướng tháng; chế độ tuần hiển thị chính xác bảy ngày liên tiếp từ Thứ 2 đến Chủ nhật, có ô trạng thái trống rõ ràng cho mỗi ngày. Các nút chuyển THÁNG / TUẦN / NGÀY và thao tác tạo lịch hẹn đều hiển thị trong phiên xác thực.
 
 Trang **Nhắc việc** hiển thị chính xác số lượng cảnh báo hiện có, trạng thái rỗng và diễn giải về việc đồng bộ nhắc việc trong ứng dụng. Trang **Hồ sơ cá nhân** hiển thị dữ liệu của tài khoản Manus đang đăng nhập, biểu mẫu tên hiển thị và email, nút lưu thay đổi, cùng thông tin nhấn mạnh rằng dữ liệu công việc, lịch hẹn và nhắc việc được phân tách theo người dùng. Không thực hiện thao tác ghi dữ liệu vào tài khoản trong quá trình kiểm chứng này.
+
+Sau tích hợp Telegram, biểu mẫu tạo lịch hẹn đã được mở trực tiếp trong **My Browser**. Checkbox “Gửi nhắc qua Telegram” hiển thị cùng điều kiện cần liên kết Telegram và xuất bản ứng dụng. Khi bật checkbox, điền tiêu đề và gửi biểu mẫu nhưng bỏ trống “Nhắc vào lúc”, giao diện giữ nguyên biểu mẫu, không lưu lịch hẹn và hiển thị toast lỗi màu đỏ: “Hãy chọn thời điểm nhắc để gửi Telegram”.
+
+Cuộc trò chuyện riêng đã gửi đúng mã liên kết tới Telegram Bot. Trên phiên Manus OAuth đã đăng nhập, Hồ sơ chuyển sang trạng thái “Đã liên kết” và thông báo rõ rằng lời nhắc Telegram sẽ được gửi riêng đến cuộc trò chuyện Bot này.

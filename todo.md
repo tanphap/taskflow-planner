@@ -18,3 +18,12 @@
 - [x] Bổ sung kiểm thử Vitest cho validation sự kiện và hành vi từ chối dữ liệu không hợp lệ.
 - [x] Kiểm tra các màn hình sau đăng nhập bằng phiên xem trước đã xác thực và ghi nhận kết quả.
 - [x] Đăng nhập thật vào phiên xem trước, kiểm tra trực tiếp dashboard, công việc, lịch hẹn, nhắc việc và hồ sơ rồi ghi lại kết quả cho từng màn hình.
+- [x] Xác định phương án gửi nhắc lịch hẹn qua Telegram Bot phù hợp với kiến trúc tác vụ định kỳ của dự án.
+- [x] Thiết lập cấu hình bảo mật cho Telegram Bot và định danh hội thoại nhận thông báo.
+- [x] Bổ sung lựa chọn nhận nhắc qua Telegram cho từng lịch hẹn và lưu cấu hình theo tài khoản.
+- [ ] Tạo tác vụ định kỳ gửi nhắc Telegram đúng thời điểm, có cơ chế chống gửi trùng và ghi nhận trạng thái gửi.
+- [x] Bổ sung kiểm thử cho gửi nhắc Telegram và kiểm chứng giao diện cấu hình lịch hẹn.
+- [x] Liên kết cuộc trò chuyện riêng của người dùng với Telegram Bot trước khi kích hoạt gửi nhắc.
+- [ ] Xuất bản phiên bản có endpoint nhắc Telegram trước khi người dùng đặt lịch gửi qua Bot.
+- [x] Kiểm tra trực tiếp biểu mẫu lịch hẹn để xác nhận tùy chọn Telegram, ràng buộc thời gian nhắc và trạng thái lưu.
+- [ ] Kiểm chứng luồng lưu lịch hẹn hợp lệ sau khi Telegram đã liên kết và phiên bản đã được xuất bản.
