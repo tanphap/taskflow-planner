@@ -47,3 +47,15 @@ Sau điều chỉnh chuỗi động, trung tâm nhắc việc English hiển th�
 Sau khi chuyển về Tiếng Việt, trung tâm nhắc việc hiển thị nhất quán “0 điều cần chú ý”, ngày tiêu đề “Thứ Hai, 17 tháng 8” và toàn bộ nhãn liên quan bằng Tiếng Việt.
 
 Kiểm tra khung nhìn mobile 375×812 xác nhận thanh tiêu đề giữ được nút menu, bộ chọn VI/EN và thao tác tạo nhanh; dashboard Swiss Design xếp dọc rõ ràng, các thao tác nhanh và số liệu không bị che khuất hoặc tràn màn hình.
+
+Sau xuất bản, phiên bản production tại `taskflow-48gdovno.manus.space` tải đúng trong phiên Manus OAuth đã xác thực; Dashboard và Calendar hiển thị ổn định bằng English, còn danh sách Heartbeat chưa có tác vụ vì chưa tạo lịch hẹn bật nhắc Telegram.
+
+Đã mở biểu mẫu tạo lịch hẹn trên production và chuẩn bị lịch hẹn kiểm chứng có tiêu đề “Telegram reminder test”; bước tiếp theo là đặt thời gian bắt đầu, kết thúc và nhắc Telegram tối thiểu hai phút sau thời điểm hiện tại.
+
+Thời điểm bắt đầu của lịch hẹn kiểm chứng đã được đặt thành 19:14 ngày 17/08/2026. Một phản hồi trình duyệt bị chậm, nhưng dữ liệu đã được áp dụng đúng trong biểu mẫu và không có dữ liệu nào được lưu ngoài ý muốn.
+
+Biểu mẫu kiểm chứng hiện có thời gian bắt đầu 19:14, kết thúc 19:44 và nhắc lúc 19:12 ngày 17/08/2026. Các thời điểm này hợp lệ và lời nhắc cách thời điểm hiện tại ít nhất hai phút.
+
+Sau khi bật gửi nhắc Telegram và có xác nhận của người dùng, thao tác tạo lịch hẹn đã được thực hiện. Biểu mẫu vẫn đang mở, nên cần xác minh trạng thái lưu hoặc thông báo validation trước khi kết luận lịch đã được tạo.
+
+Lần tạo lịch hẹn kiểm chứng trên production ban đầu bị từ chối đúng quy tắc vì thời điểm nhắc đã qua; giao diện hiển thị toast “Nhắc Telegram phải cách thời điểm hiện tại ít nhất một phút.” Sau khi điều chỉnh thời gian hợp lệ, yêu cầu tạo hiển thị trạng thái đang xử lý nhưng chưa hoàn tất trong lần kiểm tra này.

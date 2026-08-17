@@ -24,7 +24,7 @@
 - [ ] Tạo tác vụ định kỳ gửi nhắc Telegram đúng thời điểm, có cơ chế chống gửi trùng và ghi nhận trạng thái gửi.
 - [x] Bổ sung kiểm thử cho gửi nhắc Telegram và kiểm chứng giao diện cấu hình lịch hẹn.
 - [x] Liên kết cuộc trò chuyện riêng của người dùng với Telegram Bot trước khi kích hoạt gửi nhắc.
-- [ ] Xuất bản phiên bản có endpoint nhắc Telegram trước khi người dùng đặt lịch gửi qua Bot.
+- [x] Xuất bản phiên bản có endpoint nhắc Telegram trước khi người dùng đặt lịch gửi qua Bot.
 - [x] Kiểm tra trực tiếp biểu mẫu lịch hẹn để xác nhận tùy chọn Telegram, ràng buộc thời gian nhắc và trạng thái lưu.
 - [ ] Kiểm chứng luồng lưu lịch hẹn hợp lệ sau khi Telegram đã liên kết và phiên bản đã được xuất bản.
 - [x] Thiết kế bộ từ điển giao diện Tiếng Việt và English cho các nhãn, trạng thái, biểu mẫu và thông báo.
@@ -41,3 +41,4 @@
 - [x] Kích hoạt cập nhật an toàn mới trong mô-đun ngôn ngữ và lưu bằng chứng log chỉ có HMR update, không có cảnh báo Fast Refresh.
 - [ ] Kiểm tra lại Overview, Tasks, Calendar, Reminders và Profile sau tái cấu trúc ngôn ngữ để xác nhận không có hồi quy.
 - [x] Dịch tiêu đề số lượng trong trung tâm nhắc việc theo ngôn ngữ VI/EN đã chọn.
+- [ ] Chẩn đoán và xử lý yêu cầu tạo lịch hẹn Telegram trên production chưa hoàn tất sau khi thời điểm nhắc hợp lệ.
