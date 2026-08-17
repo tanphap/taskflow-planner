@@ -21,12 +21,12 @@
 - [x] Xác định phương án gửi nhắc lịch hẹn qua Telegram Bot phù hợp với kiến trúc tác vụ định kỳ của dự án.
 - [x] Thiết lập cấu hình bảo mật cho Telegram Bot và định danh hội thoại nhận thông báo.
 - [x] Bổ sung lựa chọn nhận nhắc qua Telegram cho từng lịch hẹn và lưu cấu hình theo tài khoản.
-- [ ] Tạo tác vụ định kỳ gửi nhắc Telegram đúng thời điểm, có cơ chế chống gửi trùng và ghi nhận trạng thái gửi.
+- [x] Tạo tác vụ định kỳ gửi nhắc Telegram đúng thời điểm, có cơ chế chống gửi trùng và ghi nhận trạng thái gửi.
 - [x] Bổ sung kiểm thử cho gửi nhắc Telegram và kiểm chứng giao diện cấu hình lịch hẹn.
 - [x] Liên kết cuộc trò chuyện riêng của người dùng với Telegram Bot trước khi kích hoạt gửi nhắc.
 - [x] Xuất bản phiên bản có endpoint nhắc Telegram trước khi người dùng đặt lịch gửi qua Bot.
 - [x] Kiểm tra trực tiếp biểu mẫu lịch hẹn để xác nhận tùy chọn Telegram, ràng buộc thời gian nhắc và trạng thái lưu.
-- [ ] Kiểm chứng luồng lưu lịch hẹn hợp lệ sau khi Telegram đã liên kết và phiên bản đã được xuất bản.
+- [x] Kiểm chứng luồng lưu lịch hẹn hợp lệ sau khi Telegram đã liên kết và phiên bản đã được xuất bản.
 - [x] Thiết kế bộ từ điển giao diện Tiếng Việt và English cho các nhãn, trạng thái, biểu mẫu và thông báo.
 - [x] Thêm tùy chọn chuyển ngôn ngữ rõ ràng trong giao diện và lưu lựa chọn của người dùng.
 - [x] Kiểm thử giao diện ở cả Tiếng Việt và English trên desktop và di động.
@@ -37,8 +37,9 @@
 - [x] Xác nhận log HMR mới nhất không còn bất kỳ cảnh báo Could not Fast Refresh nào trong mô-đun ngôn ngữ.
 - [x] Kiểm tra lại các màn hình sau khi HMR ổn định để xác nhận không có hồi quy do tái cấu trúc LanguageContext/useLanguage.
 - [x] Đồng bộ ngày ở thanh tiêu đề theo ngôn ngữ đã chọn thay vì giữ English khi chuyển sang Tiếng Việt.
-- [ ] Kiểm tra trực tiếp lại giao diện VI/EN trên desktop và mobile cho điều hướng, lịch hẹn, hồ sơ và trung tâm nhắc việc.
+- [x] Kiểm tra trực tiếp lại giao diện VI/EN trên desktop và mobile cho điều hướng, lịch hẹn, hồ sơ và trung tâm nhắc việc.
 - [x] Kích hoạt cập nhật an toàn mới trong mô-đun ngôn ngữ và lưu bằng chứng log chỉ có HMR update, không có cảnh báo Fast Refresh.
-- [ ] Kiểm tra lại Overview, Tasks, Calendar, Reminders và Profile sau tái cấu trúc ngôn ngữ để xác nhận không có hồi quy.
+- [x] Kiểm tra lại Overview, Tasks, Calendar, Reminders và Profile sau tái cấu trúc ngôn ngữ để xác nhận không có hồi quy.
 - [x] Dịch tiêu đề số lượng trong trung tâm nhắc việc theo ngôn ngữ VI/EN đã chọn.
-- [ ] Chẩn đoán và xử lý yêu cầu tạo lịch hẹn Telegram trên production chưa hoàn tất sau khi thời điểm nhắc hợp lệ.
+- [x] Chẩn đoán và xử lý yêu cầu tạo lịch hẹn Telegram trên production chưa hoàn tất sau khi thời điểm nhắc hợp lệ.
+- [x] Xóa lịch hẹn Telegram kiểm chứng và tác vụ Heartbeat liên quan theo xác nhận của người dùng.

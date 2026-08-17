@@ -59,3 +59,7 @@ Biểu mẫu kiểm chứng hiện có thời gian bắt đầu 19:14, kết th�
 Sau khi bật gửi nhắc Telegram và có xác nhận của người dùng, thao tác tạo lịch hẹn đã được thực hiện. Biểu mẫu vẫn đang mở, nên cần xác minh trạng thái lưu hoặc thông báo validation trước khi kết luận lịch đã được tạo.
 
 Lần tạo lịch hẹn kiểm chứng trên production ban đầu bị từ chối đúng quy tắc vì thời điểm nhắc đã qua; giao diện hiển thị toast “Nhắc Telegram phải cách thời điểm hiện tại ít nhất một phút.” Sau khi điều chỉnh thời gian hợp lệ, yêu cầu tạo hiển thị trạng thái đang xử lý nhưng chưa hoàn tất trong lần kiểm tra này.
+
+Lịch hẹn “Telegram reminder test” đã được lưu với tác vụ Heartbeat `J3m2NqAoSt7CpdqRfHHzDD`. Lịch sử Heartbeat ghi nhận lần thực thi thành công lúc `2026-08-17T12:31:00Z`, phản hồi `{"ok":true,"eventId":1}`. Cơ sở dữ liệu ghi `telegramSentAt` tương ứng và không có `telegramDeliveryError`, xác nhận Bot đã gửi nhắc một lần thành công.
+
+Theo xác nhận của người dùng, lịch hẹn kiểm chứng và tác vụ Heartbeat liên quan đã được xóa. Truy vấn xác minh không còn bản ghi mang tiêu đề “Telegram reminder test”; thông báo trong ứng dụng phát sinh từ lịch hẹn này cũng đã được dọn.
