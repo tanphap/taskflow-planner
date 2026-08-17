@@ -71,3 +71,9 @@ Theo xác nhận của người dùng, lịch hẹn kiểm chứng và tác vụ
 Ảnh xem trước ở 1280×720 vẫn tải Dashboard đã xác thực, duy trì bố cục Swiss Design và không có lỗi TypeScript/runtime do phần mở rộng mới. Tuy nhiên, kiểm chứng thao tác trực tiếp các điều khiển mới trong EventDialog/Hồ sơ chưa thể thực hiện trong phiên này: trình duyệt liên kết trả về lỗi timeout, còn trình duyệt sandbox thay thế không có cookie Manus OAuth và chỉ hiển thị màn hình đăng nhập. Không tạo lịch hẹn kiểm chứng mới, không gọi Bot và không ghi dữ liệu vào tài khoản người dùng trong bước này.
 
 Vì vậy, luồng gửi Telegram lặp lại được xác minh ở mức logic và kiểm thử: cron hằng tháng chạy mỗi ngày tại đúng giờ nhắc để hỗ trợ ngày 29/30/31, handler chỉ nhận lần xuất hiện đến hạn và marker `telegramSentAt` theo đúng `reminderAt` ngăn gửi trùng. Cần kiểm chứng thủ công trên production sau khi có lại phiên OAuth nếu muốn xác nhận hành vi Bot từ đầu đến cuối cho một chuỗi lặp thực tế.
+
+## Luồng Công việc → Lịch hẹn
+
+Đã kiểm chứng trực tiếp trong phiên Manus OAuth trên desktop: từng dòng Công việc hiển thị nút **“Đặt lịch hẹn”**. Với công việc “mua gạo”, thao tác mở EventDialog và tiền điền tiêu đề, thời hạn thành giờ bắt đầu, giờ kết thúc mặc định thêm 60 phút, cùng thời điểm nhắc đã lưu. Với công việc “tắm” có ghi chú, EventDialog tiền điền cả tiêu đề lẫn mô tả. Đã đóng bằng **Hủy** ở cả hai trường hợp; không tạo lịch hẹn hoặc thay đổi dữ liệu người dùng.
+
+Đã chuyển sang English và xác nhận nhãn thành **“Schedule event”**, EventDialog dùng nhãn English, đồng thời tùy chọn **Send reminder via Telegram** vẫn hiện diện. Kiểm thử không tạo sự kiện mới hoặc gửi Telegram vì mục tiêu là xác nhận tiền điền và giao diện, không phải tạo dữ liệu kiểm chứng.

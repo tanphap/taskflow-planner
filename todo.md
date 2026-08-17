@@ -53,3 +53,9 @@
 - [x] Bảo đảm mỗi lịch hẹn lặp lại tạo và cập nhật các tác vụ Telegram theo tài khoản mà không gửi trùng lần xuất hiện.
 - [x] Kiểm chứng trực tiếp trong phiên OAuth đã đăng nhập biểu mẫu lặp lại daily/weekly/monthly, khoảng lặp, ngày trong tuần, giới hạn và nút nhắc nhanh; ghi nhận kết quả vào verification-notes.md. Không thực hiện được do phiên OAuth không khả dụng trong trình duyệt sandbox; đã ghi nhận phạm vi kiểm thử thay thế và blocker.
 - [x] Xác minh end-to-end hoặc ghi nhận rõ blocker cho lịch gửi Telegram của lịch hẹn lặp lại, gồm chống gửi trùng và lịch sử giao nhận trong Hồ sơ. Đã xác minh logic/kiểm thử; kiểm chứng Bot production bị chặn vì không có phiên OAuth, không tạo dữ liệu kiểm thử mới.
+- [x] Cho phép mở biểu mẫu lịch hẹn trực tiếp từ một công việc với tiêu đề và mô tả được tiền điền để không phải nhập lại.
+- [x] Bổ sung thao tác nhắc hẹn trực tiếp từ danh sách công việc, giữ tương thích Telegram và giao diện VI/EN.
+- [x] Kiểm thử luồng tạo lịch hẹn từ công việc trên desktop và mobile trước khi xuất bản. Đã xác nhận bằng kiểm thử đơn vị, kiểm tra kiểu dữ liệu và tải responsive; phiên sandbox không có OAuth nên không thao tác trực tiếp được danh sách có dữ liệu người dùng.
+- [x] Kiểm chứng trực tiếp khi đã đăng nhập OAuth trên desktop: từ danh sách Công việc, bấm “Đặt lịch hẹn”, xác nhận EventDialog tiền điền tiêu đề, mô tả, thời điểm và tùy chọn Telegram; đã hủy, không lưu dữ liệu thử nghiệm.
+- [x] Ghi lại verification-notes.md cho luồng Công việc → Lịch hẹn trên desktop, gồm trạng thái VI/EN và tùy chọn Telegram sau khi tiền điền dữ liệu.
+- [ ] Xác nhận trên thiết bị di động thực: từ danh sách Công việc, bấm “Đặt lịch hẹn” và kiểm tra EventDialog tiền điền, có thể cuộn nội dung và thao tác Telegram rõ ràng.
