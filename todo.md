@@ -27,3 +27,17 @@
 - [ ] Xuất bản phiên bản có endpoint nhắc Telegram trước khi người dùng đặt lịch gửi qua Bot.
 - [x] Kiểm tra trực tiếp biểu mẫu lịch hẹn để xác nhận tùy chọn Telegram, ràng buộc thời gian nhắc và trạng thái lưu.
 - [ ] Kiểm chứng luồng lưu lịch hẹn hợp lệ sau khi Telegram đã liên kết và phiên bản đã được xuất bản.
+- [x] Thiết kế bộ từ điển giao diện Tiếng Việt và English cho các nhãn, trạng thái, biểu mẫu và thông báo.
+- [x] Thêm tùy chọn chuyển ngôn ngữ rõ ràng trong giao diện và lưu lựa chọn của người dùng.
+- [x] Kiểm thử giao diện ở cả Tiếng Việt và English trên desktop và di động.
+- [x] Loại bỏ cảnh báo Fast Refresh liên quan đến xuất hàm dịch từ trang Home.
+- [x] Kiểm tra trực tiếp giao diện ở cả VI và EN trên mobile lẫn desktop, bao gồm điều hướng, biểu mẫu lịch hẹn/hồ sơ và thông báo chính.
+- [x] Kích hoạt lại HMR sau chỉnh sửa và xác nhận nhật ký máy chủ không còn cảnh báo Could not Fast Refresh cho trang Home.
+- [x] Đồng bộ tiêu đề tháng và ngày lịch theo locale English thay vì giữ locale Tiếng Việt cố định.
+- [x] Xác nhận log HMR mới nhất không còn bất kỳ cảnh báo Could not Fast Refresh nào trong mô-đun ngôn ngữ.
+- [x] Kiểm tra lại các màn hình sau khi HMR ổn định để xác nhận không có hồi quy do tái cấu trúc LanguageContext/useLanguage.
+- [x] Đồng bộ ngày ở thanh tiêu đề theo ngôn ngữ đã chọn thay vì giữ English khi chuyển sang Tiếng Việt.
+- [ ] Kiểm tra trực tiếp lại giao diện VI/EN trên desktop và mobile cho điều hướng, lịch hẹn, hồ sơ và trung tâm nhắc việc.
+- [x] Kích hoạt cập nhật an toàn mới trong mô-đun ngôn ngữ và lưu bằng chứng log chỉ có HMR update, không có cảnh báo Fast Refresh.
+- [ ] Kiểm tra lại Overview, Tasks, Calendar, Reminders và Profile sau tái cấu trúc ngôn ngữ để xác nhận không có hồi quy.
+- [x] Dịch tiêu đề số lượng trong trung tâm nhắc việc theo ngôn ngữ VI/EN đã chọn.
