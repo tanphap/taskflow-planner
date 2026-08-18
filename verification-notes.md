@@ -77,3 +77,5 @@ Vì vậy, luồng gửi Telegram lặp lại được xác minh ở mức logic
 Đã kiểm chứng trực tiếp trong phiên Manus OAuth trên desktop: từng dòng Công việc hiển thị nút **“Đặt lịch hẹn”**. Với công việc “mua gạo”, thao tác mở EventDialog và tiền điền tiêu đề, thời hạn thành giờ bắt đầu, giờ kết thúc mặc định thêm 60 phút, cùng thời điểm nhắc đã lưu. Với công việc “tắm” có ghi chú, EventDialog tiền điền cả tiêu đề lẫn mô tả. Đã đóng bằng **Hủy** ở cả hai trường hợp; không tạo lịch hẹn hoặc thay đổi dữ liệu người dùng.
 
 Đã chuyển sang English và xác nhận nhãn thành **“Schedule event”**, EventDialog dùng nhãn English, đồng thời tùy chọn **Send reminder via Telegram** vẫn hiện diện. Kiểm thử không tạo sự kiện mới hoặc gửi Telegram vì mục tiêu là xác nhận tiền điền và giao diện, không phải tạo dữ liệu kiểm chứng.
+
+Người dùng đã kiểm tra bản đã xuất bản trên thiết bị di động thực và xác nhận luồng hoạt động ổn: từ danh sách Công việc mở được biểu mẫu lịch hẹn, dữ liệu tiền điền hiển thị đúng, có thể cuộn biểu mẫu và thao tác phần Telegram rõ ràng. Không ghi nhận lỗi giao diện hoặc yêu cầu điều chỉnh thêm.

@@ -58,4 +58,4 @@
 - [x] Kiểm thử luồng tạo lịch hẹn từ công việc trên desktop và mobile trước khi xuất bản. Đã xác nhận bằng kiểm thử đơn vị, kiểm tra kiểu dữ liệu và tải responsive; phiên sandbox không có OAuth nên không thao tác trực tiếp được danh sách có dữ liệu người dùng.
 - [x] Kiểm chứng trực tiếp khi đã đăng nhập OAuth trên desktop: từ danh sách Công việc, bấm “Đặt lịch hẹn”, xác nhận EventDialog tiền điền tiêu đề, mô tả, thời điểm và tùy chọn Telegram; đã hủy, không lưu dữ liệu thử nghiệm.
 - [x] Ghi lại verification-notes.md cho luồng Công việc → Lịch hẹn trên desktop, gồm trạng thái VI/EN và tùy chọn Telegram sau khi tiền điền dữ liệu.
-- [ ] Xác nhận trên thiết bị di động thực: từ danh sách Công việc, bấm “Đặt lịch hẹn” và kiểm tra EventDialog tiền điền, có thể cuộn nội dung và thao tác Telegram rõ ràng.
+- [x] Xác nhận trên thiết bị di động thực: từ danh sách Công việc, bấm “Đặt lịch hẹn” và kiểm tra EventDialog tiền điền, có thể cuộn nội dung và thao tác Telegram rõ ràng. Người dùng đã xác nhận hoạt động ổn trên điện thoại.
