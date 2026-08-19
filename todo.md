@@ -64,3 +64,6 @@
 - [x] Viết hướng dẫn cấu hình database và biến môi trường khi triển khai TaskFlow lên máy chủ riêng.
 - [x] Đánh giá khả năng triển khai TaskFlow trên VPS miễn phí, Vercel và Render, gồm giới hạn scheduler Telegram.
 - [x] Soạn lộ trình triển khai ưu tiên với GitHub, database, OAuth, secrets và rollback cho nền tảng phù hợp.
+- [ ] Đồng bộ frontend đã viết lại từ GitHub vào workspace TaskFlow mà không ghi đè backend, schema hoặc secrets.
+- [ ] Rà soát và xử lý các điểm tương thích giữa frontend mới với tRPC, OAuth, lịch hẹn và Telegram hiện có.
+- [ ] Kiểm thử và xuất bản giao diện GitHub sau khi xác nhận luồng dữ liệu và responsive ổn định.
