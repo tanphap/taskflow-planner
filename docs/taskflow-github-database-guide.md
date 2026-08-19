@@ -212,3 +212,19 @@ Database lớn không được xử lý bằng cách đưa dữ liệu vào GitH
 Bạn có thể xuất TaskFlow lên GitHub mà không ảnh hưởng đến database đang chạy. GitHub là nơi cộng tác mã nguồn; database và secrets phải được quản lý riêng. Nếu chuyển sang server riêng, phần cần chuẩn bị kỹ nhất là **database mới/backup/migration**, **OAuth callback URL**, **secrets**, và **scheduler thay cho Heartbeat Manus**.
 
 Đối với thay đổi giao diện, có thể để AI/developer làm trong `client/src/` mà không đụng database. Với thay đổi schema, luôn yêu cầu migration, test và kế hoạch rollback trước khi deploy.
+
+## 10. Tham chiếu hosting ngoài Manus
+
+Các thông tin dưới đây được đối chiếu từ tài liệu chính thức vào tháng 8/2026. Vercel có thể chạy Express như một Vercel Function và cron của Vercel gọi một HTTP endpoint theo giờ UTC; điều này phù hợp nếu phần backend được điều chỉnh theo mô hình serverless, nhưng scheduler phải được thiết kế idempotent. [1] [2]
+
+Render có Web Service và Cron Job riêng. Free Web Service có thể ngủ sau 15 phút không có traffic, local filesystem không bền vững, và tài liệu của Render nói rõ không nên dùng Free instance cho production. Render Cron Job có billing tối thiểu theo từng job, do đó không phải lựa chọn miễn phí hoàn toàn cho nhắc Telegram định kỳ. [3] [4]
+
+TaskFlow hiện dùng Drizzle theo MySQL/TiDB. TiDB công bố tương thích cao với giao thức MySQL và đa số syntax MySQL 5.7/8.0, nên có thể giữ nguyên dialect hiện tại khi dùng một database MySQL-compatible bên ngoài; vẫn cần chạy migration thử ở staging vì TiDB có các ngoại lệ tương thích. [5]
+
+### Nguồn tham chiếu
+
+[1]: https://vercel.com/docs/frameworks/backend/express "Vercel Docs — Express on Vercel"
+[2]: https://vercel.com/docs/cron-jobs "Vercel Docs — Cron Jobs"
+[3]: https://render.com/docs/free "Render Docs — Deploy for Free"
+[4]: https://render.com/docs/cronjobs "Render Docs — Cron Jobs"
+[5]: https://docs.pingcap.com/tidbcloud/mysql-compatibility/ "TiDB Cloud Docs — MySQL Compatibility"

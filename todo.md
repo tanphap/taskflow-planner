@@ -62,3 +62,5 @@
 - [x] Soạn sơ đồ dễ hiểu mô tả luồng TaskFlow giữa người dùng, giao diện, backend, database, Telegram và GitHub.
 - [x] Viết hướng dẫn xuất mã TaskFlow lên GitHub an toàn, gồm bảo vệ secrets và quy trình kiểm tra repository.
 - [x] Viết hướng dẫn cấu hình database và biến môi trường khi triển khai TaskFlow lên máy chủ riêng.
+- [x] Đánh giá khả năng triển khai TaskFlow trên VPS miễn phí, Vercel và Render, gồm giới hạn scheduler Telegram.
+- [x] Soạn lộ trình triển khai ưu tiên với GitHub, database, OAuth, secrets và rollback cho nền tảng phù hợp.
