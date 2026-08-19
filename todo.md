@@ -59,3 +59,6 @@
 - [x] Kiểm chứng trực tiếp khi đã đăng nhập OAuth trên desktop: từ danh sách Công việc, bấm “Đặt lịch hẹn”, xác nhận EventDialog tiền điền tiêu đề, mô tả, thời điểm và tùy chọn Telegram; đã hủy, không lưu dữ liệu thử nghiệm.
 - [x] Ghi lại verification-notes.md cho luồng Công việc → Lịch hẹn trên desktop, gồm trạng thái VI/EN và tùy chọn Telegram sau khi tiền điền dữ liệu.
 - [x] Xác nhận trên thiết bị di động thực: từ danh sách Công việc, bấm “Đặt lịch hẹn” và kiểm tra EventDialog tiền điền, có thể cuộn nội dung và thao tác Telegram rõ ràng. Người dùng đã xác nhận hoạt động ổn trên điện thoại.
+- [x] Soạn sơ đồ dễ hiểu mô tả luồng TaskFlow giữa người dùng, giao diện, backend, database, Telegram và GitHub.
+- [x] Viết hướng dẫn xuất mã TaskFlow lên GitHub an toàn, gồm bảo vệ secrets và quy trình kiểm tra repository.
+- [x] Viết hướng dẫn cấu hình database và biến môi trường khi triển khai TaskFlow lên máy chủ riêng.
