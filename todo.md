@@ -72,3 +72,6 @@
 - [x] Đọc lại verification-notes.md để xác nhận ghi chú kiểm tra desktop trong phiên OAuth đã được lưu, rồi hoàn tất trạng thái xác minh.
 - [x] Hoàn tất checkpoint sau cùng của frontend GitHub sau khi đóng xác nhận desktop có phiên OAuth.
 - [x] Lưu checkpoint/xuất bản phiên bản sau cùng của frontend GitHub sau khi hoàn tất sửa header mobile.
+- [ ] Đồng bộ bản frontend mới nhất từ GitHub vào TaskFlow mà không ghi đè backend, database, OAuth hoặc Telegram.
+- [ ] Đánh giá và khắc phục các xung đột giữa frontend GitHub mới với hợp đồng tRPC và trải nghiệm responsive hiện có.
+- [ ] Kiểm tra, lưu checkpoint và xuất bản lại bản frontend GitHub mới nhất.
