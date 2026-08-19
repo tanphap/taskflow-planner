@@ -79,3 +79,13 @@ Vì vậy, luồng gửi Telegram lặp lại được xác minh ở mức logic
 Đã chuyển sang English và xác nhận nhãn thành **“Schedule event”**, EventDialog dùng nhãn English, đồng thời tùy chọn **Send reminder via Telegram** vẫn hiện diện. Kiểm thử không tạo sự kiện mới hoặc gửi Telegram vì mục tiêu là xác nhận tiền điền và giao diện, không phải tạo dữ liệu kiểm chứng.
 
 Người dùng đã kiểm tra bản đã xuất bản trên thiết bị di động thực và xác nhận luồng hoạt động ổn: từ danh sách Công việc mở được biểu mẫu lịch hẹn, dữ liệu tiền điền hiển thị đúng, có thể cuộn biểu mẫu và thao tác phần Telegram rõ ràng. Không ghi nhận lỗi giao diện hoặc yêu cầu điều chỉnh thêm.
+
+## Đồng bộ frontend từ GitHub
+
+Commit frontend mới chỉ thay đổi `client/src/pages/Home.tsx` và `client/src/index.css`; không có thay đổi tại router tRPC, backend, database schema, migration hoặc secrets. Do đó các hợp đồng OAuth, dữ liệu công việc/lịch hẹn, nhắc Telegram và phân tách `userId` được giữ nguyên.
+
+Đã chạy `pnpm check` thành công và **23 kiểm thử Vitest** đều đạt. Ảnh kiểm tra dashboard đã xác thực ở desktop cho thấy shell, sidebar và các luồng dữ liệu vẫn tải bình thường. Trên khung nhìn điện thoại 375×812, bản frontend mới ban đầu làm tiêu đề header bị chật với bộ chọn VI/EN và nút tạo nhanh; đã điều chỉnh vùng tiêu đề co giãn, ẩn dòng phụ dưới 440px và giữ cụm điều khiển không co. Ảnh kiểm tra lại xác nhận tiêu đề “Tổng quan hôm nay”, nút menu, VI/EN và nút tạo cùng hiển thị rõ ràng, không chồng lấn.
+
+Kiểm tra lại ở desktop 1280×720 sau cùng xác nhận sidebar cố định, header với bộ chọn VI/EN, ngày hiện tại và nút tạo công việc, khối tổng quan, hành động nhanh và hai khu vực trạng thái rỗng đều hiển thị đầy đủ. Không thấy tràn, chồng lấn hay lỗi runtime của giao diện sau đồng bộ.
+
+Xác minh lại bằng My Browser trong phiên Manus OAuth đang đăng nhập: trang Overview hiển thị tài khoản “Phap Nguyen”, email, số liệu dashboard, sidebar, các điều khiển VI/EN và thông báo nhắc việc. Như vậy giao diện desktop đã đồng bộ GitHub tải đúng với dữ liệu đã xác thực; không thực hiện thao tác ghi hoặc thay đổi dữ liệu trong lần kiểm tra này.

@@ -64,6 +64,11 @@
 - [x] Viết hướng dẫn cấu hình database và biến môi trường khi triển khai TaskFlow lên máy chủ riêng.
 - [x] Đánh giá khả năng triển khai TaskFlow trên VPS miễn phí, Vercel và Render, gồm giới hạn scheduler Telegram.
 - [x] Soạn lộ trình triển khai ưu tiên với GitHub, database, OAuth, secrets và rollback cho nền tảng phù hợp.
-- [ ] Đồng bộ frontend đã viết lại từ GitHub vào workspace TaskFlow mà không ghi đè backend, schema hoặc secrets.
-- [ ] Rà soát và xử lý các điểm tương thích giữa frontend mới với tRPC, OAuth, lịch hẹn và Telegram hiện có.
-- [ ] Kiểm thử và xuất bản giao diện GitHub sau khi xác nhận luồng dữ liệu và responsive ổn định.
+- [x] Đồng bộ frontend đã viết lại từ GitHub vào workspace TaskFlow mà không ghi đè backend, schema hoặc secrets.
+- [x] Rà soát và xử lý các điểm tương thích giữa frontend mới với tRPC, OAuth, lịch hẹn và Telegram hiện có. Đã xác nhận commit GitHub chỉ thay đổi Home.tsx và index.css; bổ sung sửa header mobile để giữ tiêu đề, ngôn ngữ và nút tạo không chồng lấn.
+- [x] Kiểm thử và xuất bản giao diện GitHub sau khi xác nhận luồng dữ liệu và responsive ổn định. Đã chạy pnpm check, 23 kiểm thử Vitest và kiểm tra trực quan desktop/mobile; header mobile đã được điều chỉnh để tránh chồng lấn.
+- [x] Kiểm tra trực quan lại giao diện desktop sau đồng bộ frontend GitHub và ghi kết quả vào verification-notes.md.
+- [x] Xác nhận lại kiểm tra desktop của frontend GitHub trong phiên đã đăng nhập và lưu bằng chứng/trạng thái xác thực rõ ràng vào verification-notes.md.
+- [x] Đọc lại verification-notes.md để xác nhận ghi chú kiểm tra desktop trong phiên OAuth đã được lưu, rồi hoàn tất trạng thái xác minh.
+- [ ] Hoàn tất checkpoint sau cùng của frontend GitHub sau khi đóng xác nhận desktop có phiên OAuth.
+- [ ] Lưu checkpoint/xuất bản phiên bản sau cùng của frontend GitHub sau khi hoàn tất sửa header mobile.
