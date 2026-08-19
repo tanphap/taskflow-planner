@@ -70,5 +70,5 @@
 - [x] Kiểm tra trực quan lại giao diện desktop sau đồng bộ frontend GitHub và ghi kết quả vào verification-notes.md.
 - [x] Xác nhận lại kiểm tra desktop của frontend GitHub trong phiên đã đăng nhập và lưu bằng chứng/trạng thái xác thực rõ ràng vào verification-notes.md.
 - [x] Đọc lại verification-notes.md để xác nhận ghi chú kiểm tra desktop trong phiên OAuth đã được lưu, rồi hoàn tất trạng thái xác minh.
-- [ ] Hoàn tất checkpoint sau cùng của frontend GitHub sau khi đóng xác nhận desktop có phiên OAuth.
-- [ ] Lưu checkpoint/xuất bản phiên bản sau cùng của frontend GitHub sau khi hoàn tất sửa header mobile.
+- [x] Hoàn tất checkpoint sau cùng của frontend GitHub sau khi đóng xác nhận desktop có phiên OAuth.
+- [x] Lưu checkpoint/xuất bản phiên bản sau cùng của frontend GitHub sau khi hoàn tất sửa header mobile.
