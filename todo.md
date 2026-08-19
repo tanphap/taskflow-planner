@@ -75,7 +75,7 @@
 - [x] Đồng bộ bản frontend mới nhất từ GitHub vào TaskFlow mà không ghi đè backend, database, OAuth hoặc Telegram.
 - [x] Đánh giá và khắc phục các xung đột giữa frontend GitHub mới với hợp đồng tRPC và trải nghiệm responsive hiện có.
 - [x] Kiểm tra frontend GitHub mới nhất sau khi đồng bộ, gồm xác minh OAuth desktop, Dashboard mobile, pnpm check và 23 kiểm thử Vitest.
-- [ ] Lưu checkpoint và xuất bản lại bản frontend GitHub mới nhất sau lần sync `0e851947`.
+- [x] Lưu checkpoint và xuất bản lại bản frontend GitHub mới nhất sau lần sync `0e851947`. Đã xuất bản phiên bản `c83775d4`.
 - [x] Sửa tiêu đề hero dashboard bị cắt ở khung nhìn điện thoại sau lần đồng bộ frontend GitHub mới nhất.
 - [x] Kiểm chứng trực tiếp sau sync GitHub trong phiên OAuth đã đăng nhập: mở Overview và xác nhận không có hồi quy tRPC, OAuth hoặc UI; ghi kết quả vào verification-notes.md.
 - [x] Ghi nhận kiểm chứng Dashboard mobile trong phiên đã đăng nhập sau sửa hero, xác nhận tiêu đề không bị che/cắt và các nút hành động vẫn dùng được. Người dùng đã xác nhận trực tiếp trên điện thoại.
