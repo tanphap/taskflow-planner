@@ -89,3 +89,9 @@ Commit frontend mới chỉ thay đổi `client/src/pages/Home.tsx` và `client/
 Kiểm tra lại ở desktop 1280×720 sau cùng xác nhận sidebar cố định, header với bộ chọn VI/EN, ngày hiện tại và nút tạo công việc, khối tổng quan, hành động nhanh và hai khu vực trạng thái rỗng đều hiển thị đầy đủ. Không thấy tràn, chồng lấn hay lỗi runtime của giao diện sau đồng bộ.
 
 Xác minh lại bằng My Browser trong phiên Manus OAuth đang đăng nhập: trang Overview hiển thị tài khoản “Phap Nguyen”, email, số liệu dashboard, sidebar, các điều khiển VI/EN và thông báo nhắc việc. Như vậy giao diện desktop đã đồng bộ GitHub tải đúng với dữ liệu đã xác thực; không thực hiện thao tác ghi hoặc thay đổi dữ liệu trong lần kiểm tra này.
+
+## Đồng bộ frontend GitHub — Focus Workspace
+
+Lần đồng bộ GitHub mới nhất chỉ thay đổi `client/src/pages/Home.tsx` và `client/src/index.css`, chuyển nhận diện phụ thành “Focus Workspace” cùng hệ màu xanh lá–cam. Không có thay đổi vào backend, schema Drizzle, OAuth, Telegram, hoặc các thủ tục tRPC. Đã chạy `pnpm check` thành công và **23 kiểm thử Vitest** đều đạt.
+
+Trong phiên My Browser đã đăng nhập, Overview tải đúng dữ liệu tài khoản, số liệu dashboard, sidebar, nhắc việc và các nút hành động; không thấy hồi quy OAuth/tRPC hoặc lỗi giao diện. Hero mobile được bổ sung vùng đệm để không đi vào dưới khối trang trí cam. Người dùng đã kiểm tra trực tiếp trên điện thoại và xác nhận tiêu đề hiển thị bình thường, cùng hai nút “Tạo công việc mới” và “Xem lịch hẹn” hoạt động được; không tạo hoặc thay đổi dữ liệu trong lần kiểm tra.
