@@ -148,3 +148,6 @@
 - [x] Bổ sung bộ lọc email trực quan, giữ tương thích với bộ lọc hộp thư/trạng thái hiện có.
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản chế độ tối cùng tìm kiếm/lọc email.
 - [x] Giữ tiêu đề header trên điện thoại gọn, không xuống nhiều dòng sau khi thêm nút chuyển chế độ tối.
+- [x] Chẩn đoán nút kết nối Gmail/Outlook không hiển thị phản hồi hoặc hướng dẫn khi người dùng bấm.
+- [x] Bổ sung trạng thái xử lý, cảnh báo lỗi/cấu hình và hướng dẫn kết nối Gmail/Outlook rõ ràng theo VI/EN.
+- [x] Kiểm thử, kiểm chứng và xuất bản luồng nút kết nối email đã sửa.

@@ -5,6 +5,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
 import { useTheme } from "@/contexts/ThemeContext";
 import { filterEmailInbox, type EmailInboxFocus } from "../../../shared/emailInboxFilters";
+import { getEmailConnectionFeedback } from "../../../shared/emailConnectionFeedback";
 import { quickReminderAt } from "../../../shared/recurrence";
 import { getNotificationBellData } from "../../../shared/notificationBell";
 import { eventPrefillFromTask, type EventPrefill } from "../../../shared/taskEvent";
@@ -147,6 +148,15 @@ Object.assign(englishCopy, {
   "Tên đăng nhập IMAP": "IMAP username",
   "(nếu khác Gmail)": "(if different from Gmail)",
   "Mật khẩu ứng dụng": "App password",
+  "Hướng dẫn kết nối Gmail": "Gmail connection guide",
+  "Hướng dẫn kết nối Outlook": "Outlook connection guide",
+  "Gmail chưa sẵn sàng trên máy chủ này.": "Gmail is not ready on this server.",
+  "Outlook chưa sẵn sàng trên máy chủ này.": "Outlook is not ready on this server.",
+  "Để bảo vệ mật khẩu ứng dụng, quản trị viên cần cấu hình khóa mã hóa email trước khi bạn có thể kết nối Gmail.": "To protect app passwords, an administrator must configure the email encryption key before Gmail can be connected.",
+  "Để kết nối Gmail: bật Xác minh 2 bước trong tài khoản Google, tạo Mật khẩu ứng dụng cho Mail, rồi nhập thông tin vào biểu mẫu này.": "To connect Gmail: enable 2-Step Verification in your Google account, create a Mail app password, then enter it in this form.",
+  "Để kết nối Outlook: quản trị viên cần cấu hình OAuth Microsoft một lần; sau đó bạn sẽ được chuyển đến Microsoft để đăng nhập và cấp quyền IMAP.": "To connect Outlook: an administrator must configure Microsoft OAuth once; you will then be sent to Microsoft to sign in and grant IMAP access.",
+  "Bạn hãy nhập địa chỉ Gmail và Mật khẩu ứng dụng trước khi kết nối.": "Enter your Gmail address and app password before connecting.",
+  "Đã hiển thị hướng dẫn kết nối.": "Connection guidance is displayed.",
   "Chỉ dùng mật khẩu ứng dụng; TaskFlow mã hóa secret trước khi lưu.": "Use an app password only; TaskFlow encrypts the secret before storing it.",
   "Đồng bộ bằng IMAP, xác thực OAuth2 theo yêu cầu Modern Auth của Microsoft. Bạn tự đăng nhập và cấp quyền.": "Sync through IMAP and authenticate with OAuth2 as required by Microsoft Modern Auth. You sign in and grant permission yourself.",
   "Quản trị viên cần cấu hình OAuth Microsoft một lần. Người dùng sẽ tự đăng nhập và cấp quyền hộp thư của mình.": "An administrator must configure Microsoft OAuth once. Each user then signs in and grants mailbox permission.",
@@ -452,12 +462,37 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const providerEnabled = (provider: "google" | "microsoft") => Boolean(configuration?.[provider]);
   const [intervals, setIntervals] = useState<Record<number, number>>({});
   const [gmailForm, setGmailForm] = useState({ email: "", username: "", appPassword: "" });
+  const [connectionGuide, setConnectionGuide] = useState<"gmail" | "microsoft" | null>(null);
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
   const summarizedMessageIds = useMemo(() => new Set(geminiSummaries.map(summary => summary.emailMessageId)), [geminiSummaries]);
   const suggestedMessageIds = useMemo(() => new Set(suggestions.map(suggestion => suggestion.emailMessageId)), [suggestions]);
   const filteredMessages = useMemo(() => filterEmailInbox(messages, { searchQuery, focus: focusFilter, summarizedMessageIds, suggestedMessageIds }), [messages, searchQuery, focusFilter, summarizedMessageIds, suggestedMessageIds]);
   const hasInboxFilters = Boolean(searchQuery.trim()) || focusFilter !== "all";
+  const handleGmailConnect = () => {
+    const feedback = getEmailConnectionFeedback({ provider: "google", configured: providerEnabled("google"), gmailEmail: gmailForm.email, gmailAppPassword: gmailForm.appPassword });
+    if (feedback === "gmail-credentials-required") {
+      setConnectionGuide("gmail");
+      toast.error(t("Bạn hãy nhập địa chỉ Gmail và Mật khẩu ứng dụng trước khi kết nối."));
+      return;
+    }
+    if (feedback === "gmail-server-configuration-required") {
+      setConnectionGuide("gmail");
+      toast.error(t("Gmail chưa sẵn sàng trên máy chủ này."));
+      return;
+    }
+    setConnectionGuide(null);
+    onConnectGmail({ email: gmailForm.email, username: gmailForm.username || undefined, appPassword: gmailForm.appPassword });
+  };
+  const handleMicrosoftConnect = () => {
+    if (getEmailConnectionFeedback({ provider: "microsoft", configured: providerEnabled("microsoft") }) === "microsoft-oauth-configuration-required") {
+      setConnectionGuide("microsoft");
+      toast.error(t("Outlook chưa sẵn sàng trên máy chủ này."));
+      return;
+    }
+    setConnectionGuide(null);
+    onConnectMicrosoft();
+  };
   const overviewStats = [
     { label: t("Tổng email"), value: aiOverview?.inboxCount ?? messages.length, className: "bg-black text-white", icon: Inbox },
     { label: t("Đã tóm tắt"), value: aiOverview?.summarizedCount ?? geminiSummaries.length, className: "bg-[#e4ff3f] text-[#18211b]", icon: Sparkles },
@@ -475,13 +510,14 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
     </div>
 
     <div className="grid gap-4 lg:grid-cols-2">
-      <form className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)] p-5" onSubmit={event => { event.preventDefault(); onConnectGmail({ email: gmailForm.email, username: gmailForm.username || undefined, appPassword: gmailForm.appPassword }); }}>
-        <div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + TLS</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Gmail</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Kết nối qua <strong>imap.gmail.com:993</strong>. Chỉ dùng mật khẩu ứng dụng; TaskFlow mã hóa secret trước khi lưu.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("google") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("google") ? "SẴN SÀNG" : "CẦN CẤU HÌNH"}</span></div>
-        <div className="mt-5 grid gap-3"><label className="text-xs font-bold">Địa chỉ Gmail<input className="input-swiss mt-1 w-full" type="email" value={gmailForm.email} onChange={event => setGmailForm(previous => ({ ...previous, email: event.target.value }))} autoComplete="email" required /></label><label className="text-xs font-bold">Tên đăng nhập IMAP <span className="font-normal text-neutral-500">(nếu khác Gmail)</span><input className="input-swiss mt-1 w-full" value={gmailForm.username} onChange={event => setGmailForm(previous => ({ ...previous, username: event.target.value }))} autoComplete="username" /></label><label className="text-xs font-bold">Mật khẩu ứng dụng<input className="input-swiss mt-1 w-full" type="password" value={gmailForm.appPassword} onChange={event => setGmailForm(previous => ({ ...previous, appPassword: event.target.value }))} autoComplete="new-password" required /></label></div>
-        <button type="submit" className="swiss-button mt-5 w-full justify-center" disabled={!providerEnabled("google") || connectingGmail}>{connectingGmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} {connectingGmail ? "Đang kiểm tra IMAP…" : "Kết nối Gmail qua IMAP"}</button>
+      <form className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)] p-5" onSubmit={event => { event.preventDefault(); handleGmailConnect(); }}>
+        <div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + TLS</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Gmail</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Kết nối qua <strong>imap.gmail.com:993</strong>. Chỉ dùng mật khẩu ứng dụng; TaskFlow mã hóa secret trước khi lưu.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("google") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("google") ? t("SẴN SÀNG") : t("CẦN CẤU HÌNH")}</span></div>
+        <div className="mt-5 grid gap-3"><label className="text-xs font-bold">Địa chỉ Gmail<input className="input-swiss mt-1 w-full" type="email" value={gmailForm.email} onChange={event => setGmailForm(previous => ({ ...previous, email: event.target.value }))} autoComplete="email" /></label><label className="text-xs font-bold">Tên đăng nhập IMAP <span className="font-normal text-neutral-500">(nếu khác Gmail)</span><input className="input-swiss mt-1 w-full" value={gmailForm.username} onChange={event => setGmailForm(previous => ({ ...previous, username: event.target.value }))} autoComplete="username" /></label><label className="text-xs font-bold">Mật khẩu ứng dụng<input className="input-swiss mt-1 w-full" type="password" value={gmailForm.appPassword} onChange={event => setGmailForm(previous => ({ ...previous, appPassword: event.target.value }))} autoComplete="new-password" /></label></div>
+        <button type="submit" className="swiss-button mt-5 w-full justify-center" disabled={connectingGmail}>{connectingGmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} {connectingGmail ? "Đang kiểm tra IMAP…" : "Kết nối Gmail qua IMAP"}</button>
+        {(!providerEnabled("google") || connectionGuide === "gmail") && <div role="alert" className="mt-3 border-l-2 border-[#e23221] bg-[#fff2ef] p-3 text-xs leading-5 text-[#7f1d1d]"><p className="font-bold">{t("Hướng dẫn kết nối Gmail")}</p>{!providerEnabled("google") && <p className="mt-1">{t("Để bảo vệ mật khẩu ứng dụng, quản trị viên cần cấu hình khóa mã hóa email trước khi bạn có thể kết nối Gmail.")}</p>}<p className="mt-1">{t("Để kết nối Gmail: bật Xác minh 2 bước trong tài khoản Google, tạo Mật khẩu ứng dụng cho Mail, rồi nhập thông tin vào biểu mẫu này.")}</p></div>}
         <p className="mt-3 text-xs leading-5 text-neutral-500">Mật khẩu này không hiển thị lại sau khi lưu. Bạn có thể ngắt kết nối bất cứ lúc nào để xóa secret.</p>
       </form>
-      <div className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)] p-5"><div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + OAUTH2</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Outlook / Microsoft 365</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Đồng bộ bằng IMAP, xác thực OAuth2 theo yêu cầu Modern Auth của Microsoft. Bạn tự đăng nhập và cấp quyền.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("microsoft") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("microsoft") ? "SẴN SÀNG" : "CẦN CẤU HÌNH"}</span></div><button type="button" onClick={onConnectMicrosoft} className="swiss-button mt-5 w-full justify-center" disabled={!providerEnabled("microsoft")} title={providerEnabled("microsoft") ? undefined : "Cần cấu hình OAuth Microsoft trước"}><Mail className="h-4 w-4" /> Kết nối Outlook qua IMAP</button>{!providerEnabled("microsoft") && <p className="mt-3 text-xs leading-5 text-neutral-500">Quản trị viên cần cấu hình OAuth Microsoft một lần. Người dùng sẽ tự đăng nhập và cấp quyền hộp thư của mình.</p>}</div>
+      <div className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)] p-5"><div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + OAUTH2</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Outlook / Microsoft 365</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Đồng bộ bằng IMAP, xác thực OAuth2 theo yêu cầu Modern Auth của Microsoft. Bạn tự đăng nhập và cấp quyền.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("microsoft") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("microsoft") ? t("SẴN SÀNG") : t("CẦN CẤU HÌNH")}</span></div><button type="button" onClick={handleMicrosoftConnect} className="swiss-button mt-5 w-full justify-center"><Mail className="h-4 w-4" /> Kết nối Outlook qua IMAP</button>{(!providerEnabled("microsoft") || connectionGuide === "microsoft") && <div role="alert" className="mt-3 border-l-2 border-[#e23221] bg-[#fff2ef] p-3 text-xs leading-5 text-[#7f1d1d]"><p className="font-bold">{t("Hướng dẫn kết nối Outlook")}</p><p className="mt-1">{t("Để kết nối Outlook: quản trị viên cần cấu hình OAuth Microsoft một lần; sau đó bạn sẽ được chuyển đến Microsoft để đăng nhập và cấp quyền IMAP.")}</p></div>}</div>
     </div>
 
     <div className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)]">
