@@ -305,6 +305,8 @@ export async function listEmailGeminiSummaries(userId: number, limit = 100) {
     emailMessageId: emailGeminiSummaries.emailMessageId,
     emailAccountId: emailGeminiSummaries.emailAccountId,
     summary: emailGeminiSummaries.summary,
+    eventStartAt: emailGeminiSummaries.eventStartAt,
+    eventEndAt: emailGeminiSummaries.eventEndAt,
     locale: emailGeminiSummaries.locale,
     model: emailGeminiSummaries.model,
     generatedAt: emailGeminiSummaries.generatedAt,
@@ -320,13 +322,15 @@ export async function countEmailGeminiSummariesSince(userId: number, since: Date
   return Number(row?.value ?? 0);
 }
 
-export async function createEmailGeminiSummary(userId: number, input: { emailAccountId: number; emailMessageId: number; summary: string; locale: string; model: string }) {
+export async function createEmailGeminiSummary(userId: number, input: { emailAccountId: number; emailMessageId: number; summary: string; eventStartAt?: Date | null; eventEndAt?: Date | null; locale: string; model: string }) {
   const db = await requireDb();
   await db.insert(emailGeminiSummaries).values({
     userId,
     emailAccountId: input.emailAccountId,
     emailMessageId: input.emailMessageId,
     summary: input.summary.slice(0, 8000),
+    eventStartAt: input.eventStartAt ?? null,
+    eventEndAt: input.eventEndAt ?? null,
     locale: input.locale.slice(0, 12),
     model: input.model.slice(0, 120),
     status: "ready",

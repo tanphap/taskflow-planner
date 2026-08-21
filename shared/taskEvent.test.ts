@@ -19,4 +19,16 @@ describe("eventPrefillFromEmailSummary", () => {
     expect(prefill.description).toContain("Lan Nguyen");
     expect(prefill.description).toContain("https://mail.example.com/message/42");
   });
+
+  it("dùng ngày giờ AI trích xuất khi tạo bản nháp lịch hẹn có thể chỉnh sửa", () => {
+    const prefill = eventPrefillFromEmailSummary({
+      subject: "Họp dự án",
+      summary: "Họp lúc 10:30.",
+      eventStartAt: "2026-08-24T03:30:00.000Z",
+      eventEndAt: "2026-08-24T04:15:00.000Z",
+    }, new Date("2026-08-21T08:15:00.000Z"));
+
+    expect(prefill.startAt.toISOString()).toBe("2026-08-24T03:30:00.000Z");
+    expect(prefill.endAt.toISOString()).toBe("2026-08-24T04:15:00.000Z");
+  });
 });

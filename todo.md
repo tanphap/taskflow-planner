@@ -183,3 +183,7 @@
 - [x] Bổ sung thao tác mở email gốc an toàn từ popup theo hộp thư đã kết nối.
 - [x] Bổ sung nút tạo lịch hẹn từ tóm tắt, chỉ tiền điền biểu mẫu và yêu cầu người dùng xác nhận lưu.
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản các thao tác popup tóm tắt AI mở rộng.
+- [x] Rà soát cấu trúc tóm tắt Gemini và dữ liệu tiền điền lịch hẹn hiện có.
+- [x] Trích xuất ngày giờ có cấu trúc từ tóm tắt AI để tiền điền biểu mẫu lịch hẹn khi có độ tin cậy phù hợp.
+- [x] Thêm toast VI/EN xác nhận hoặc báo lỗi khi sao chép tóm tắt từ popup AI.
+- [x] Kiểm thử, kiểm chứng responsive và xuất bản luồng ngày giờ/toast sao chép mới.

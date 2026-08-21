@@ -19,6 +19,8 @@ export type EmailSummaryEventSource = {
   sender?: string | null;
   receivedAt?: Date | string | null;
   webLink?: string | null;
+  eventStartAt?: Date | string | null;
+  eventEndAt?: Date | string | null;
 };
 
 /** Creates an editable event draft from a task without altering the source task. */
@@ -40,10 +42,18 @@ export function eventPrefillFromTask(task: TaskEventSource, now = new Date()): E
 
 /** Creates an editable appointment draft from an AI email summary without saving any event. */
 export function eventPrefillFromEmailSummary(source: EmailSummaryEventSource, now = new Date()): EventPrefill {
-  const startAt = new Date(now);
+  const extractedStartAt = source.eventStartAt ? new Date(source.eventStartAt) : null;
+  const hasExtractedStartAt = Boolean(extractedStartAt && !Number.isNaN(extractedStartAt.getTime()));
+  const startAt = hasExtractedStartAt ? extractedStartAt! : new Date(now);
   startAt.setSeconds(0, 0);
-  startAt.setMinutes(0);
-  startAt.setHours(startAt.getHours() + 1);
+  if (!hasExtractedStartAt) {
+    startAt.setMinutes(0);
+    startAt.setHours(startAt.getHours() + 1);
+  }
+  const extractedEndAt = source.eventEndAt ? new Date(source.eventEndAt) : null;
+  const endAt = extractedEndAt && !Number.isNaN(extractedEndAt.getTime()) && extractedEndAt > startAt
+    ? extractedEndAt
+    : new Date(startAt.getTime() + 60 * 60_000);
   const sourceDetails = [
     source.sender ? `Người gửi: ${source.sender}` : null,
     source.receivedAt ? `Email nhận lúc: ${new Date(source.receivedAt).toLocaleString("vi-VN")}` : null,
@@ -54,7 +64,7 @@ export function eventPrefillFromEmailSummary(source: EmailSummaryEventSource, no
     title: source.subject.trim() || "Lịch hẹn từ email",
     description: [`Tóm tắt AI từ email:\n${source.summary.trim()}`, sourceDetails].filter(Boolean).join("\n\n") || null,
     startAt,
-    endAt: new Date(startAt.getTime() + 60 * 60_000),
+    endAt,
     reminderAt: null,
   };
 }

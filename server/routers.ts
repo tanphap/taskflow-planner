@@ -135,7 +135,7 @@ export const appRouter = router({
       if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Chỉ có thể tóm tắt email đã kết nối của bạn." });
       try {
         const result = await summarizeGmailEmailWithGemini(source, input.locale);
-        const summary = await db.createEmailGeminiSummary(ctx.user.id, { emailAccountId: source.emailAccountId, emailMessageId: source.id, summary: result.summary, locale: input.locale, model: result.model });
+        const summary = await db.createEmailGeminiSummary(ctx.user.id, { emailAccountId: source.emailAccountId, emailMessageId: source.id, summary: result.summary, eventStartAt: result.eventStartAt, eventEndAt: result.eventEndAt, locale: input.locale, model: result.model });
         if (!summary) throw new Error("Không thể lưu tóm tắt Gemini.");
         await db.markEmailMessageRead(ctx.user.id, input.messageId);
         return { ...summary, cached: false as const };

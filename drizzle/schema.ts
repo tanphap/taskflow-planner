@@ -199,6 +199,8 @@ export const emailGeminiSummaries = mysqlTable(
     emailAccountId: int("emailAccountId").notNull(),
     emailMessageId: int("emailMessageId").notNull(),
     summary: text("summary").notNull(),
+    eventStartAt: timestamp("eventStartAt"),
+    eventEndAt: timestamp("eventEndAt"),
     locale: varchar("locale", { length: 12 }).default("vi").notNull(),
     model: varchar("model", { length: 120 }).notNull(),
     status: mysqlEnum("status", ["ready", "error"]).default("ready").notNull(),
