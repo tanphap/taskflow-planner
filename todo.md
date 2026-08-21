@@ -200,3 +200,6 @@
 - [x] Chẩn đoán lỗi “command fail” khi người dùng đồng bộ hộp thư IMAP.
 - [x] Hiển thị rõ điều khiển tải thư cũ và trạng thái sẵn có của thư cũ cho hộp thư đã chọn.
 - [x] Kiểm thử lỗi đồng bộ và giao diện Inbox sau khi khắc phục, rồi xuất bản bản sửa.
+- [x] Khôi phục giới hạn đồng bộ IMAP ổn định về 50 thư theo yêu cầu người dùng.
+- [x] Điều chỉnh phân trang, nhãn Inbox và kiểm thử hồi quy theo lô 50 thư.
+- [x] Xuất bản bản khôi phục ổn định và xác nhận thao tác Đồng bộ hoạt động trở lại.

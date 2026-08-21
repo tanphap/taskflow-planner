@@ -59,10 +59,10 @@ describe("IMAP connection verification", () => {
 });
 
 describe("IMAP inbox pagination", () => {
-  it("builds a bounded UID window and keeps only batches of 100 messages", () => {
-    expect(EMAIL_SYNC_BATCH_SIZE).toBe(100);
-    expect(getImapFetchWindow(1201)).toEqual({ range: "1101:1200", mayHaveOlderMessages: true });
-    expect(getImapFetchWindow(801)).toEqual({ range: "701:800", mayHaveOlderMessages: true });
+  it("builds a bounded UID window and keeps only batches of 50 messages", () => {
+    expect(EMAIL_SYNC_BATCH_SIZE).toBe(50);
+    expect(getImapFetchWindow(1201)).toEqual({ range: "1151:1200", mayHaveOlderMessages: true });
+    expect(getImapFetchWindow(801)).toEqual({ range: "751:800", mayHaveOlderMessages: true });
     expect(getImapFetchWindow(1)).toEqual({ range: null, mayHaveOlderMessages: false });
   });
 

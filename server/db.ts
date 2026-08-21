@@ -256,7 +256,7 @@ export async function listEmailMessages(userId: number, input?: { accountId?: nu
   const conditions = [eq(emailMessages.userId, userId)];
   if (input?.accountId) conditions.push(eq(emailMessages.emailAccountId, input.accountId));
   if (input?.status) conditions.push(eq(emailMessages.status, input.status));
-  return db.select().from(emailMessages).where(and(...conditions)).orderBy(desc(emailMessages.receivedAt)).limit(input?.limit ?? 100);
+  return db.select().from(emailMessages).where(and(...conditions)).orderBy(desc(emailMessages.receivedAt)).limit(input?.limit ?? 50);
 }
 
 /** Returns the number of locally synchronized messages, always scoped to the current user. */
@@ -269,13 +269,13 @@ export async function countEmailMessages(userId: number, accountId?: number) {
 }
 
 /** Lists local messages older than a known Inbox timestamp for account-scoped pagination views. */
-export async function listEmailMessagesOlderThan(userId: number, accountId: number, beforeDate: Date, limit = 100) {
+export async function listEmailMessagesOlderThan(userId: number, accountId: number, beforeDate: Date, limit = 50) {
   const db = await requireDb();
   return db.select().from(emailMessages).where(and(
     eq(emailMessages.userId, userId),
     eq(emailMessages.emailAccountId, accountId),
     lte(emailMessages.receivedAt, beforeDate),
-  )).orderBy(desc(emailMessages.receivedAt)).limit(Math.min(Math.max(limit, 1), 100));
+  )).orderBy(desc(emailMessages.receivedAt)).limit(Math.min(Math.max(limit, 1), 50));
 }
 
 /** Returns only the records from an IMAP page, scoped by both user and mailbox. */

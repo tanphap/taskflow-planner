@@ -8,7 +8,7 @@ type TokenPayload = { access_token: string; refresh_token?: string; expires_in?:
 type MailboxMessage = { providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null };
 type MailboxPage = { messages: MailboxMessage[]; hasMore: boolean; nextBeforeUid: number | null };
 
-export const EMAIL_SYNC_BATCH_SIZE = 100;
+export const EMAIL_SYNC_BATCH_SIZE = 50;
 
 /** Extracts the IMAP UID from TaskFlow's `<uidValidity>:<uid>` provider identifier. */
 export function getImapUidFromProviderMessageId(providerMessageId: string) {
