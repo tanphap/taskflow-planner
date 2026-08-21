@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { sendTelegramEventReminder } from "../telegramReminder";
 import { registerEmailOAuthRoutes } from "../emailOAuth";
 import { runEmailAiSyncReminder } from "../emailAiReminder";
+import { runDailyQuoteReminder } from "../dailyQuoteReminder";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -42,6 +43,7 @@ async function startServer() {
   registerEmailOAuthRoutes(app);
   app.post("/api/scheduled/telegram-event-reminder", sendTelegramEventReminder);
   app.post("/api/scheduled/email-ai-sync", runEmailAiSyncReminder);
+  app.post("/api/scheduled/daily-ai-quote", runDailyQuoteReminder);
   // tRPC API
   app.use(
     "/api/trpc",

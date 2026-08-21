@@ -154,4 +154,8 @@
 - [x] Thay lựa chọn Outlook OAuth2 bằng Webmail / IMAP SSL cho hộp thư doanh nghiệp.
 - [x] Mở rộng mô hình kết nối và luồng đồng bộ IMAP SSL để lưu máy chủ, cổng và xác thực an toàn theo userId.
 - [x] Cập nhật giao diện, hướng dẫn VI/EN và kiểm thử kết nối Webmail / IMAP SSL.
-- [x] Kiểm chứng responsive, bảo mật và xuất bản kết nối Webmail / IMAP SSL.
+- [x] Kiểm chứng responsive, bảo mật và xuất bản kết nối Webmail / IMAP SSL tại checkpoint c753d98d.
+- [x] Tạo luồng lưu và hiển thị câu truyền cảm hứng AI dùng chung theo ngày lịch Việt Nam trên Dashboard.
+- [ ] Tạo lịch Heartbeat dự án chạy mỗi ngày cho handler câu nói AI đã xuất bản.
+- [x] Thêm công tắc Tự động / Câu cố định cho người dùng, hỗ trợ VI/EN và lưu lựa chọn trên thiết bị.
+- [ ] Bổ sung kiểm thử, kiểm chứng responsive và xuất bản tính năng câu nói AI hằng ngày.

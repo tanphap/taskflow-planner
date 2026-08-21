@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gt, isNull, lte, ne, or } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
+  dailyAiQuotes,
   emailAccounts,
   emailEventSuggestions,
   emailGeminiSummaries,
@@ -10,12 +11,14 @@ import {
   emailOAuthSessions,
   InsertUser,
   notifications,
+  scheduledJobs,
   tasks,
   telegramConnections,
   telegramDeliveryLogs,
   users,
 } from "../drizzle/schema";
 import { expandCalendarEvents, getTelegramOccurrenceDueAt, parseRecurrenceRule } from "../shared/recurrence";
+import { getVietnamDateKey } from "../shared/dailyQuote";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -513,7 +516,10 @@ export async function syncDueNotifications(userId: number) {
 export async function markNotificationRead(userId: number, notificationId: number) { const db = await requireDb(); await db.update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId))); }
 export async function markAllNotificationsRead(userId: number) { const db = await requireDb(); await db.update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.userId, userId), isNull(notifications.readAt))); }
 export async function updateUserProfile(userId: number, input: { name: string; email: string }) { const db = await requireDb(); await db.update(users).set({ name: input.name.trim() || null, email: input.email.trim() || null }).where(eq(users.id, userId)); }
+export async function getDailyAiQuote(dayKey: string) { const db = await requireDb(); return (await db.select().from(dailyAiQuotes).where(eq(dailyAiQuotes.dayKey, dayKey)).limit(1))[0]; }
+export async function createDailyAiQuote(input: { dayKey: string; quoteVi: string; quoteEn: string; model: string }) { const db = await requireDb(); await db.insert(dailyAiQuotes).values({ dayKey: input.dayKey, quoteVi: input.quoteVi.slice(0, 280), quoteEn: input.quoteEn.slice(0, 280), model: input.model.slice(0, 120) }).onDuplicateKeyUpdate({ set: { dayKey: input.dayKey } }); return getDailyAiQuote(input.dayKey); }
+export async function isScheduledJobTask(key: string, taskUid: string) { const db = await requireDb(); return Boolean((await db.select({ key: scheduledJobs.key }).from(scheduledJobs).where(and(eq(scheduledJobs.key, key), eq(scheduledJobs.taskUid, taskUid))).limit(1))[0]); }
 export async function getDashboardData(userId: number) {
-  const [userTasks, userEvents] = await Promise.all([listTasks(userId), listEvents(userId)]); const now = new Date(); const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-  return { todayTasks: userTasks.filter(task => task.dueAt && task.dueAt >= todayStart && task.dueAt < tomorrowStart && task.status !== "done"), upcomingTasks: userTasks.filter(task => task.dueAt && task.dueAt >= tomorrowStart && task.status !== "done").slice(0, 5), upcomingEvents: userEvents.filter(event => event.endAt >= now).slice(0, 5), stats: { total: userTasks.length, completed: userTasks.filter(task => task.status === "done").length, inProgress: userTasks.filter(task => task.status === "in_progress").length, completionRate: userTasks.length ? Math.round((userTasks.filter(task => task.status === "done").length / userTasks.length) * 100) : 0 } };
+  const [userTasks, userEvents, dailyQuote] = await Promise.all([listTasks(userId), listEvents(userId), getDailyAiQuote(getVietnamDateKey())]); const now = new Date(); const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  return { todayTasks: userTasks.filter(task => task.dueAt && task.dueAt >= todayStart && task.dueAt < tomorrowStart && task.status !== "done"), upcomingTasks: userTasks.filter(task => task.dueAt && task.dueAt >= tomorrowStart && task.status !== "done").slice(0, 5), upcomingEvents: userEvents.filter(event => event.endAt >= now).slice(0, 5), dailyQuote, stats: { total: userTasks.length, completed: userTasks.filter(task => task.status === "done").length, inProgress: userTasks.filter(task => task.status === "in_progress").length, completionRate: userTasks.length ? Math.round((userTasks.filter(task => task.status === "done").length / userTasks.length) * 100) : 0 } };
 }

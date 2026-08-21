@@ -287,11 +287,33 @@ export const notifications = mysqlTable(
   ],
 );
 
+/** A shared, bilingual AI quote generated once per Vietnam calendar day. */
+export const dailyAiQuotes = mysqlTable("daily_ai_quotes", {
+  dayKey: varchar("dayKey", { length: 10 }).primaryKey(),
+  quoteVi: varchar("quoteVi", { length: 280 }).notNull(),
+  quoteEn: varchar("quoteEn", { length: 280 }).notNull(),
+  model: varchar("model", { length: 120 }).notNull(),
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+});
+
+/** Durable project-level schedule ownership for non-user-facing Heartbeat jobs. */
+export const scheduledJobs = mysqlTable(
+  "scheduled_jobs",
+  {
+    key: varchar("jobKey", { length: 80 }).primaryKey(),
+    taskUid: varchar("taskUid", { length: 65 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("scheduled_jobs_task_uid_idx").on(table.taskUid)],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type AppNotification = typeof notifications.$inferSelect;
+export type DailyAiQuote = typeof dailyAiQuotes.$inferSelect;
 export type TelegramConnection = typeof telegramConnections.$inferSelect;
 export type TelegramDeliveryLog = typeof telegramDeliveryLogs.$inferSelect;
 export type EmailAccount = typeof emailAccounts.$inferSelect;
