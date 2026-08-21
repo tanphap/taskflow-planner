@@ -190,6 +190,31 @@ export const emailMessages = mysqlTable(
   ],
 );
 
+/** Opt-in Gemini summaries. Only user-selected message metadata is sent to the unpaid Gemini API. */
+export const emailGeminiSummaries = mysqlTable(
+  "email_gemini_summaries",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    emailAccountId: int("emailAccountId").notNull(),
+    emailMessageId: int("emailMessageId").notNull(),
+    summary: text("summary").notNull(),
+    locale: varchar("locale", { length: 12 }).default("vi").notNull(),
+    model: varchar("model", { length: 120 }).notNull(),
+    status: mysqlEnum("status", ["ready", "error"]).default("ready").notNull(),
+    errorMessage: varchar("errorMessage", { length: 1000 }),
+    consentedAt: timestamp("consentedAt").defaultNow().notNull(),
+    generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("email_gemini_summaries_message_uq").on(table.emailMessageId),
+    index("email_gemini_summaries_user_generated_idx").on(table.userId, table.generatedAt),
+    index("email_gemini_summaries_account_idx").on(table.emailAccountId),
+  ],
+);
+
 /** AI-extracted, user-reviewable event proposals. One proposal may exist for one synced message. */
 export const emailEventSuggestions = mysqlTable(
   "email_event_suggestions",
@@ -249,4 +274,5 @@ export type TelegramConnection = typeof telegramConnections.$inferSelect;
 export type TelegramDeliveryLog = typeof telegramDeliveryLogs.$inferSelect;
 export type EmailAccount = typeof emailAccounts.$inferSelect;
 export type EmailMessage = typeof emailMessages.$inferSelect;
+export type EmailGeminiSummary = typeof emailGeminiSummaries.$inferSelect;
 export type EmailEventSuggestion = typeof emailEventSuggestions.$inferSelect;

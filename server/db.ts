@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, gt, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
   emailAccounts,
   emailEventSuggestions,
+  emailGeminiSummaries,
   emailMessages,
   emailOAuthSessions,
   InsertUser,
@@ -234,6 +235,7 @@ export async function setEmailAccountSyncState(userId: number, accountId: number
 export async function removeEmailAccount(userId: number, accountId: number) {
   const db = await requireDb();
   await db.delete(emailEventSuggestions).where(and(eq(emailEventSuggestions.emailAccountId, accountId), eq(emailEventSuggestions.userId, userId)));
+  await db.delete(emailGeminiSummaries).where(and(eq(emailGeminiSummaries.emailAccountId, accountId), eq(emailGeminiSummaries.userId, userId)));
   await db.delete(emailMessages).where(and(eq(emailMessages.emailAccountId, accountId), eq(emailMessages.userId, userId)));
   await db.delete(emailAccounts).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
 }
@@ -254,6 +256,71 @@ export async function listEmailMessages(userId: number, input?: { accountId?: nu
 export async function updateEmailMessageStatus(userId: number, messageId: number, status: EmailMessageStatus) {
   const db = await requireDb();
   await db.update(emailMessages).set({ status }).where(and(eq(emailMessages.id, messageId), eq(emailMessages.userId, userId)));
+}
+
+export async function getGmailMessageForGeminiSummary(userId: number, messageId: number) {
+  const db = await requireDb();
+  return (await db.select({
+    id: emailMessages.id,
+    emailAccountId: emailMessages.emailAccountId,
+    subject: emailMessages.subject,
+    senderName: emailMessages.senderName,
+    senderEmail: emailMessages.senderEmail,
+    snippet: emailMessages.snippet,
+    receivedAt: emailMessages.receivedAt,
+    provider: emailAccounts.provider,
+  }).from(emailMessages).innerJoin(emailAccounts, and(
+    eq(emailMessages.emailAccountId, emailAccounts.id),
+    eq(emailAccounts.userId, userId),
+  )).where(and(
+    eq(emailMessages.id, messageId),
+    eq(emailMessages.userId, userId),
+    eq(emailAccounts.provider, "google"),
+  )).limit(1))[0];
+}
+
+export async function getEmailGeminiSummary(userId: number, messageId: number) {
+  const db = await requireDb();
+  return (await db.select().from(emailGeminiSummaries).where(and(
+    eq(emailGeminiSummaries.userId, userId),
+    eq(emailGeminiSummaries.emailMessageId, messageId),
+  )).limit(1))[0];
+}
+
+export async function listEmailGeminiSummaries(userId: number, limit = 100) {
+  const db = await requireDb();
+  return db.select({
+    id: emailGeminiSummaries.id,
+    emailMessageId: emailGeminiSummaries.emailMessageId,
+    emailAccountId: emailGeminiSummaries.emailAccountId,
+    summary: emailGeminiSummaries.summary,
+    locale: emailGeminiSummaries.locale,
+    model: emailGeminiSummaries.model,
+    generatedAt: emailGeminiSummaries.generatedAt,
+  }).from(emailGeminiSummaries).where(eq(emailGeminiSummaries.userId, userId)).orderBy(desc(emailGeminiSummaries.generatedAt)).limit(limit);
+}
+
+export async function countEmailGeminiSummariesSince(userId: number, since: Date) {
+  const db = await requireDb();
+  const row = (await db.select({ value: count() }).from(emailGeminiSummaries).where(and(
+    eq(emailGeminiSummaries.userId, userId),
+    gt(emailGeminiSummaries.generatedAt, since),
+  )))[0];
+  return Number(row?.value ?? 0);
+}
+
+export async function createEmailGeminiSummary(userId: number, input: { emailAccountId: number; emailMessageId: number; summary: string; locale: string; model: string }) {
+  const db = await requireDb();
+  await db.insert(emailGeminiSummaries).values({
+    userId,
+    emailAccountId: input.emailAccountId,
+    emailMessageId: input.emailMessageId,
+    summary: input.summary.slice(0, 8000),
+    locale: input.locale.slice(0, 12),
+    model: input.model.slice(0, 120),
+    status: "ready",
+  });
+  return getEmailGeminiSummary(userId, input.emailMessageId);
 }
 
 export async function updateEmailAiSyncSettings(userId: number, accountId: number, input: { enabled: boolean; intervalMinutes: number; taskUid?: string | null }) {

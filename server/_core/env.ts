@@ -14,4 +14,5 @@ export const ENV = {
   googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
   microsoftOAuthClientId: process.env.MICROSOFT_OAUTH_CLIENT_ID ?? "",
   microsoftOAuthClientSecret: process.env.MICROSOFT_OAUTH_CLIENT_SECRET ?? "",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
 };

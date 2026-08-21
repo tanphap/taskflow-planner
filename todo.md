@@ -113,3 +113,10 @@
 - [x] Bổ sung kiểm thử mã hóa secret dùng chung, validation cấu hình Gmail IMAP, cô lập userId, đồng bộ và scheduler sau chuyển đổi.
 - [x] Kiểm tra responsive, production build và xuất bản bản IMAP; ghi rõ hướng dẫn Gmail/Outlook và hạn chế bảo mật.
 - [x] Triển khai IMAP làm luồng đồng bộ chung, với OAuth2 qua IMAP riêng cho Outlook/Microsoft 365 theo yêu cầu Modern Auth.
+- [x] Xác minh khả năng Gemini miễn phí, giới hạn quota và quyền truyền nội dung email trước khi kích hoạt tích hợp.
+- [x] Thiết kế lưu tóm tắt email theo userId, thao tác opt-in và hạn mức tóm tắt để không tự gửi toàn bộ hộp thư sang AI.
+- [x] Tích hợp Gemini phía server để tóm tắt email Gmail được người dùng chọn, kèm xử lý lỗi và bảo vệ dữ liệu.
+- [x] Bổ sung API, giao diện VI/EN và thao tác xem tóm tắt đã lưu cho từng email Gmail đã đồng bộ.
+- [x] Bổ sung kiểm thử, xác minh desktop và production build; đã chuẩn bị xuất bản tính năng tóm tắt email Gemini.
+- [x] Chỉ cho phép Gemini miễn phí tóm tắt thư theo thao tác chủ động sau khi người dùng đồng ý về xử lý dữ liệu; không tự động quét toàn bộ inbox.
+- [x] Thêm hạn mức sử dụng theo tài khoản và thông báo rõ khi Gemini API miễn phí hết quota hoặc trả lỗi.
