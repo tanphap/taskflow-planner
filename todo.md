@@ -178,3 +178,8 @@
 - [x] Chẩn đoán lỗi HTTP 404 khi nút AI gọi dịch vụ Gemini tóm tắt email.
 - [x] Sửa endpoint hoặc mô hình Gemini hợp lệ, đồng thời giữ xử lý quyền riêng tư và trạng thái Đã đọc.
 - [x] Kiểm thử, kiểm chứng popup và xuất bản bản sửa tóm tắt Gemini.
+- [x] Rà soát dữ liệu và luồng cho phép mở email gốc, sao chép tóm tắt và tạo lịch hẹn từ popup AI.
+- [x] Bổ sung nút sao chép tóm tắt với phản hồi thành công/thất bại rõ ràng.
+- [x] Bổ sung thao tác mở email gốc an toàn từ popup theo hộp thư đã kết nối.
+- [x] Bổ sung nút tạo lịch hẹn từ tóm tắt, chỉ tiền điền biểu mẫu và yêu cầu người dùng xác nhận lưu.
+- [x] Kiểm thử, kiểm chứng responsive và xuất bản các thao tác popup tóm tắt AI mở rộng.

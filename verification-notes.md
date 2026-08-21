@@ -221,3 +221,9 @@ Danh sách Inbox nay không còn mở rộng nội dung Gemini ngay bên trong t
 Lỗi tóm tắt được tái hiện bằng yêu cầu tối thiểu tới Gemini API với khóa máy chủ đang cấu hình. Phản hồi `404` nêu rõ `gemini-2.5-flash-lite` không còn khả dụng cho người dùng API mới và đề nghị dùng `gemini-3.5-flash-lite`. Dịch vụ tóm tắt đã được chuyển sang model đề nghị này, vẫn chỉ gửi metadata và preview của email mà người dùng chủ động chọn.
 
 Yêu cầu tạo nội dung tối thiểu với `gemini-3.5-flash-lite` đã phản hồi HTTP `200` cùng nội dung `ok`; không có email hoặc dữ liệu người dùng nào được gửi trong kiểm chứng. Kiểm thử bổ sung xác nhận URL yêu cầu luôn dùng model cấu hình mới. Toàn bộ `pnpm check`, production build và **63 kiểm thử Vitest** đều đạt.
+
+## Thao tác mở rộng trong popup tóm tắt AI
+
+Popup tóm tắt nay có ba thao tác. **Sao chép tóm tắt** dùng clipboard của trình duyệt và thông báo kết quả rõ ràng; **Mở email gốc** chỉ mở liên kết web có sẵn của thư, hoặc báo không có liên kết; **Tạo lịch hẹn từ tóm tắt** chỉ tạo một bản nháp trong EventDialog gồm tiêu đề email, tóm tắt, người gửi và liên kết gốc. Người dùng vẫn phải chọn thời gian/chỉnh sửa và xác nhận lưu, nên hệ thống không tự tạo lịch hẹn từ AI.
+
+Đã thêm kiểm thử `eventPrefillFromEmailSummary` cho bản nháp lịch hẹn và xác nhận `pnpm check`, production build cùng **64 kiểm thử Vitest** đều đạt. Ảnh Overview tại 1280×720 và 375×812 xác nhận shell desktop/mobile vẫn không tràn ngang sau khi bổ sung logic popup. Không có thao tác clipboard, liên kết email thật hoặc lịch hẹn nào được kích hoạt trong bước kiểm chứng trực quan.

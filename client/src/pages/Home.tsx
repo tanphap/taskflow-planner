@@ -8,7 +8,7 @@ import { filterEmailInbox, type EmailInboxFocus } from "../../../shared/emailInb
 import { getEmailConnectionFeedback } from "../../../shared/emailConnectionFeedback";
 import { quickReminderAt } from "../../../shared/recurrence";
 import { getNotificationBellData } from "../../../shared/notificationBell";
-import { eventPrefillFromTask, type EventPrefill } from "../../../shared/taskEvent";
+import { eventPrefillFromEmailSummary, eventPrefillFromTask, type EventPrefill } from "../../../shared/taskEvent";
 import { getVietnameseCalendarDay } from "../../../shared/vietnameseCalendar";
 import {
   AlarmClock,
@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Circle,
   ClipboardList,
+  Copy,
   ExternalLink,
   Inbox,
   LayoutDashboard,
@@ -67,7 +68,7 @@ const englishCopy: Record<string, string> = {
   "Thứ Hai": "Monday", "T2": "Mon", "T3": "Tue", "T4": "Wed", "T5": "Thu", "T6": "Fri", "T7": "Sat", "CN": "Sun", "Chưa làm": "To do", "Đang làm": "In progress", "Hoàn thành": "Completed",
   "Thông báo": "Notifications", "Bạn không có thông báo mới.": "You have no new notifications.", "Email mới": "New email", "Việc cần chú ý": "Items needing attention", "Xem trung tâm nhắc việc": "Open reminder center", "Đánh dấu tất cả đã đọc": "Mark all as read", "Công việc tới hạn": "Task due", "Lịch hẹn tới hạn": "Event due", "Không có tiêu đề": "No subject",
   "Email AI mới nhất": "Latest AI email", "Tóm tắt từ Gemini": "Gemini summary", "Chưa có email nào được AI tóm tắt.": "No emails have been summarized by AI yet.", "Mở Quản trị email": "Open email manager", "AI đã tóm tắt": "AI summarized",
-  "Xem tóm tắt AI": "View AI summary", "Chi tiết tóm tắt AI": "AI summary details", "Thông tin email": "Email details", "Người gửi": "Sender", "Đã nhận": "Received", "Đóng tóm tắt": "Close summary", "Bản tóm tắt này được tạo từ tiêu đề và phần xem trước đã đồng bộ, có thể chưa phản ánh toàn bộ nội dung email.": "This summary is generated from the synced subject and preview, and may not reflect the full email content.",
+  "Xem tóm tắt AI": "View AI summary", "Chi tiết tóm tắt AI": "AI summary details", "Thông tin email": "Email details", "Người gửi": "Sender", "Đã nhận": "Received", "Đóng tóm tắt": "Close summary", "Bản tóm tắt này được tạo từ tiêu đề và phần xem trước đã đồng bộ, có thể chưa phản ánh toàn bộ nội dung email.": "This summary is generated from the synced subject and preview, and may not reflect the full email content.", "Sao chép tóm tắt": "Copy summary", "Đã sao chép tóm tắt AI": "AI summary copied", "Không thể sao chép tóm tắt trên thiết bị này.": "This device cannot copy the summary.", "Mở email gốc": "Open original email", "Không có liên kết trực tiếp đến email gốc này.": "No direct link is available for this original email.", "Tạo lịch hẹn từ tóm tắt": "Create event from summary", "Bản nháp lịch hẹn đã được tiền điền. Hãy xác nhận để lưu.": "An event draft has been prefilled. Confirm to save it.",
   "Chuyển sang chế độ tối": "Switch to dark mode", "Chuyển sang chế độ sáng": "Switch to light mode", "Tìm kiếm email": "Search email", "Tìm theo tiêu đề, người gửi hoặc nội dung": "Search subject, sender or content", "Lọc nhanh": "Quick filter", "Tất cả email": "All email", "Chưa đọc": "Unread", "Đã đọc": "Read", "Có tóm tắt AI": "Has AI summary", "Có đề xuất AI": "Has AI suggestion", "Xóa bộ lọc": "Clear filters", "Không tìm thấy email phù hợp": "No matching email", "Thử đổi từ khóa tìm kiếm hoặc bộ lọc.": "Try changing the search query or filters.", "Kết quả hiển thị trong các email đã đồng bộ.": "Results are shown within synced emails.",
   "Thấp": "Low", "Trung bình": "Medium", "Cao": "High", "Chưa có thời hạn": "No due date", "Bạn có một nhắc việc mới.": "You have a new reminder.",
   "Đã tạo công việc": "Task created", "Đã cập nhật công việc": "Task updated", "Đã xóa công việc": "Task deleted", "Đã tạo lịch hẹn": "Event created", "Đã cập nhật lịch hẹn": "Event updated", "Đã xóa lịch hẹn": "Event deleted",
@@ -439,7 +440,7 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail }: {
+function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail, onCreateEventFromSummary }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
@@ -474,6 +475,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   onReviewSuggestion: (suggestion: EmailEventSuggestionRecord) => void;
   onDismissSuggestion: (id: number) => void;
   onSummarizeGmail: (id: number) => void;
+  onCreateEventFromSummary: (message: EmailMessageRecord, summary: EmailGeminiSummaryRecord) => void;
 }) {
   const { language } = useLanguage();
   const t = (value: string) => translateAppText(language, value);
@@ -485,6 +487,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const [webmailForm, setWebmailForm] = useState({ email: "", username: "", password: "", host: "", port: "993" });
   const [connectionGuide, setConnectionGuide] = useState<"gmail" | "webmail" | null>(null);
   const [summaryDialogMessageId, setSummaryDialogMessageId] = useState<number | null>(null);
+  const [copiedSummaryMessageId, setCopiedSummaryMessageId] = useState<number | null>(null);
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
   const selectedGeminiSummary = summaryDialogMessageId === null ? undefined : geminiSummaryByMessage.get(summaryDialogMessageId);
@@ -592,7 +595,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
           <DialogTitle className="mt-2 pr-8 font-display text-2xl leading-tight tracking-[-0.04em] text-[var(--ink)]">{t("Chi tiết tóm tắt AI")}</DialogTitle>
         </DialogHeader>
         {selectedGeminiSummary && selectedSummaryMessage && <div className="space-y-5"><div className="border-y border-[var(--line)] py-4"><p className="truncate text-lg font-bold text-[var(--ink)]">{selectedSummaryMessage.subject || t("Không có tiêu đề")}</p><dl className="mt-3 grid gap-2 text-sm text-[var(--ink-muted)] sm:grid-cols-2"><div><dt className="mono-label text-[10px]">{t("Người gửi")}</dt><dd className="mt-1 truncate">{selectedSummaryMessage.senderName || selectedSummaryMessage.senderEmail || "—"}</dd></div><div><dt className="mono-label text-[10px]">{t("Đã nhận")}</dt><dd className="mt-1">{formatDate(selectedSummaryMessage.receivedAt)} · {formatTime(selectedSummaryMessage.receivedAt)}</dd></div></dl></div><div className="border-l-2 border-[#e23221] bg-[var(--surface-soft)] p-4"><p className="mono-label text-[#e23221]">{t("Tóm tắt từ Gemini")}</p><p className="mt-3 whitespace-pre-line text-sm leading-7 text-[var(--ink)]">{selectedGeminiSummary.summary}</p></div><p className="text-xs leading-5 text-[var(--ink-muted)]">{t("Bản tóm tắt này được tạo từ tiêu đề và phần xem trước đã đồng bộ, có thể chưa phản ánh toàn bộ nội dung email.")}</p></div>}
-        <DialogFooter><button type="button" className="swiss-button-outline" onClick={() => setSummaryDialogMessageId(null)}>{t("Đóng tóm tắt")}</button></DialogFooter>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-between"><button type="button" className="swiss-button-outline" onClick={() => setSummaryDialogMessageId(null)}>{t("Đóng tóm tắt")}</button>{selectedGeminiSummary && selectedSummaryMessage && <div className="flex flex-wrap justify-end gap-2"><button type="button" className="swiss-button-outline" onClick={async () => { try { await navigator.clipboard.writeText(selectedGeminiSummary.summary); setCopiedSummaryMessageId(selectedSummaryMessage.id); toast.success(t("Đã sao chép tóm tắt AI")); window.setTimeout(() => setCopiedSummaryMessageId(current => current === selectedSummaryMessage.id ? null : current), 2000); } catch { toast.error(t("Không thể sao chép tóm tắt trên thiết bị này.")); } }}><Copy className="h-4 w-4" /> {copiedSummaryMessageId === selectedSummaryMessage.id ? <><Check className="h-4 w-4" /> {t("Đã sao chép")}</> : t("Sao chép tóm tắt")}</button><button type="button" className="swiss-button-outline" onClick={() => { if (!selectedSummaryMessage.webLink) { toast.error(t("Không có liên kết trực tiếp đến email gốc này.")); return; } window.open(selectedSummaryMessage.webLink, "_blank", "noopener,noreferrer"); }}><ExternalLink className="h-4 w-4" /> {t("Mở email gốc")}</button><button type="button" className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => { onCreateEventFromSummary(selectedSummaryMessage, selectedGeminiSummary); setSummaryDialogMessageId(null); }}><CalendarDays className="h-4 w-4" /> {t("Tạo lịch hẹn từ tóm tắt")}</button></div>}</DialogFooter>
       </DialogContent>
     </Dialog>
   </section>;
@@ -793,6 +796,13 @@ export default function Home() {
     setPendingEmailSuggestionId(suggestion.id);
     setEventDialogOpen(true);
   };
+  const openCreateEventFromEmailSummary = (message: EmailMessageRecord, summary: EmailGeminiSummaryRecord) => {
+    setEditingEvent(null);
+    setPendingEmailSuggestionId(null);
+    setEventPrefill(eventPrefillFromEmailSummary({ subject: message.subject, summary: summary.summary, sender: message.senderName || message.senderEmail, receivedAt: message.receivedAt, webLink: message.webLink }));
+    setEventDialogOpen(true);
+    toast.success(translateAppText(language, "Bản nháp lịch hẹn đã được tiền điền. Hãy xác nhận để lưu."));
+  };
 
   if (loading) {
     return <div className="min-h-screen swiss-grid grid place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -889,6 +899,7 @@ export default function Home() {
                 if (!window.confirm("Đồng ý gửi tiêu đề, người gửi và phần xem trước của thư này tới Gemini miễn phí? Google có thể xử lý dữ liệu theo điều khoản của dịch vụ miễn phí. Không gửi email nhạy cảm.")) return;
                 summarizeEmailWithGemini.mutate({ messageId, locale: language, acknowledgeUnpaidDataUse: true });
               }}
+              onCreateEventFromSummary={openCreateEventFromEmailSummary}
             />}
             {view === "profile" && <ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} />}
           </div>
