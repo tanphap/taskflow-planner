@@ -12,7 +12,7 @@ import * as db from "./db";
 import { findPrivateChatForLinkCode } from "./telegram";
 import { parseRecurrenceRule } from "../shared/recurrence";
 import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
-import { syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { fetchOlderMailboxMessages, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
@@ -179,6 +179,10 @@ export const appRouter = router({
     sync: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       try { return { success: true as const, ...(await syncMailbox(ctx.user.id, input.id)) }; }
       catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể đồng bộ hộp thư" }); }
+    }),
+    fetchOlderMessages: protectedProcedure.input(z.object({ id: z.number().int().positive(), beforeUid: z.number().int().min(2).max(2_147_483_647) })).mutation(async ({ ctx, input }) => {
+      try { return { success: true as const, ...(await fetchOlderMailboxMessages(ctx.user.id, input.id, input.beforeUid)) }; }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể tải thêm thư cũ" }); }
     }),
     configureAiSync: protectedProcedure.input(z.object({ id: z.number().int().positive(), enabled: z.boolean(), intervalMinutes: z.enum(EMAIL_AI_SYNC_INTERVALS.map(String) as [string, ...string[]]).transform(value => Number(value) as typeof EMAIL_AI_SYNC_INTERVALS[number]) })).mutation(async ({ ctx, input }) => {
       try { return await configureEmailAiSync(ctx.user.id, input.id, { enabled: input.enabled, intervalMinutes: input.intervalMinutes }, ctx.req.headers); }

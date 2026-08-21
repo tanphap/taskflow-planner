@@ -187,3 +187,13 @@
 - [x] Trích xuất ngày giờ có cấu trúc từ tóm tắt AI để tiền điền biểu mẫu lịch hẹn khi có độ tin cậy phù hợp.
 - [x] Thêm toast VI/EN xác nhận hoặc báo lỗi khi sao chép tóm tắt từ popup AI.
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản luồng ngày giờ/toast sao chép mới.
+- [x] Xác định nguồn giới hạn 50 email trong luồng đồng bộ IMAP hiện tại.
+- [x] Đánh giá và xác nhận phương án tăng số thư hoặc phân trang đồng bộ an toàn; người dùng chọn phương án B: 100 thư mới nhất và tải tiếp thư cũ từng đợt 100.
+- [x] Rà soát lịch quét AI hiện có để dùng chung một tác vụ cho đồng bộ Inbox rồi quét AI.
+- [x] Xác nhận đồng bộ email tự động cho tài khoản đã bật quét AI, vẫn giữ nút đồng bộ thủ công.
+- [x] Xác nhận giao diện đã hiển thị trạng thái/lần đồng bộ tự động gần nhất và lỗi theo từng hộp thư.
+- [x] Xác nhận lịch nền chạy đồng bộ Inbox trước quét AI, theo một tác vụ duy nhất cho mỗi hộp thư.
+- [x] Rà soát vị trí lưu cursor IMAP và truy vấn Inbox cần thiết cho tải thêm thư cũ.
+- [x] Tăng đồng bộ định kỳ và thủ công lên 100 thư mới nhất theo từng hộp thư.
+- [x] Bổ sung nút Tải thêm thư cũ theo từng đợt 100 thư, có trạng thái tải và lỗi VI/EN.
+- [x] Kiểm thử phân trang IMAP, tránh trùng email, responsive và xuất bản phương án B.

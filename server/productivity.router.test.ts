@@ -38,11 +38,18 @@ vi.mock("./db", () => ({
   getEmailAccountWithTokens: vi.fn(),
   removeEmailAccount: vi.fn(),
 }));
+vi.mock("./emailSync", () => ({
+  syncMailbox: vi.fn(),
+  fetchOlderMailboxMessages: vi.fn(),
+  verifyImapConnection: vi.fn(),
+  verifyWebmailImapConnection: vi.fn(),
+}));
 vi.mock("./geminiEmailSummary", () => ({ summarizeGmailEmailWithGemini: vi.fn() }));
 
 import { appRouter } from "./routers";
 import * as db from "./db";
 import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { fetchOlderMailboxMessages } from "./emailSync";
 
 function createUserContext(userId = 42): TrpcContext {
   return {
@@ -221,6 +228,16 @@ describe("productivity router data isolation", () => {
     expect(db.updateEmailMessageStatus).toHaveBeenCalledWith(73, 17, "done");
     expect(db.getEmailAccountWithTokens).toHaveBeenCalledWith(73, 9);
     expect(db.removeEmailAccount).toHaveBeenCalledWith(73, 9);
+  });
+
+  it("loads older IMAP messages only for the authenticated user and selected mailbox", async () => {
+    vi.mocked(fetchOlderMailboxMessages).mockResolvedValue({ count: 100, messages: [], hasMore: true, nextBeforeUid: 401, total: 200 });
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    const result = await caller.email.fetchOlderMessages({ id: 9, beforeUid: 801 });
+
+    expect(fetchOlderMailboxMessages).toHaveBeenCalledWith(73, 9, 801);
+    expect(result).toMatchObject({ success: true, count: 100, hasMore: true, total: 200 });
   });
 
   it("scopes AI overview and email note operations to the authenticated account", async () => {

@@ -6,6 +6,27 @@ import { resolvePublicWebmailImapHost } from "./webmailImap";
 
 type TokenPayload = { access_token: string; refresh_token?: string; expires_in?: number };
 type MailboxMessage = { providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null };
+type MailboxPage = { messages: MailboxMessage[]; hasMore: boolean; nextBeforeUid: number | null };
+
+export const EMAIL_SYNC_BATCH_SIZE = 100;
+const IMAP_FETCH_WINDOW_MULTIPLIER = 4;
+
+/** Extracts the IMAP UID from TaskFlow's `<uidValidity>:<uid>` provider identifier. */
+export function getImapUidFromProviderMessageId(providerMessageId: string) {
+  const match = /^(?:\d+):(\d+)$/.exec(providerMessageId);
+  const uid = match ? Number(match[1]) : Number.NaN;
+  return Number.isSafeInteger(uid) && uid > 0 ? uid : null;
+}
+
+/** Builds a bounded UID fetch range that tolerates expunged messages between pages. */
+export function getImapFetchWindow(uidNext: number, beforeUid?: number, limit = EMAIL_SYNC_BATCH_SIZE) {
+  const normalizedLimit = Math.min(Math.max(Math.trunc(limit), 1), EMAIL_SYNC_BATCH_SIZE);
+  const upperUid = Math.max(0, Math.trunc((beforeUid ?? uidNext) - 1));
+  if (!upperUid) return { range: null, mayHaveOlderMessages: false };
+  const windowSize = normalizedLimit * IMAP_FETCH_WINDOW_MULTIPLIER;
+  const lowerUid = Math.max(1, upperUid - windowSize + 1);
+  return { range: `${lowerUid}:${upperUid}`, mayHaveOlderMessages: lowerUid > 1 };
+}
 
 function cleanSnippet(raw: Buffer | string | undefined) {
   if (!raw) return null;
@@ -52,7 +73,7 @@ async function getImapAuth(userId: number, accountId: number) {
   return { account, auth: { user: account.imapUsername, accessToken } };
 }
 
-async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAccountWithCredentials>>, auth: { user: string; pass?: string; accessToken?: string }): Promise<MailboxMessage[]> {
+async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAccountWithCredentials>>, auth: { user: string; pass?: string; accessToken?: string }, options?: { beforeUid?: number; limit?: number }): Promise<MailboxPage> {
   if (!account?.imapHost || !account.imapPort) throw new Error("Mailbox IMAP configuration is incomplete");
   const webmailTarget = account.provider === "webmail" ? await resolvePublicWebmailImapHost(account.imapHost) : null;
   const client = new ImapFlow({ host: webmailTarget?.address ?? account.imapHost, port: account.imapPort, secure: account.imapSecure, auth, tls: { servername: webmailTarget?.hostname ?? account.imapHost }, logger: false });
@@ -61,12 +82,12 @@ async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAcco
   try {
     lock = await client.getMailboxLock(account.imapMailbox || "INBOX");
     const mailbox = client.mailbox && typeof client.mailbox === "object" ? client.mailbox : null;
-    const total = mailbox?.exists || 0;
-    if (!total) return [];
-    const range = `${Math.max(1, total - 49)}:*`;
+    if (!mailbox?.exists) return { messages: [], hasMore: false, nextBeforeUid: null };
+    const page = getImapFetchWindow(mailbox.uidNext, options?.beforeUid, options?.limit);
+    if (!page.range) return { messages: [], hasMore: false, nextBeforeUid: null };
     const uidValidity = mailbox?.uidValidity || 0;
     const messages: MailboxMessage[] = [];
-    for await (const message of client.fetch(range, { uid: true, envelope: true, flags: true, internalDate: true, source: true })) {
+    for await (const message of client.fetch(page.range, { uid: true, envelope: true, flags: true, internalDate: true, source: true })) {
       const from = message.envelope?.from?.[0];
       messages.push({
         providerMessageId: `${uidValidity || 0}:${message.uid}`,
@@ -81,7 +102,11 @@ async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAcco
         webLink: null,
       });
     }
-    return messages;
+    messages.sort((left, right) => (getImapUidFromProviderMessageId(right.providerMessageId) ?? 0) - (getImapUidFromProviderMessageId(left.providerMessageId) ?? 0));
+    const pageMessages = messages.slice(0, options?.limit ?? EMAIL_SYNC_BATCH_SIZE);
+    const oldestPageUid = pageMessages.at(-1) ? getImapUidFromProviderMessageId(pageMessages.at(-1)!.providerMessageId) : null;
+    const hasMore = messages.length > pageMessages.length || page.mayHaveOlderMessages;
+    return { messages: pageMessages, hasMore, nextBeforeUid: hasMore ? oldestPageUid : null };
   } finally {
     lock?.release();
     await client.logout().catch(() => client.close());
@@ -107,12 +132,29 @@ export async function verifyWebmailImapConnection(input: { host: string; port: n
 export async function syncMailbox(userId: number, accountId: number) {
   try {
     const { account, auth } = await getImapAuth(userId, accountId);
-    const messages = await fetchImapInbox(account, auth);
-    await db.upsertEmailMessages(userId, account.id, messages);
+    const page = await fetchImapInbox(account, auth, { limit: EMAIL_SYNC_BATCH_SIZE });
+    await db.upsertEmailMessages(userId, account.id, page.messages);
     await db.setEmailAccountSyncState(userId, account.id, "connected");
-    return { count: messages.length };
+    return { count: page.messages.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown mailbox synchronization error";
+    const needsReconnect = /auth|login|token|reconnect|authentication/i.test(message);
+    await db.setEmailAccountSyncState(userId, accountId, needsReconnect ? "needs_reconnect" : "error", message);
+    throw error;
+  }
+}
+
+/** Fetches one older, account-scoped IMAP UID page without changing the newest-message sync policy. */
+export async function fetchOlderMailboxMessages(userId: number, accountId: number, beforeUid: number) {
+  try {
+    const { account, auth } = await getImapAuth(userId, accountId);
+    const page = await fetchImapInbox(account, auth, { beforeUid, limit: EMAIL_SYNC_BATCH_SIZE });
+    await db.upsertEmailMessages(userId, account.id, page.messages);
+    await db.setEmailAccountSyncState(userId, account.id, "connected");
+    const messages = await db.listEmailMessagesByProviderIds(userId, account.id, page.messages.map(message => message.providerMessageId));
+    return { count: page.messages.length, messages, hasMore: page.hasMore, nextBeforeUid: page.nextBeforeUid, total: await db.countEmailMessages(userId, account.id) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown older mailbox synchronization error";
     const needsReconnect = /auth|login|token|reconnect|authentication/i.test(message);
     await db.setEmailAccountSyncState(userId, accountId, needsReconnect ? "needs_reconnect" : "error", message);
     throw error;

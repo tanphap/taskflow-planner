@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
@@ -256,7 +256,37 @@ export async function listEmailMessages(userId: number, input?: { accountId?: nu
   const conditions = [eq(emailMessages.userId, userId)];
   if (input?.accountId) conditions.push(eq(emailMessages.emailAccountId, input.accountId));
   if (input?.status) conditions.push(eq(emailMessages.status, input.status));
-  return db.select().from(emailMessages).where(and(...conditions)).orderBy(desc(emailMessages.receivedAt)).limit(input?.limit ?? 50);
+  return db.select().from(emailMessages).where(and(...conditions)).orderBy(desc(emailMessages.receivedAt)).limit(input?.limit ?? 100);
+}
+
+/** Returns the number of locally synchronized messages, always scoped to the current user. */
+export async function countEmailMessages(userId: number, accountId?: number) {
+  const db = await requireDb();
+  const conditions = [eq(emailMessages.userId, userId)];
+  if (accountId) conditions.push(eq(emailMessages.emailAccountId, accountId));
+  const rows = await db.select({ value: count() }).from(emailMessages).where(and(...conditions));
+  return Number(rows[0]?.value ?? 0);
+}
+
+/** Lists local messages older than a known Inbox timestamp for account-scoped pagination views. */
+export async function listEmailMessagesOlderThan(userId: number, accountId: number, beforeDate: Date, limit = 100) {
+  const db = await requireDb();
+  return db.select().from(emailMessages).where(and(
+    eq(emailMessages.userId, userId),
+    eq(emailMessages.emailAccountId, accountId),
+    lte(emailMessages.receivedAt, beforeDate),
+  )).orderBy(desc(emailMessages.receivedAt)).limit(Math.min(Math.max(limit, 1), 100));
+}
+
+/** Returns only the records from an IMAP page, scoped by both user and mailbox. */
+export async function listEmailMessagesByProviderIds(userId: number, accountId: number, providerMessageIds: string[]) {
+  if (!providerMessageIds.length) return [];
+  const db = await requireDb();
+  return db.select().from(emailMessages).where(and(
+    eq(emailMessages.userId, userId),
+    eq(emailMessages.emailAccountId, accountId),
+    inArray(emailMessages.providerMessageId, providerMessageIds),
+  )).orderBy(desc(emailMessages.receivedAt));
 }
 
 export async function updateEmailMessageStatus(userId: number, messageId: number, status: EmailMessageStatus) {

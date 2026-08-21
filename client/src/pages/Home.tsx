@@ -69,7 +69,7 @@ const englishCopy: Record<string, string> = {
   "Thông báo": "Notifications", "Bạn không có thông báo mới.": "You have no new notifications.", "Email mới": "New email", "Việc cần chú ý": "Items needing attention", "Xem trung tâm nhắc việc": "Open reminder center", "Đánh dấu tất cả đã đọc": "Mark all as read", "Công việc tới hạn": "Task due", "Lịch hẹn tới hạn": "Event due", "Không có tiêu đề": "No subject",
   "Email AI mới nhất": "Latest AI email", "Tóm tắt từ Gemini": "Gemini summary", "Chưa có email nào được AI tóm tắt.": "No emails have been summarized by AI yet.", "Mở Quản trị email": "Open email manager", "AI đã tóm tắt": "AI summarized",
   "Xem tóm tắt AI": "View AI summary", "Chi tiết tóm tắt AI": "AI summary details", "Thông tin email": "Email details", "Người gửi": "Sender", "Đã nhận": "Received", "Đóng tóm tắt": "Close summary", "Bản tóm tắt này được tạo từ tiêu đề và phần xem trước đã đồng bộ, có thể chưa phản ánh toàn bộ nội dung email.": "This summary is generated from the synced subject and preview, and may not reflect the full email content.", "Sao chép tóm tắt": "Copy summary", "Đã sao chép tóm tắt AI": "AI summary copied", "Không thể sao chép tóm tắt trên thiết bị này.": "This device cannot copy the summary.", "Mở email gốc": "Open original email", "Không có liên kết trực tiếp đến email gốc này.": "No direct link is available for this original email.", "Tạo lịch hẹn từ tóm tắt": "Create event from summary", "Bản nháp lịch hẹn đã được tiền điền. Hãy xác nhận để lưu.": "An event draft has been prefilled. Confirm to save it.",
-  "Chuyển sang chế độ tối": "Switch to dark mode", "Chuyển sang chế độ sáng": "Switch to light mode", "Tìm kiếm email": "Search email", "Tìm theo tiêu đề, người gửi hoặc nội dung": "Search subject, sender or content", "Lọc nhanh": "Quick filter", "Tất cả email": "All email", "Chưa đọc": "Unread", "Đã đọc": "Read", "Có tóm tắt AI": "Has AI summary", "Có đề xuất AI": "Has AI suggestion", "Xóa bộ lọc": "Clear filters", "Không tìm thấy email phù hợp": "No matching email", "Thử đổi từ khóa tìm kiếm hoặc bộ lọc.": "Try changing the search query or filters.", "Kết quả hiển thị trong các email đã đồng bộ.": "Results are shown within synced emails.",
+  "Chuyển sang chế độ tối": "Switch to dark mode", "Chuyển sang chế độ sáng": "Switch to light mode", "Tìm kiếm email": "Search email", "Tìm theo tiêu đề, người gửi hoặc nội dung": "Search subject, sender or content", "Lọc nhanh": "Quick filter", "Tất cả email": "All email", "Chưa đọc": "Unread", "Đã đọc": "Read", "Có tóm tắt AI": "Has AI summary", "Có đề xuất AI": "Has AI suggestion", "Xóa bộ lọc": "Clear filters", "Không tìm thấy email phù hợp": "No matching email", "Thử đổi từ khóa tìm kiếm hoặc bộ lọc.": "Try changing the search query or filters.", "Kết quả hiển thị trong các email đã đồng bộ.": "Results are shown within synced emails.", "Tải thêm thư cũ": "Load older email", "Tải thêm 100 thư cũ": "Load 100 older emails", "Đang tải thư cũ…": "Loading older email…", "Mỗi lần tải thêm tối đa 100 thư cũ của hộp thư đang chọn.": "Each load fetches up to 100 older emails from the selected mailbox.", "Đã tải hết thư đã tìm thấy.": "All available email has been loaded.", "Không thể xác định vị trí thư cũ để tải thêm.": "The position for older email could not be determined.",
   "Thấp": "Low", "Trung bình": "Medium", "Cao": "High", "Chưa có thời hạn": "No due date", "Bạn có một nhắc việc mới.": "You have a new reminder.",
   "Đã tạo công việc": "Task created", "Đã cập nhật công việc": "Task updated", "Đã xóa công việc": "Task deleted", "Đã tạo lịch hẹn": "Event created", "Đã cập nhật lịch hẹn": "Event updated", "Đã xóa lịch hẹn": "Event deleted",
   "Thông tin hồ sơ đã được lưu": "Profile saved", "Đã tạo mã liên kết Telegram": "Telegram link code created", "Telegram đã được liên kết": "Telegram linked",
@@ -330,6 +330,7 @@ type EmailAccountRecord = {
 type EmailMessageRecord = {
   id: number;
   emailAccountId: number;
+  providerMessageId: string;
   subject: string;
   senderName: string | null;
   senderEmail: string | null;
@@ -440,7 +441,7 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail, onCreateEventFromSummary }: {
+function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, loadingOlderAccountId, canLoadOlder, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onLoadOlder, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail, onCreateEventFromSummary }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
@@ -453,6 +454,8 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   searchQuery: string;
   focusFilter: EmailInboxFocus;
   syncingAccountId: number | null;
+  loadingOlderAccountId: number | null;
+  canLoadOlder: boolean;
   disconnectingAccountId: number | null;
   updatingMessageId: number | null;
   configuringAccountId: number | null;
@@ -468,6 +471,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   onConnectGmail: (input: { email: string; username?: string; appPassword: string }) => void;
   onConnectWebmail: (input: { email: string; username?: string; password: string; host: string; port: number }) => void;
   onSync: (id: number) => void;
+  onLoadOlder: (id: number) => void;
   onDisconnect: (id: number) => void;
   onSetMessageStatus: (id: number, status: EmailMessageStatus) => void;
   onConfigureAiSync: (id: number, enabled: boolean, intervalMinutes: number) => void;
@@ -587,6 +591,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
         const geminiSummary = geminiSummaryByMessage.get(message.id);
         return <article key={message.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`mono-label px-2 py-1 ${message.status === "done" ? "bg-[#e4ff3f]" : "bg-neutral-100"}`}>{t(statusLabel[message.status])}</span>{message.status === "new" && !message.isRead && <span className="mono-label bg-[#ff5d3d] px-2 py-1 text-white">CHƯA ĐỌC</span>}</div><h4 className="mt-2 truncate font-bold">{message.subject}</h4><p className="mt-1 truncate text-sm text-neutral-600">{message.senderName || message.senderEmail || "Không rõ người gửi"} · {formatDate(message.receivedAt)} {formatTime(message.receivedAt)}</p>{message.snippet && <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-500">{message.snippet}</p>}</div><div className="flex flex-wrap gap-2 lg:justify-end"><select className="input-swiss h-9 min-w-36 text-xs" value={message.status} onChange={event => onSetMessageStatus(message.id, event.target.value as EmailMessageStatus)} disabled={updatingMessageId === message.id}>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{t(label)}</option>)}</select>{geminiSummary ? <button className="swiss-button-outline h-9" onClick={() => setSummaryDialogMessageId(message.id)}><Sparkles className="h-4 w-4" /> {t("Xem tóm tắt AI")}</button> : <button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onSummarizeGmail(message.id)} disabled={summarizingMessageId === message.id}>{summarizingMessageId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{summarizingMessageId === message.id ? "Gemini đang tóm tắt…" : "Tóm tắt bằng Gemini"}</button>}{message.webLink && <a className="swiss-button-outline h-9" href={message.webLink} target="_blank" rel="noreferrer">Mở thư <ExternalLink className="h-3.5 w-3.5" /></a>}</div></article>;
       })}</div>}
+      {accountFilter !== "all" && (canLoadOlder || loadingOlderAccountId === accountFilter) && <div className="flex flex-col gap-3 border-t border-[var(--line)] bg-[var(--surface-soft)] p-5 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-xl text-xs leading-5 text-[var(--ink-muted)]">{t("Mỗi lần tải thêm tối đa 100 thư cũ của hộp thư đang chọn.")}</p><button type="button" className="swiss-button-outline shrink-0" onClick={() => onLoadOlder(accountFilter)} disabled={loadingOlderAccountId === accountFilter}>{loadingOlderAccountId === accountFilter ? <Loader2 className="h-4 w-4 animate-spin" /> : <Inbox className="h-4 w-4" />}{loadingOlderAccountId === accountFilter ? t("Đang tải thư cũ…") : t("Tải thêm 100 thư cũ")}</button></div>}
     </div>
     <Dialog open={Boolean(selectedGeminiSummary)} onOpenChange={open => { if (!open) setSummaryDialogMessageId(null); }}>
       <DialogContent className="max-h-[min(82vh,44rem)] overflow-y-auto border-[var(--line)] bg-[var(--surface)] sm:max-w-2xl">
@@ -635,6 +640,8 @@ export default function Home() {
   const [emailStatusFilter, setEmailStatusFilter] = useState<EmailMessageRecord["status"] | "all">("all");
   const [emailSearchQuery, setEmailSearchQuery] = useState("");
   const [emailFocusFilter, setEmailFocusFilter] = useState<EmailInboxFocus>("all");
+  const [olderEmailMessages, setOlderEmailMessages] = useState<EmailMessageRecord[]>([]);
+  const [olderEmailHasMore, setOlderEmailHasMore] = useState<Record<number, boolean>>({});
   const [notificationBellOpen, setNotificationBellOpen] = useState(false);
   const [dailyQuoteMode, setDailyQuoteMode] = useState<DailyQuoteMode>(getInitialDailyQuoteMode);
   const utils = trpc.useUtils();
@@ -727,10 +734,24 @@ export default function Home() {
     onError: error => toast.error(error.message),
   });
   const refreshEmailData = async () => {
+    setOlderEmailMessages([]);
+    setOlderEmailHasMore({});
     await Promise.all([utils.email.accounts.invalidate(), utils.email.messages.invalidate(), utils.email.suggestions.invalidate(), utils.email.geminiSummaries.invalidate(), utils.email.aiOverview.invalidate()]);
   };
   const syncEmailMailbox = trpc.email.sync.useMutation({
     onSuccess: async data => { await refreshEmailData(); toast.success(`Đã đồng bộ ${data.count} email`); },
+    onError: error => toast.error(error.message),
+  });
+  const loadOlderEmailMessages = trpc.email.fetchOlderMessages.useMutation({
+    onSuccess: async (data, input) => {
+      setOlderEmailMessages(current => {
+        const byId = new Map([...current, ...(data.messages as EmailMessageRecord[])].map(message => [message.id, message]));
+        return Array.from(byId.values()).sort((left, right) => new Date(right.receivedAt).getTime() - new Date(left.receivedAt).getTime());
+      });
+      setOlderEmailHasMore(current => ({ ...current, [input.id]: data.hasMore }));
+      await utils.email.messages.invalidate();
+      toast.success(language === "en" ? `Loaded ${data.count} older email${data.count === 1 ? "" : "s"}.` : `Đã tải thêm ${data.count} thư cũ.`);
+    },
     onError: error => toast.error(error.message),
   });
   const connectGmailImap = trpc.email.connectGmailImap.useMutation({
@@ -817,6 +838,18 @@ export default function Home() {
   const notificationData = (notifications.data ?? []) as NotificationRecord[];
   const emailAccountData = (emailAccounts.data ?? []) as EmailAccountRecord[];
   const emailMessageData = (emailMessages.data ?? []) as EmailMessageRecord[];
+  const inboxMessagesById = new Map([...emailMessageData, ...olderEmailMessages].map(message => [message.id, message]));
+  const inboxMessageData = Array.from(inboxMessagesById.values()).sort((left, right) => new Date(right.receivedAt).getTime() - new Date(left.receivedAt).getTime());
+  const visibleInboxMessageData = emailAccountFilter === "all" ? emailMessageData : inboxMessageData.filter(message => message.emailAccountId === emailAccountFilter);
+  const loadOlderMailbox = (accountId: number) => {
+    const imapUids = inboxMessageData.filter(message => message.emailAccountId === accountId).map(message => {
+      const match = /^(?:\d+):(\d+)$/.exec(message.providerMessageId);
+      return match ? Number(match[1]) : Number.NaN;
+    }).filter(uid => Number.isSafeInteger(uid) && uid > 1);
+    const beforeUid = imapUids.length ? Math.min(...imapUids) : null;
+    if (!beforeUid) { toast.info(translateAppText(language, "Không thể xác định vị trí thư cũ để tải thêm.")); return; }
+    loadOlderEmailMessages.mutate({ id: accountId, beforeUid });
+  };
   const notificationBellData = getNotificationBellData(emailMessageData, notificationData);
 
   return (
@@ -864,7 +897,7 @@ export default function Home() {
             {view === "email" && <EmailManager
               configuration={emailConfiguration.data}
               accounts={emailAccountData}
-              messages={emailMessageData}
+              messages={visibleInboxMessageData}
               suggestions={(emailSuggestions.data ?? []) as EmailEventSuggestionRecord[]}
               geminiSummaries={(emailGeminiSummaries.data ?? []) as EmailGeminiSummaryRecord[]}
               aiOverview={emailAiOverview.data as EmailAiOverviewData | undefined}
@@ -874,6 +907,8 @@ export default function Home() {
               searchQuery={emailSearchQuery}
               focusFilter={emailFocusFilter}
               syncingAccountId={syncEmailMailbox.isPending ? syncEmailMailbox.variables?.id : null}
+              loadingOlderAccountId={loadOlderEmailMessages.isPending ? loadOlderEmailMessages.variables?.id : null}
+              canLoadOlder={emailAccountFilter !== "all" && emailStatusFilter === "all" && (olderEmailHasMore[emailAccountFilter] ?? emailMessageData.filter(message => message.emailAccountId === emailAccountFilter).length >= 100)}
               disconnectingAccountId={disconnectEmailMailbox.isPending ? disconnectEmailMailbox.variables?.id : null}
               updatingMessageId={updateEmailMessageStatus.isPending ? updateEmailMessageStatus.variables?.id : null}
               configuringAccountId={configureEmailAiSync.isPending ? configureEmailAiSync.variables?.id : null}
@@ -889,6 +924,7 @@ export default function Home() {
               onConnectGmail={input => connectGmailImap.mutate(input)}
               onConnectWebmail={input => connectWebmailImap.mutate(input)}
               onSync={(id: number) => syncEmailMailbox.mutate({ id })}
+              onLoadOlder={loadOlderMailbox}
               onDisconnect={(id: number) => { if (window.confirm("Ngắt kết nối hộp thư này?")) disconnectEmailMailbox.mutate({ id }); }}
               onSetMessageStatus={(id: number, status: EmailMessageStatus) => updateEmailMessageStatus.mutate({ id, status })}
               onConfigureAiSync={(id: number, enabled: boolean, intervalMinutes: number) => configureEmailAiSync.mutate({ id, enabled, intervalMinutes: String(intervalMinutes) as "15" | "30" | "60" | "120" | "240" | "720" | "1440" })}
