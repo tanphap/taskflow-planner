@@ -81,3 +81,28 @@
 - [x] Ghi nhận kiểm chứng Dashboard mobile trong phiên đã đăng nhập sau sửa hero, xác nhận tiêu đề không bị che/cắt và các nút hành động vẫn dùng được. Người dùng đã xác nhận trực tiếp trên điện thoại.
 - [x] Xác nhận riêng trong verification-notes.md kết quả Overview của phiên OAuth sau sync GitHub, nêu rõ không có hồi quy tRPC/OAuth/UI.
 - [x] Xác nhận riêng trong verification-notes.md kết quả mobile sau sửa hero, gồm tiêu đề không che/cắt và hai nút hành động hoạt động theo xác nhận người dùng.
+- [x] Chọn Gmail và Outlook/Microsoft 365 qua OAuth2, không lưu mật khẩu email trực tiếp trong TaskFlow.
+- [x] Thiết kế khu vực Quản trị email gồm tài khoản đã kết nối, danh sách thư, bộ lọc, trạng thái và thông báo phù hợp giao diện TaskFlow.
+- [x] Tích hợp luồng xác thực email, đồng bộ dữ liệu theo tài khoản và kiểm thử quyền truy cập trước khi xuất bản ở mức mã nguồn.
+- [x] Thiết kế tích hợp Gmail và Outlook/Microsoft 365 qua OAuth, không dùng mật khẩu email hoặc app password.
+- [x] Mở rộng dữ liệu để quản lý nhiều hộp thư, trạng thái kết nối, thư đã đồng bộ và trạng thái xử lý riêng theo tài khoản TaskFlow.
+- [x] Tạo giao diện Quản trị email cho Gmail và Outlook/Microsoft 365 theo nhận diện TaskFlow, gồm kết nối, đồng bộ, lọc và thao tác thư.
+- [x] Kiểm thử cô lập dữ liệu email và các trạng thái OAuth ở mức unit/router trước khi xuất bản.
+- [x] Định nghĩa model kết nối hộp thư và danh sách email được đồng bộ, tách tuyệt đối theo userId.
+- [x] Xây dựng endpoint OAuth2 bắt đầu/callback Gmail và Microsoft, dùng state chống CSRF, PKCE và token mã hóa phía server.
+- [x] Xây dựng API tRPC để liệt kê hộp thư, thư đến, trạng thái xử lý, đồng bộ và ngắt kết nối.
+- [x] Thiết kế màn hình Quản trị email với danh sách hộp thư, nút Kết nối Gmail/Outlook, danh sách thư, bộ lọc và trạng thái theo giao diện TaskFlow.
+- [x] Bổ sung kiểm thử OAuth state/PKCE, phân quyền userId và giao diện responsive của quản trị email ở mức mã nguồn và build.
+- [x] Rà soát an toàn luồng AI nhận diện lịch hẹn/liên kết kế hoạch từ email, chỉ tạo đề xuất và yêu cầu người dùng xác nhận trước khi ghi lịch hẹn.
+- [x] Mở rộng mô hình dữ liệu email để lưu đề xuất AI, mức độ tin cậy, nguồn thư và trạng thái chấp nhận/bỏ qua tách theo userId.
+- [x] Tích hợp AI có đầu ra cấu trúc để trích xuất lịch hẹn, thời điểm, liên kết kế hoạch và đề xuất nhắc từ email đã đồng bộ.
+- [x] Tạo API và giao diện hộp thư cho danh sách đề xuất AI, xem nguồn email, chỉnh sửa, chấp nhận tạo lịch hẹn hoặc bỏ qua.
+- [x] Bổ sung đồng bộ định kỳ có kiểm soát để quét thư mới của từng hộp thư đã kết nối và tạo đề xuất trùng lặp an toàn.
+- [x] Cho phép mỗi người dùng bật/tắt AI quét email và chọn chu kỳ đồng bộ riêng, với ràng buộc tần suất an toàn và lịch chạy theo tài khoản.
+- [x] Bổ sung bản dịch VI/EN, kiểm thử Vitest và xác minh build cho AI-email trước khi xuất bản.
+- [ ] Kiểm chứng Gmail và Outlook OAuth2 đầu cuối bằng Client ID/Secret thật, rồi xác nhận đồng bộ email và AI trong phiên người dùng thực.
+- [x] Viết kiểm thử OAuth state/PKCE cho start/callback email và xác minh trạng thái giao diện AI-email trên desktop; shell responsive đã được kiểm tra ở mobile.
+- [x] Ghi rõ luồng hiện tại: người dùng chỉnh sửa đề xuất trong EventDialog trước khi chấp nhận tạo lịch, không sửa bản ghi đề xuất riêng.
+- [x] Kiểm chứng handler Heartbeat email-AI theo từng hộp thư, gồm chống tạo đề xuất trùng và xử lý job định kỳ bằng kiểm thử đơn vị.
+- [x] Chạy production build, kiểm tra trực quan desktop và shell mobile, rồi cập nhật verification-notes.md.
+- [x] Viết kiểm thử trực tiếp để bảo đảm quét AI lặp lại trên cùng email không tạo đề xuất lịch hẹn trùng.

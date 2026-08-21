@@ -105,6 +105,115 @@ export const telegramConnections = mysqlTable(
   ],
 );
 
+/** OAuth2 mailbox credentials are encrypted server-side and never exposed to the client. */
+export const emailAccounts = mysqlTable(
+  "email_accounts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    provider: mysqlEnum("provider", ["google", "microsoft"]).notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    displayName: varchar("displayName", { length: 240 }),
+    accessTokenCiphertext: text("accessTokenCiphertext").notNull(),
+    refreshTokenCiphertext: text("refreshTokenCiphertext"),
+    tokenExpiresAt: timestamp("tokenExpiresAt"),
+    scopes: varchar("scopes", { length: 1000 }),
+    connectionStatus: mysqlEnum("connectionStatus", ["connected", "needs_reconnect", "error"]).default("connected").notNull(),
+    lastSyncedAt: timestamp("lastSyncedAt"),
+    lastSyncError: text("lastSyncError"),
+    aiSyncEnabled: boolean("aiSyncEnabled").default(false).notNull(),
+    aiSyncIntervalMinutes: int("aiSyncIntervalMinutes").default(60).notNull(),
+    aiSyncJobUid: varchar("aiSyncJobUid", { length: 65 }),
+    aiSyncLastRunAt: timestamp("aiSyncLastRunAt"),
+    aiSyncLastError: text("aiSyncLastError"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("email_accounts_user_provider_email_uq").on(table.userId, table.provider, table.email),
+    index("email_accounts_user_status_idx").on(table.userId, table.connectionStatus),
+    index("email_accounts_ai_sync_job_idx").on(table.aiSyncJobUid),
+  ],
+);
+
+/** One-time OAuth state records bind callbacks to a TaskFlow user and PKCE verifier. */
+export const emailOAuthSessions = mysqlTable(
+  "email_oauth_sessions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    provider: mysqlEnum("provider", ["google", "microsoft"]).notNull(),
+    stateHash: varchar("stateHash", { length: 64 }).notNull(),
+    codeVerifier: varchar("codeVerifier", { length: 128 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("email_oauth_sessions_state_uq").on(table.stateHash),
+    index("email_oauth_sessions_user_expiry_idx").on(table.userId, table.expiresAt),
+  ],
+);
+
+/** Metadata-only inbox cache. Raw credentials remain encrypted on emailAccounts. */
+export const emailMessages = mysqlTable(
+  "email_messages",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    emailAccountId: int("emailAccountId").notNull(),
+    providerMessageId: varchar("providerMessageId", { length: 255 }).notNull(),
+    threadId: varchar("threadId", { length: 255 }),
+    subject: varchar("subject", { length: 500 }).notNull(),
+    senderName: varchar("senderName", { length: 240 }),
+    senderEmail: varchar("senderEmail", { length: 320 }),
+    snippet: text("snippet"),
+    receivedAt: timestamp("receivedAt").notNull(),
+    isRead: boolean("isRead").default(false).notNull(),
+    status: mysqlEnum("status", ["new", "in_progress", "done", "archived"]).default("new").notNull(),
+    labels: varchar("labels", { length: 1000 }),
+    webLink: varchar("webLink", { length: 1000 }),
+    aiAnalyzedAt: timestamp("aiAnalyzedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("email_messages_account_provider_message_uq").on(table.emailAccountId, table.providerMessageId),
+    index("email_messages_user_received_idx").on(table.userId, table.receivedAt),
+    index("email_messages_user_status_idx").on(table.userId, table.status),
+  ],
+);
+
+/** AI-extracted, user-reviewable event proposals. One proposal may exist for one synced message. */
+export const emailEventSuggestions = mysqlTable(
+  "email_event_suggestions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    emailAccountId: int("emailAccountId").notNull(),
+    emailMessageId: int("emailMessageId").notNull(),
+    title: varchar("title", { length: 240 }).notNull(),
+    description: text("description"),
+    startAt: timestamp("startAt").notNull(),
+    endAt: timestamp("endAt").notNull(),
+    reminderMinutes: int("reminderMinutes").default(15).notNull(),
+    planLink: varchar("planLink", { length: 1000 }),
+    sourceExcerpt: varchar("sourceExcerpt", { length: 1000 }),
+    confidence: int("confidence").notNull(),
+    model: varchar("model", { length: 80 }).notNull(),
+    status: mysqlEnum("status", ["pending", "accepted", "dismissed", "error"]).default("pending").notNull(),
+    calendarEventId: int("calendarEventId"),
+    errorMessage: varchar("errorMessage", { length: 1000 }),
+    analyzedAt: timestamp("analyzedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("email_event_suggestions_message_uq").on(table.emailMessageId),
+    index("email_event_suggestions_user_status_idx").on(table.userId, table.status),
+    index("email_event_suggestions_account_status_idx").on(table.emailAccountId, table.status),
+  ],
+);
+
 export const notifications = mysqlTable(
   "notifications",
   {
@@ -131,3 +240,6 @@ export type CalendarEvent = typeof calendarEvents.$inferSelect;
 export type AppNotification = typeof notifications.$inferSelect;
 export type TelegramConnection = typeof telegramConnections.$inferSelect;
 export type TelegramDeliveryLog = typeof telegramDeliveryLogs.$inferSelect;
+export type EmailAccount = typeof emailAccounts.$inferSelect;
+export type EmailMessage = typeof emailMessages.$inferSelect;
+export type EmailEventSuggestion = typeof emailEventSuggestions.$inferSelect;

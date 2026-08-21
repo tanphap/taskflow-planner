@@ -95,3 +95,17 @@ Xác minh lại bằng My Browser trong phiên Manus OAuth đang đăng nhập: 
 Lần đồng bộ GitHub mới nhất chỉ thay đổi `client/src/pages/Home.tsx` và `client/src/index.css`, chuyển nhận diện phụ thành “Focus Workspace” cùng hệ màu xanh lá–cam. Không có thay đổi vào backend, schema Drizzle, OAuth, Telegram, hoặc các thủ tục tRPC. Đã chạy `pnpm check` thành công và **23 kiểm thử Vitest** đều đạt.
 
 Trong phiên My Browser đã đăng nhập, Overview tải đúng dữ liệu tài khoản, số liệu dashboard, sidebar, nhắc việc và các nút hành động; không thấy hồi quy OAuth/tRPC hoặc lỗi giao diện. Hero mobile được bổ sung vùng đệm để không đi vào dưới khối trang trí cam. Người dùng đã kiểm tra trực tiếp trên điện thoại và xác nhận tiêu đề hiển thị bình thường, cùng hai nút “Tạo công việc mới” và “Xem lịch hẹn” hoạt động được; không tạo hoặc thay đổi dữ liệu trong lần kiểm tra.
+
+## Nền tảng Quản trị email
+
+Đã chạy `pnpm check` thành công và **26 kiểm thử Vitest** đều đạt, gồm hai kiểm thử mới cho mã hóa AES-256-GCM của token OAuth và từ chối khóa mã hóa thiếu hoặc không hợp lệ. Mức kiểm thử hiện tại bao phủ lớp OAuth, đồng bộ và cô lập dữ liệu ở phạm vi mã nguồn; không dùng thông tin đăng nhập email hoặc gửi yêu cầu đến Gmail/Microsoft Graph.
+
+Dashboard sau khi thêm mục điều hướng **Quản trị email** vẫn tải ổn định ở 1280×720 và 375×812. Trên mobile, tiêu đề, nút mở menu, chuyển ngôn ngữ và nút tạo giữ được vùng chạm rõ ràng; các khối Swiss Design xếp dọc, không có thanh cuộn ngang, chồng lấn hoặc chữ khó đọc. Chưa thể kiểm chứng đầu-cuối OAuth Gmail/Microsoft vì dự án chưa được cung cấp OAuth Client ID/Secret thực tế; không truy cập hay thay đổi dữ liệu email của người dùng trong kiểm tra này.
+
+## AI nhận diện lịch hẹn từ email
+
+Đã kiểm tra trực tiếp trong **My Browser** với phiên Manus OAuth đã đăng nhập: mở mục **Quản trị email** thành công, hiển thị rõ hai lựa chọn Gmail và Outlook/Microsoft 365, trạng thái yêu cầu cấu hình OAuth, vùng hộp thư trống, bộ lọc inbox, cùng phần **AI Event Inbox**. Phần AI nêu rõ rằng hệ thống chỉ tạo đề xuất và người dùng phải xác nhận trước khi tạo lịch hẹn hoặc nhắc Telegram. Ở trạng thái chưa kết nối hộp thư, thông điệp hướng dẫn đồng bộ thư rồi chọn “Quét AI ngay” hoặc bật quét tự động hiển thị đúng; không có thao tác ghi dữ liệu hoặc truy cập hộp thư thực nào được thực hiện.
+
+Đã chạy `pnpm check`, `pnpm build` và `pnpm test` thành công sau phần mở rộng AI-email. Production build hoàn tất; chỉ có cảnh báo kích thước chunk frontend lớn hơn 500 kB, không chặn build. Bộ kiểm thử hiện có **35 Vitest tests** đều đạt, bổ sung kiểm chứng chuẩn hóa đề xuất AI, lọc liên kết chỉ có trong email nguồn, ngưỡng tin cậy, state/PKCE OAuth, callback state hết hạn/giả mạo, chống tạo đề xuất trùng khi quét lặp cùng email, và handler Heartbeat chạy đúng theo cặp `userId`–`emailAccountId`, bỏ qua tác vụ vô hiệu và lưu lỗi chạy an toàn.
+
+Tùy chọn quét AI nằm trên từng hộp thư đã kết nối: người dùng có thể bật/tắt riêng và chọn 15 phút, 30 phút, 1 giờ, 2 giờ, 4 giờ, 12 giờ hoặc mỗi ngày. Khi AI phát hiện lịch đủ tin cậy, người dùng mở **Xem và tạo lịch hẹn** để xem/chỉnh sửa dữ liệu trong EventDialog hiện có trước khi chấp nhận; bản ghi đề xuất gốc không có màn hình chỉnh sửa độc lập. Do chưa có OAuth Client ID/Secret thực tế, việc kết nối Gmail/Outlook, nhận thư thật và xác minh Heartbeat production vẫn là blocker cần hoàn tất sau khi cấu hình secrets.

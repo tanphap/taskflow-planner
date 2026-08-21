@@ -22,6 +22,11 @@ vi.mock("./db", () => ({
   setEventTelegramJob: vi.fn(),
   clearEventTelegramJob: vi.fn(),
   getTelegramDeliveryHistory: vi.fn(),
+  listEmailAccounts: vi.fn(),
+  listEmailMessages: vi.fn(),
+  updateEmailMessageStatus: vi.fn(),
+  getEmailAccountWithTokens: vi.fn(),
+  removeEmailAccount: vi.fn(),
 }));
 
 import { appRouter } from "./routers";
@@ -78,7 +83,7 @@ describe("productivity router data isolation", () => {
   });
 
   it("uses the current account for event, notification, and profile operations", async () => {
-    vi.mocked(db.createEvent).mockResolvedValue(undefined);
+    vi.mocked(db.createEvent).mockResolvedValue(31);
     vi.mocked(db.syncDueNotifications).mockResolvedValue([]);
     vi.mocked(db.markNotificationRead).mockResolvedValue(undefined);
     vi.mocked(db.updateUserProfile).mockResolvedValue(undefined);
@@ -184,5 +189,25 @@ describe("productivity router data isolation", () => {
     await caller.telegram.deliveryHistory({ limit: 12 });
 
     expect(db.getTelegramDeliveryHistory).toHaveBeenCalledWith(73, 12);
+  });
+
+  it("scopes inbox account, message and status operations to the authenticated account", async () => {
+    vi.mocked(db.listEmailAccounts).mockResolvedValue([]);
+    vi.mocked(db.listEmailMessages).mockResolvedValue([]);
+    vi.mocked(db.updateEmailMessageStatus).mockResolvedValue(undefined);
+    vi.mocked(db.getEmailAccountWithTokens).mockResolvedValue(null);
+    vi.mocked(db.removeEmailAccount).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    await caller.email.accounts();
+    await caller.email.messages({ accountId: 9, status: "new", limit: 25 });
+    await caller.email.updateMessageStatus({ id: 17, status: "done" });
+    await caller.email.disconnect({ id: 9 });
+
+    expect(db.listEmailAccounts).toHaveBeenCalledWith(73);
+    expect(db.listEmailMessages).toHaveBeenCalledWith(73, { accountId: 9, status: "new", limit: 25 });
+    expect(db.updateEmailMessageStatus).toHaveBeenCalledWith(73, 17, "done");
+    expect(db.getEmailAccountWithTokens).toHaveBeenCalledWith(73, 9);
+    expect(db.removeEmailAccount).toHaveBeenCalledWith(73, 9);
   });
 });

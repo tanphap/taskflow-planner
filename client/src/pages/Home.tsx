@@ -18,13 +18,19 @@ import {
   ClipboardList,
   Clock3,
   Edit3,
+  ExternalLink,
+  Inbox,
   LayoutDashboard,
   Loader2,
   LogOut,
+  Mail,
   Menu,
   MoreHorizontal,
   Plus,
+  RefreshCw,
   Settings,
+  ShieldCheck,
+  Sparkles,
   Trash2,
   UserRound,
   X,
@@ -39,7 +45,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type View = "dashboard" | "tasks" | "calendar" | "notifications" | "profile";
+type View = "dashboard" | "tasks" | "calendar" | "notifications" | "profile" | "email";
 type TaskStatus = "todo" | "in_progress" | "done";
 type Priority = "low" | "medium" | "high";
 
@@ -63,6 +69,67 @@ const englishCopy: Record<string, string> = {
   "Lịch hẹn /": "Calendar /", "Chỉnh sửa": "Edit", "Tạo mới": "Create", "Cập nhật lịch hẹn": "Update event", "Lịch hẹn mới": "New event", "Tiêu đề *": "Title *", "Mô tả": "Description", "Ví dụ: Họp với đội dự án": "Example: Project team meeting", "Chi tiết lịch hẹn": "Event details", "Bắt đầu *": "Start *", "Kết thúc *": "End *", "Nhắc vào lúc": "Remind at", "Gửi nhắc qua Telegram": "Send reminder via Telegram", "Yêu cầu Telegram đã được liên kết và ứng dụng đã xuất bản.": "Requires a linked Telegram account and a published app.", "Hủy": "Cancel", "Thời gian kết thúc phải sau thời gian bắt đầu": "End time must be after start time", "Hãy chọn thời điểm nhắc để gửi Telegram": "Choose a reminder time to send via Telegram", "Lặp lại": "Repeat", "Không lặp": "Does not repeat", "Hàng ngày": "Daily", "Hàng tuần": "Weekly", "Hàng tháng": "Monthly", "Khoảng lặp": "Repeat interval", "Ngày trong tuần": "Days of week", "Giới hạn": "Ends", "Không giới hạn": "Never", "Đến ngày": "On date", "Sau số lần": "After occurrences", "Số lần lặp": "Occurrences", "Nhắc nhanh": "Quick reminder", "5 phút trước": "5 min before", "15 phút trước": "15 min before", "30 phút trước": "30 min before", "Hãy chọn thời điểm bắt đầu trước khi đặt nhắc nhanh": "Choose a start time before setting a quick reminder", "Hãy chọn ít nhất một ngày trong tuần": "Choose at least one day of the week", "Hãy chọn ngày kết thúc": "Choose an end date", "Hãy nhập số lần lặp hợp lệ": "Enter a valid occurrence count", "Lịch sử nhắc Telegram": "Telegram reminder history", "Chưa có lần gửi nào.": "No delivery attempts yet.", "Đã gửi": "Sent", "Không thể gửi": "Failed", "Lỗi không xác định": "Unknown error", "Chuỗi lặp lại": "Recurring series",
   "Lập kế hoạch cá nhân — 01": "Personal planning — 01", "Tổ chức công việc.": "Organize your work.", "Rõ ràng": "Clearly", "từng ngày.": "every day.", "Không gian cá nhân cho công việc, lịch hẹn và nhắc việc — được thiết kế trên một hệ lưới trực quan và chính xác.": "A personal workspace for tasks, events and reminders — built on a precise, intuitive grid.", "Đăng nhập an toàn": "Secure sign in", "Sẵn sàng bắt đầu?": "Ready to begin?", "Dữ liệu công việc và lịch hẹn được tách biệt theo tài khoản Manus của bạn.": "Task and event data are isolated by your Manus account.", "Tiếp tục với Manus": "Continue with Manus", "Bằng việc tiếp tục, bạn sử dụng luồng xác thực Manus OAuth để truy cập không gian cá nhân của mình.": "By continuing, you use Manus OAuth to access your personal workspace."
 };
+
+Object.assign(englishCopy, {
+  "Quản trị email": "Email manager",
+  "Hộp thư /": "Mailbox /",
+  "Kết nối hộp thư của bạn. Xử lý điều quan trọng.": "Connect your inbox. Handle what matters.",
+  "Hộp thư đã kết nối": "Connected mailboxes",
+  "Kết nối Gmail": "Connect Gmail",
+  "Kết nối Outlook": "Connect Outlook",
+  "Gmail": "Gmail",
+  "Outlook / Microsoft 365": "Outlook / Microsoft 365",
+  "OAuth chưa được cấu hình": "OAuth is not configured",
+  "Bạn sẽ đăng nhập và cấp quyền trực tiếp với nhà cung cấp. TaskFlow không lưu mật khẩu email.": "You sign in and grant consent directly with the provider. TaskFlow never stores your email password.",
+  "Đồng bộ ngay": "Sync now",
+  "Đang đồng bộ": "Syncing",
+  "Ngắt kết nối": "Disconnect",
+  "Kết nối hoạt động": "Connection active",
+  "Cần kết nối lại": "Reconnect required",
+  "Có lỗi đồng bộ": "Sync error",
+  "Chưa có hộp thư nào được kết nối.": "No mailboxes are connected yet.",
+  "Thư đến": "Inbox",
+  "Tất cả hộp thư": "All mailboxes",
+  "Tất cả trạng thái": "All statuses",
+  "Mới": "New",
+  "Đang xử lý": "In progress",
+  "Đã xử lý": "Done",
+  "Lưu trữ": "Archived",
+  "Chưa có email được đồng bộ.": "No emails have been synced.",
+  "Kết nối hộp thư, sau đó chọn Đồng bộ ngay để tải metadata email mới nhất.": "Connect a mailbox, then select Sync now to load the latest email metadata.",
+  "Mở trong hộp thư": "Open in mailbox",
+  "Đánh dấu đang xử lý": "Mark in progress",
+  "Đánh dấu đã xử lý": "Mark done",
+  "Đã đồng bộ hộp thư": "Mailbox synced",
+  "Đã ngắt kết nối hộp thư": "Mailbox disconnected",
+  "Cần cấu hình OAuth trước khi kết nối": "OAuth needs configuration before connecting",
+  "Kết nối email thành công": "Email connected",
+  "Người dùng đã hủy kết nối email": "Email connection was cancelled",
+  "Phiên kết nối email không hợp lệ hoặc đã hết hạn": "Email connection session is invalid or expired",
+  "Không thể kết nối email. Hãy thử lại.": "Could not connect email. Please try again.",
+  "Trợ lý AI cho email": "AI email assistant",
+  "AI chỉ tạo đề xuất. Bạn luôn xem và xác nhận trước khi tạo lịch hẹn hoặc nhắc Telegram.": "AI only creates proposals. You always review and confirm before an event or Telegram reminder is created.",
+  "Bật quét AI tự động": "Enable automatic AI scan",
+  "Quét AI ngay": "Scan with AI now",
+  "Lưu chu kỳ": "Save interval",
+  "Mỗi 15 phút": "Every 15 minutes",
+  "Mỗi 30 phút": "Every 30 minutes",
+  "Mỗi giờ": "Every hour",
+  "Mỗi 2 giờ": "Every 2 hours",
+  "Mỗi 4 giờ": "Every 4 hours",
+  "Mỗi 12 giờ": "Every 12 hours",
+  "Mỗi ngày": "Every day",
+  "Đề xuất lịch hẹn AI": "AI event proposals",
+  "Chưa có đề xuất nào đang chờ xác nhận.": "No proposals are waiting for confirmation.",
+  "Xem và tạo lịch hẹn": "Review and create event",
+  "Bỏ qua đề xuất": "Dismiss proposal",
+  "Độ tin cậy": "Confidence",
+  "Nguồn email": "Email source",
+  "Liên kết kế hoạch": "Planning link",
+  "Đã lưu cấu hình quét AI": "AI scan settings saved",
+  "AI đã phân tích": "AI analyzed",
+  "email mới": "new emails"
+});
 
 const vietnameseCopy: Record<string, string> = Object.fromEntries(Object.entries(englishCopy).map(([vietnamese, english]) => [english, vietnamese]));
 
@@ -143,6 +210,38 @@ type NotificationRecord = {
   scheduledFor: Date;
 };
 
+type EmailAccountRecord = {
+  id: number;
+  provider: "google" | "microsoft";
+  email: string;
+  displayName: string | null;
+  connectionStatus: "connected" | "needs_reconnect" | "error";
+  lastSyncedAt: Date | null;
+  lastSyncError: string | null;
+  aiSyncEnabled: boolean;
+  aiSyncIntervalMinutes: number;
+  aiSyncLastRunAt: Date | null;
+  aiSyncLastError: string | null;
+  createdAt: Date;
+};
+
+type EmailMessageRecord = {
+  id: number;
+  emailAccountId: number;
+  subject: string;
+  senderName: string | null;
+  senderEmail: string | null;
+  snippet: string | null;
+  receivedAt: Date;
+  isRead: boolean;
+  webLink: string | null;
+  status: EmailMessageStatus;
+};
+
+type EmailMessageStatus = "new" | "in_progress" | "done" | "archived";
+type EmailProviderConfiguration = { google: boolean; microsoft: boolean };
+type EmailEventSuggestionRecord = { id: number; emailAccountId: number; emailMessageId: number; title: string; description: string | null; startAt: Date; endAt: Date; reminderMinutes: number; planLink: string | null; sourceExcerpt: string | null; confidence: number; status: "pending" | "accepted" | "dismissed" | "error"; calendarEventId: number | null; analyzedAt: Date; emailSubject: string; senderName: string | null; senderEmail: string | null; webLink: string | null };
+
 const statusMeta: Record<TaskStatus, { label: string; className: string }> = {
   todo: { label: "Chưa làm", className: "bg-neutral-100 text-neutral-700" },
   in_progress: { label: "Đang làm", className: "bg-amber-100 text-amber-900" },
@@ -160,6 +259,7 @@ const navigation: Array<{ id: View; label: string; icon: typeof LayoutDashboard 
   { id: "tasks", label: "Công việc", icon: ClipboardList },
   { id: "calendar", label: "Lịch hẹn", icon: CalendarDays },
   { id: "notifications", label: "Nhắc việc", icon: Bell },
+  { id: "email", label: "Quản trị email", icon: Mail },
   { id: "profile", label: "Hồ sơ", icon: UserRound },
 ];
 
@@ -205,12 +305,101 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
+function EmailManager({ configuration, accounts, messages, suggestions, loading, accountFilter, statusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, onAccountFilter, onStatusFilter, onConnect, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion }: {
+  configuration?: EmailProviderConfiguration;
+  accounts: EmailAccountRecord[];
+  messages: EmailMessageRecord[];
+  suggestions: EmailEventSuggestionRecord[];
+  loading: boolean;
+  accountFilter: number | "all";
+  statusFilter: EmailMessageStatus | "all";
+  syncingAccountId: number | null;
+  disconnectingAccountId: number | null;
+  updatingMessageId: number | null;
+  configuringAccountId: number | null;
+  analyzingAccountId: number | null;
+  dismissingSuggestionId: number | null;
+  onAccountFilter: (value: number | "all") => void;
+  onStatusFilter: (value: EmailMessageStatus | "all") => void;
+  onConnect: (provider: "google" | "microsoft") => void;
+  onSync: (id: number) => void;
+  onDisconnect: (id: number) => void;
+  onSetMessageStatus: (id: number, status: EmailMessageStatus) => void;
+  onConfigureAiSync: (id: number, enabled: boolean, intervalMinutes: number) => void;
+  onAnalyze: (id: number) => void;
+  onReviewSuggestion: (suggestion: EmailEventSuggestionRecord) => void;
+  onDismissSuggestion: (id: number) => void;
+}) {
+  const statusLabel: Record<EmailMessageStatus, string> = { new: "Mới", in_progress: "Đang xử lý", done: "Đã xử lý", archived: "Đã lưu trữ" };
+  const providerLabel = (provider: EmailAccountRecord["provider"]) => provider === "google" ? "Gmail" : "Outlook / Microsoft 365";
+  const providerEnabled = (provider: "google" | "microsoft") => Boolean(configuration?.[provider]);
+  const [intervals, setIntervals] = useState<Record<number, number>>({});
+  const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
+
+  return <section className="mx-auto max-w-7xl space-y-7 px-4 py-6 md:px-8 md:py-9">
+    <div className="flex flex-col gap-4 border-b-2 border-[#18211b] pb-5 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p className="mono-label text-[#ff5d3d]">EMAIL OPERATIONS</p>
+        <h2 className="mt-2 text-3xl font-black tracking-[-0.055em] text-[#18211b] md:text-4xl">Quản trị email</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">Kết nối hộp thư bằng OAuth để xem inbox, phân loại công việc và theo dõi thư cần xử lý — không cần nhập mật khẩu vào TaskFlow.</p>
+      </div>
+      <span className="mono-label w-fit border border-[#18211b] bg-white px-3 py-2 text-[#18211b]">{accounts.length} HỘP THƯ</span>
+    </div>
+
+    <div className="grid gap-4 lg:grid-cols-2">
+      {(["google", "microsoft"] as const).map(provider => {
+        const enabled = providerEnabled(provider);
+        return <div key={provider} className="border-2 border-[#18211b] bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="mono-label text-neutral-500">OAUTH 2.0</p>
+              <h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">{provider === "google" ? "Gmail" : "Outlook / Microsoft 365"}</h3>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">{provider === "google" ? "Đọc inbox Gmail sau khi bạn tự đăng nhập và cấp quyền." : "Kết nối Microsoft 365 hoặc Outlook qua tài khoản tổ chức/cá nhân."}</p>
+            </div>
+            <span className={`mono-label px-2 py-1 ${enabled ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{enabled ? "SẴN SÀNG" : "CẦN CẤU HÌNH"}</span>
+          </div>
+          <button onClick={() => onConnect(provider)} className="swiss-button mt-5 w-full justify-center" disabled={!enabled} title={enabled ? undefined : "Cần cấu hình OAuth của nhà cung cấp trước"}>
+            <Mail className="h-4 w-4" /> Kết nối {provider === "google" ? "Gmail" : "Outlook"}
+          </button>
+          {!enabled && <p className="mt-3 text-xs leading-5 text-neutral-500">Quản trị viên cần hoàn tất cấu hình OAuth một lần; người dùng vẫn sẽ tự đăng nhập và cấp quyền cho hộp thư của mình.</p>}
+        </div>;
+      })}
+    </div>
+
+    <div className="border-2 border-[#18211b] bg-white">
+      <div className="flex flex-col gap-3 border-b border-[#18211b] p-5 md:flex-row md:items-center md:justify-between">
+        <div><p className="mono-label text-neutral-500">CONNECTED ACCOUNTS</p><h3 className="mt-1 text-xl font-extrabold">Hộp thư đã kết nối</h3></div>
+        <span className="text-sm text-neutral-500">Đồng bộ metadata thư; không hiển thị token truy cập.</span>
+      </div>
+      {accounts.length === 0 ? <div className="p-8 text-center"><Mail className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-3 font-bold">Chưa có hộp thư nào được kết nối</p><p className="mt-1 text-sm text-neutral-500">Chọn Gmail hoặc Outlook ở trên để bắt đầu.</p></div> : <div className="divide-y divide-[#18211b]/15">
+        {accounts.map(account => <div key={account.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
+            <div className="mt-4 grid gap-2 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3 sm:grid-cols-[auto_minmax(160px,1fr)_auto] sm:items-center"><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={account.aiSyncEnabled} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => onConfigureAiSync(account.id, event.target.checked, intervalFor(account))} /> Bật quét AI tự động</label><select className="input-swiss h-9 text-xs" value={intervalFor(account)} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => setIntervals(previous => ({ ...previous, [account.id]: Number(event.target.value) }))}>{[[15, "Mỗi 15 phút"], [30, "Mỗi 30 phút"], [60, "Mỗi giờ"], [120, "Mỗi 2 giờ"], [240, "Mỗi 4 giờ"], [720, "Mỗi 12 giờ"], [1440, "Mỗi ngày"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="swiss-button-outline h-9 justify-center text-xs" onClick={() => onConfigureAiSync(account.id, account.aiSyncEnabled, intervalFor(account))} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id}>{configuringAccountId === account.id ? "Đang lưu…" : "Lưu chu kỳ"}</button></div>
+            {account.aiSyncLastRunAt && <p className="mt-2 text-xs text-neutral-500">AI quét gần nhất: {formatDate(account.aiSyncLastRunAt)} · {formatTime(account.aiSyncLastRunAt)}</p>}{account.aiSyncLastError && <p className="mt-1 text-xs text-[#e23221]">{account.aiSyncLastError}</p>}</div>
+          <div className="flex flex-wrap gap-2 xl:justify-end"><button className="swiss-button-outline" onClick={() => onSync(account.id)} disabled={syncingAccountId === account.id}>{syncingAccountId === account.id ? "Đang đồng bộ…" : "Đồng bộ"}</button><button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onAnalyze(account.id)} disabled={account.connectionStatus !== "connected" || analyzingAccountId === account.id}>{analyzingAccountId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} {analyzingAccountId === account.id ? "AI đang quét…" : "Quét AI ngay"}</button><button className="swiss-button-outline text-[#e23221]" onClick={() => onDisconnect(account.id)} disabled={disconnectingAccountId === account.id}>{disconnectingAccountId === account.id ? "Đang ngắt…" : "Ngắt kết nối"}</button></div>
+        </div>)}
+      </div>}
+    </div>
+
+    <div className="border-2 border-[#18211b] bg-white">
+      <div className="grid gap-4 border-b border-[#18211b] p-5 md:grid-cols-[auto_1fr] md:items-center"><div className="grid h-10 w-10 place-items-center bg-[#e23221] text-white"><Sparkles className="h-5 w-5" /></div><div><p className="mono-label text-neutral-500">AI EVENT INBOX</p><h3 className="mt-1 text-xl font-extrabold">Đề xuất lịch hẹn AI</h3><p className="mt-1 max-w-3xl text-sm leading-5 text-neutral-600">AI chỉ tạo đề xuất. Bạn luôn xem và xác nhận trước khi tạo lịch hẹn hoặc nhắc Telegram.</p></div></div>
+      {suggestions.length === 0 ? <div className="p-8 text-center"><Sparkles className="mx-auto h-7 w-7 text-neutral-400" /><p className="mt-3 font-bold">Chưa có đề xuất nào đang chờ xác nhận.</p><p className="mt-1 text-sm text-neutral-500">Sau khi đồng bộ thư, chọn Quét AI ngay hoặc bật quét tự động cho từng hộp thư.</p></div> : <div className="divide-y divide-[#18211b]/15">{suggestions.map(suggestion => <article key={suggestion.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label bg-[#e4ff3f] px-2 py-1">ĐỘ TIN CẬY {Math.round(suggestion.confidence * 100)}%</span><span className="mono-label border border-[#18211b] px-2 py-1">{formatDate(suggestion.startAt)} · {formatTime(suggestion.startAt)}</span></div><h4 className="mt-3 text-lg font-bold tracking-[-0.035em]">{suggestion.title}</h4><p className="mt-1 text-sm text-neutral-600">{suggestion.emailSubject} · {suggestion.senderName || suggestion.senderEmail || "Không rõ người gửi"}</p>{suggestion.description && <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-500">{suggestion.description}</p>}<div className="mt-3 flex flex-wrap gap-3 text-xs">{suggestion.planLink && <a className="inline-flex items-center gap-1 font-bold underline underline-offset-4" href={suggestion.planLink} target="_blank" rel="noreferrer">Liên kết kế hoạch <ExternalLink className="h-3.5 w-3.5" /></a>}{suggestion.webLink && <a className="inline-flex items-center gap-1 font-bold underline underline-offset-4" href={suggestion.webLink} target="_blank" rel="noreferrer">Nguồn email <ExternalLink className="h-3.5 w-3.5" /></a>}</div></div><div className="flex flex-wrap gap-2 xl:justify-end"><button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onReviewSuggestion(suggestion)}><CalendarDays className="h-4 w-4" /> Xem và tạo lịch hẹn</button><button className="swiss-button-outline text-neutral-600" onClick={() => onDismissSuggestion(suggestion.id)} disabled={dismissingSuggestionId === suggestion.id}>{dismissingSuggestionId === suggestion.id ? "Đang bỏ qua…" : "Bỏ qua đề xuất"}</button></div></article>)}</div>}
+    </div>
+
+    <div className="border-2 border-[#18211b] bg-white">
+      <div className="flex flex-col gap-4 border-b border-[#18211b] p-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="mono-label text-neutral-500">INBOX</p><h3 className="mt-1 text-xl font-extrabold">Thư đến cần theo dõi</h3></div><div className="grid gap-2 sm:grid-cols-2"><label className="mono-label flex flex-col gap-1 text-neutral-500">Hộp thư<select className="input-swiss min-w-48 normal-case" value={accountFilter} onChange={event => onAccountFilter(event.target.value === "all" ? "all" : Number(event.target.value))}><option value="all">Tất cả hộp thư</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.email}</option>)}</select></label><label className="mono-label flex flex-col gap-1 text-neutral-500">Trạng thái<select className="input-swiss min-w-40 normal-case" value={statusFilter} onChange={event => onStatusFilter(event.target.value as EmailMessageStatus | "all")}><option value="all">Tất cả trạng thái</option>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{label}</option>)}</select></label></div></div>
+      {loading ? <div className="p-10 text-center text-sm text-neutral-500">Đang tải email…</div> : messages.length === 0 ? <div className="p-10 text-center"><p className="font-bold">Chưa có thư phù hợp</p><p className="mt-1 text-sm text-neutral-500">Hãy kết nối hộp thư và bấm Đồng bộ để cập nhật inbox.</p></div> : <div className="divide-y divide-[#18211b]/15">{messages.map(message => <article key={message.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_180px] lg:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`mono-label px-2 py-1 ${message.status === "done" ? "bg-[#e4ff3f]" : "bg-neutral-100"}`}>{statusLabel[message.status]}</span>{!message.isRead && <span className="mono-label bg-[#ff5d3d] px-2 py-1 text-white">CHƯA ĐỌC</span>}</div><h4 className="mt-2 truncate font-bold">{message.subject}</h4><p className="mt-1 truncate text-sm text-neutral-600">{message.senderName || message.senderEmail || "Không rõ người gửi"} · {formatDate(message.receivedAt)} {formatTime(message.receivedAt)}</p>{message.snippet && <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-500">{message.snippet}</p>}</div><div className="flex flex-wrap gap-2 lg:justify-end"><select className="input-swiss h-9 min-w-36 text-xs" value={message.status} onChange={event => onSetMessageStatus(message.id, event.target.value as EmailMessageStatus)} disabled={updatingMessageId === message.id}>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{label}</option>)}</select>{message.webLink && <a className="swiss-button-outline h-9" href={message.webLink} target="_blank" rel="noreferrer">Mở thư <ExternalLink className="h-3.5 w-3.5" /></a>}</div></article>)}</div>}
+    </div>
+  </section>;
+}
+
 function pageTitle(view: View) {
   return ({
     dashboard: "Tổng quan hôm nay",
     tasks: "Công việc",
     calendar: "Lịch hẹn",
     notifications: "Trung tâm nhắc việc",
+    email: "Quản trị email",
     profile: "Hồ sơ cá nhân",
   })[view];
 }
@@ -226,7 +415,10 @@ export default function Home() {
   const [editingTask, setEditingTask] = useState<TaskRecord | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventRecord | null>(null);
   const [eventPrefill, setEventPrefill] = useState<EventPrefill | null>(null);
+  const [pendingEmailSuggestionId, setPendingEmailSuggestionId] = useState<number | null>(null);
   const [telegramLinkCode, setTelegramLinkCode] = useState("");
+  const [emailAccountFilter, setEmailAccountFilter] = useState<number | "all">("all");
+  const [emailStatusFilter, setEmailStatusFilter] = useState<EmailMessageRecord["status"] | "all">("all");
   const utils = trpc.useUtils();
 
   const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
@@ -276,10 +468,6 @@ export default function Home() {
     onSuccess: async () => { await invalidateWorkspace(); toast.success("Đã xóa công việc"); },
     onError: error => toast.error(error.message),
   });
-  const createEvent = trpc.calendar.create.useMutation({
-    onSuccess: async () => { await invalidateWorkspace(); setEventDialogOpen(false); setEventPrefill(null); toast.success("Đã tạo lịch hẹn"); },
-    onError: error => toast.error(error.message),
-  });
   const updateEvent = trpc.calendar.update.useMutation({
     onSuccess: async () => { await invalidateWorkspace(); setEventDialogOpen(false); setEditingEvent(null); toast.success("Đã cập nhật lịch hẹn"); },
     onError: error => toast.error(error.message),
@@ -296,6 +484,15 @@ export default function Home() {
   });
   const telegramStatus = trpc.telegram.status.useQuery(undefined, { enabled: isAuthenticated });
   const telegramHistory = trpc.telegram.deliveryHistory.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
+  const emailConfiguration = trpc.email.configuration.useQuery(undefined, { enabled: isAuthenticated });
+  const emailAccounts = trpc.email.accounts.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
+  const emailMessagesInput = useMemo(() => ({
+    accountId: emailAccountFilter === "all" ? undefined : emailAccountFilter,
+    status: emailStatusFilter === "all" ? undefined : emailStatusFilter,
+    limit: 100,
+  }), [emailAccountFilter, emailStatusFilter]);
+  const emailMessages = trpc.email.messages.useQuery(emailMessagesInput, { enabled: isAuthenticated, refetchOnWindowFocus: true });
+  const emailSuggestions = trpc.email.suggestions.useQuery({ status: "pending" }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
   const beginTelegramLink = trpc.telegram.beginLink.useMutation({
     onSuccess: async data => { setTelegramLinkCode(data.code); await telegramStatus.refetch(); toast.success("Đã tạo mã liên kết Telegram"); },
     onError: error => toast.error(error.message),
@@ -307,9 +504,52 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
+  const refreshEmailData = async () => {
+    await Promise.all([utils.email.accounts.invalidate(), utils.email.messages.invalidate(), utils.email.suggestions.invalidate()]);
+  };
+  const syncEmailMailbox = trpc.email.sync.useMutation({
+    onSuccess: async data => { await refreshEmailData(); toast.success(`Đã đồng bộ ${data.count} email`); },
+    onError: error => toast.error(error.message),
+  });
+  const disconnectEmailMailbox = trpc.email.disconnect.useMutation({
+    onSuccess: async () => { await refreshEmailData(); setEmailAccountFilter("all"); toast.success("Đã ngắt kết nối hộp thư"); },
+    onError: error => toast.error(error.message),
+  });
+  const updateEmailMessageStatus = trpc.email.updateMessageStatus.useMutation({
+    onSuccess: async () => { await utils.email.messages.invalidate(); },
+    onError: error => toast.error(error.message),
+  });
+  const configureEmailAiSync = trpc.email.configureAiSync.useMutation({
+    onSuccess: async () => { await refreshEmailData(); toast.success("Đã lưu cấu hình quét AI"); },
+    onError: error => toast.error(error.message),
+  });
+  const analyzeEmailMailbox = trpc.email.analyze.useMutation({
+    onSuccess: async data => { await refreshEmailData(); toast.success(`AI đã phân tích ${data.analyzed} email mới`); },
+    onError: error => toast.error(error.message),
+  });
+  const dismissEmailSuggestion = trpc.email.dismissSuggestion.useMutation({
+    onSuccess: async () => { await utils.email.suggestions.invalidate(); },
+    onError: error => toast.error(error.message),
+  });
+  const acceptEmailSuggestion = trpc.email.acceptSuggestion.useMutation({
+    onSuccess: async () => { await utils.email.suggestions.invalidate(); },
+    onError: error => toast.error(error.message),
+  });
+  const createEvent = trpc.calendar.create.useMutation({
+    onSuccess: async data => {
+      await invalidateWorkspace();
+      if (pendingEmailSuggestionId) await acceptEmailSuggestion.mutateAsync({ id: pendingEmailSuggestionId, calendarEventId: data.id });
+      setEventDialogOpen(false); setEventPrefill(null); setPendingEmailSuggestionId(null); toast.success("Đã tạo lịch hẹn");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const connectEmailProvider = (provider: "google" | "microsoft") => {
+    if (!emailConfiguration.data?.[provider]) { toast.error("Cần cấu hình OAuth trước khi kết nối"); return; }
+    window.location.assign(`/api/email/oauth/${provider}/start`);
+  };
 
   const openCreateTask = () => { setEditingTask(null); setTaskDialogOpen(true); };
-  const openCreateEvent = () => { setEditingEvent(null); setEventPrefill(null); setEventDialogOpen(true); };
+  const openCreateEvent = () => { setEditingEvent(null); setEventPrefill(null); setPendingEmailSuggestionId(null); setEventDialogOpen(true); };
   const openCreateEventFromTask = (task: TaskRecord) => { setEditingEvent(null); setEventPrefill(eventPrefillFromTask(task)); setEventDialogOpen(true); };
   const openEditTask = (task: TaskRecord) => { setEditingTask(task); setTaskDialogOpen(true); };
   const openEditEvent = (event: EventRecord) => {
@@ -317,6 +557,14 @@ export default function Home() {
       const occurrenceOffset = new Date(event.startAt).getTime() - new Date(event.seriesStartAt).getTime();
       setEditingEvent({ ...event, startAt: event.seriesStartAt, endAt: event.seriesEndAt, reminderAt: event.reminderAt ? new Date(new Date(event.reminderAt).getTime() - occurrenceOffset) : null });
     } else setEditingEvent(event);
+    setEventDialogOpen(true);
+  };
+  const openCreateEventFromSuggestion = (suggestion: EmailEventSuggestionRecord) => {
+    const reminderAt = suggestion.reminderMinutes > 0 ? new Date(new Date(suggestion.startAt).getTime() - suggestion.reminderMinutes * 60_000) : null;
+    const source = [`Nguồn email: ${suggestion.emailSubject}`, suggestion.planLink ? `Liên kết kế hoạch: ${suggestion.planLink}` : null].filter(Boolean).join("\n");
+    setEditingEvent(null);
+    setEventPrefill({ title: suggestion.title, description: [suggestion.description, source].filter(Boolean).join("\n\n") || null, startAt: new Date(suggestion.startAt), endAt: new Date(suggestion.endAt), reminderAt });
+    setPendingEmailSuggestionId(suggestion.id);
     setEventDialogOpen(true);
   };
 
@@ -331,6 +579,8 @@ export default function Home() {
   const taskData = (taskQuery.data ?? []) as TaskRecord[];
   const eventData = (eventQuery.data ?? []) as EventRecord[];
   const notificationData = (notifications.data ?? []) as NotificationRecord[];
+  const emailAccountData = (emailAccounts.data ?? []) as EmailAccountRecord[];
+  const emailMessageData = (emailMessages.data ?? []) as EmailMessageRecord[];
 
   return (
     <div className="app-shell min-h-screen text-[#18211b]">
@@ -374,13 +624,38 @@ export default function Home() {
             {view === "tasks" && <TasksView tasks={taskData} onCreate={openCreateTask} onEdit={openEditTask} onSchedule={openCreateEventFromTask} onDelete={id => deleteTask.mutate({ id })} onToggleDone={task => updateTask.mutate({ id: task.id, data: { title: task.title, description: task.description, status: task.status === "done" ? "todo" : "done", priority: task.priority, dueAt: asDate(task.dueAt), reminderAt: asDate(task.reminderAt) } })} />}
             {view === "calendar" && <CalendarView events={eventData} tasks={taskData} onCreate={openCreateEvent} onEdit={openEditEvent} onDelete={id => deleteEvent.mutate({ id })} />}
             {view === "notifications" && <NotificationsView notifications={notificationData} onRead={id => markRead.mutate({ id })} onReadAll={() => markAllRead.mutate()} />}
+            {view === "email" && <EmailManager
+              configuration={emailConfiguration.data}
+              accounts={emailAccountData}
+              messages={emailMessageData}
+              suggestions={(emailSuggestions.data ?? []) as EmailEventSuggestionRecord[]}
+              loading={emailAccounts.isLoading || emailMessages.isLoading}
+              accountFilter={emailAccountFilter}
+              statusFilter={emailStatusFilter}
+              syncingAccountId={syncEmailMailbox.isPending ? syncEmailMailbox.variables?.id : null}
+              disconnectingAccountId={disconnectEmailMailbox.isPending ? disconnectEmailMailbox.variables?.id : null}
+              updatingMessageId={updateEmailMessageStatus.isPending ? updateEmailMessageStatus.variables?.id : null}
+              configuringAccountId={configureEmailAiSync.isPending ? configureEmailAiSync.variables?.id : null}
+              analyzingAccountId={analyzeEmailMailbox.isPending ? analyzeEmailMailbox.variables?.id : null}
+              dismissingSuggestionId={dismissEmailSuggestion.isPending ? dismissEmailSuggestion.variables?.id : null}
+              onAccountFilter={setEmailAccountFilter}
+              onStatusFilter={setEmailStatusFilter}
+              onConnect={connectEmailProvider}
+              onSync={(id: number) => syncEmailMailbox.mutate({ id })}
+              onDisconnect={(id: number) => { if (window.confirm("Ngắt kết nối hộp thư này?")) disconnectEmailMailbox.mutate({ id }); }}
+              onSetMessageStatus={(id: number, status: EmailMessageStatus) => updateEmailMessageStatus.mutate({ id, status })}
+              onConfigureAiSync={(id: number, enabled: boolean, intervalMinutes: number) => configureEmailAiSync.mutate({ id, enabled, intervalMinutes: String(intervalMinutes) as "15" | "30" | "60" | "120" | "240" | "720" | "1440" })}
+              onAnalyze={(id: number) => analyzeEmailMailbox.mutate({ id })}
+              onReviewSuggestion={openCreateEventFromSuggestion}
+              onDismissSuggestion={(id: number) => dismissEmailSuggestion.mutate({ id })}
+            />}
             {view === "profile" && <ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} />}
           </div>
         </main>
       </div>
 
       <TaskDialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen} task={editingTask} saving={createTask.isPending || updateTask.isPending} onSave={data => editingTask ? updateTask.mutate({ id: editingTask.id, data }) : createTask.mutate(data)} />
-      <EventDialog open={eventDialogOpen} onOpenChange={open => { setEventDialogOpen(open); if (!open) setEventPrefill(null); }} event={editingEvent} prefill={eventPrefill} saving={createEvent.isPending || updateEvent.isPending} onSave={data => editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data)} />
+      <EventDialog open={eventDialogOpen} onOpenChange={open => { setEventDialogOpen(open); if (!open) { setEventPrefill(null); setPendingEmailSuggestionId(null); } }} event={editingEvent} prefill={eventPrefill} saving={createEvent.isPending || updateEvent.isPending} onSave={data => editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data)} />
     </div>
   );
 }

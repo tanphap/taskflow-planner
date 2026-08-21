@@ -8,6 +8,8 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sendTelegramEventReminder } from "../telegramReminder";
+import { registerEmailOAuthRoutes } from "../emailOAuth";
+import { runEmailAiSyncReminder } from "../emailAiReminder";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -37,7 +39,9 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  registerEmailOAuthRoutes(app);
   app.post("/api/scheduled/telegram-event-reminder", sendTelegramEventReminder);
+  app.post("/api/scheduled/email-ai-sync", runEmailAiSyncReminder);
   // tRPC API
   app.use(
     "/api/trpc",

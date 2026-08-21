@@ -1,7 +1,11 @@
-import { and, asc, desc, eq, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
+  emailAccounts,
+  emailEventSuggestions,
+  emailMessages,
+  emailOAuthSessions,
   InsertUser,
   notifications,
   tasks,
@@ -139,6 +143,130 @@ export async function logTelegramDelivery(userId: number, eventId: number, event
 export async function getTelegramDeliveryHistory(userId: number, limit = 30) {
   const db = await requireDb();
   return db.select().from(telegramDeliveryLogs).where(eq(telegramDeliveryLogs.userId, userId)).orderBy(desc(telegramDeliveryLogs.sentAt)).limit(limit);
+}
+
+export type EmailProvider = "google" | "microsoft";
+export type EmailMessageStatus = "new" | "in_progress" | "done" | "archived";
+export type EmailSuggestionStatus = "pending" | "accepted" | "dismissed" | "error";
+
+export async function createEmailOAuthSession(userId: number, provider: EmailProvider, stateHash: string, codeVerifier: string, expiresAt: Date) {
+  const db = await requireDb();
+  await db.insert(emailOAuthSessions).values({ userId, provider, stateHash, codeVerifier, expiresAt });
+}
+
+export async function consumeEmailOAuthSession(stateHash: string) {
+  const db = await requireDb();
+  const session = (await db.select().from(emailOAuthSessions).where(and(eq(emailOAuthSessions.stateHash, stateHash), gt(emailOAuthSessions.expiresAt, new Date()))).limit(1))[0];
+  if (session) await db.delete(emailOAuthSessions).where(eq(emailOAuthSessions.id, session.id));
+  return session;
+}
+
+export async function listEmailAccounts(userId: number) {
+  const db = await requireDb();
+  return db.select({ id: emailAccounts.id, provider: emailAccounts.provider, email: emailAccounts.email, displayName: emailAccounts.displayName, connectionStatus: emailAccounts.connectionStatus, lastSyncedAt: emailAccounts.lastSyncedAt, lastSyncError: emailAccounts.lastSyncError, aiSyncEnabled: emailAccounts.aiSyncEnabled, aiSyncIntervalMinutes: emailAccounts.aiSyncIntervalMinutes, aiSyncLastRunAt: emailAccounts.aiSyncLastRunAt, aiSyncLastError: emailAccounts.aiSyncLastError, createdAt: emailAccounts.createdAt }).from(emailAccounts).where(eq(emailAccounts.userId, userId)).orderBy(asc(emailAccounts.provider), asc(emailAccounts.email));
+}
+
+export async function getEmailAccountWithTokens(userId: number, accountId: number) {
+  const db = await requireDb();
+  return (await db.select().from(emailAccounts).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId))).limit(1))[0];
+}
+
+export async function upsertEmailAccount(userId: number, input: { provider: EmailProvider; email: string; displayName?: string | null; accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null; scopes?: string | null }) {
+  const db = await requireDb();
+  await db.insert(emailAccounts).values({ userId, provider: input.provider, email: input.email.toLowerCase(), displayName: input.displayName ?? null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null }).onDuplicateKeyUpdate({ set: { displayName: input.displayName ?? null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null } });
+}
+
+export async function updateEmailAccountTokens(userId: number, accountId: number, input: { accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null }) {
+  const db = await requireDb();
+  await db.update(emailAccounts).set({ ...input, connectionStatus: "connected", lastSyncError: null }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+}
+
+export async function setEmailAccountSyncState(userId: number, accountId: number, status: "connected" | "needs_reconnect" | "error", error?: string | null) {
+  const db = await requireDb();
+  await db.update(emailAccounts).set({ connectionStatus: status, lastSyncError: error?.slice(0, 1000) || null, lastSyncedAt: status === "connected" ? new Date() : undefined }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+}
+
+export async function removeEmailAccount(userId: number, accountId: number) {
+  const db = await requireDb();
+  await db.delete(emailEventSuggestions).where(and(eq(emailEventSuggestions.emailAccountId, accountId), eq(emailEventSuggestions.userId, userId)));
+  await db.delete(emailMessages).where(and(eq(emailMessages.emailAccountId, accountId), eq(emailMessages.userId, userId)));
+  await db.delete(emailAccounts).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+}
+
+export async function upsertEmailMessages(userId: number, accountId: number, messages: Array<{ providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null }>) {
+  const db = await requireDb();
+  for (const message of messages) await db.insert(emailMessages).values({ userId, emailAccountId: accountId, providerMessageId: message.providerMessageId, threadId: message.threadId ?? null, subject: message.subject.slice(0, 500) || "(Không có tiêu đề)", senderName: message.senderName?.slice(0, 240) || null, senderEmail: message.senderEmail?.slice(0, 320) || null, snippet: message.snippet ?? null, receivedAt: message.receivedAt, isRead: message.isRead, labels: message.labels?.slice(0, 1000) || null, webLink: message.webLink?.slice(0, 1000) || null }).onDuplicateKeyUpdate({ set: { threadId: message.threadId ?? null, subject: message.subject.slice(0, 500) || "(Không có tiêu đề)", senderName: message.senderName?.slice(0, 240) || null, senderEmail: message.senderEmail?.slice(0, 320) || null, snippet: message.snippet ?? null, receivedAt: message.receivedAt, isRead: message.isRead, labels: message.labels?.slice(0, 1000) || null, webLink: message.webLink?.slice(0, 1000) || null } });
+}
+
+export async function listEmailMessages(userId: number, input?: { accountId?: number; status?: EmailMessageStatus; limit?: number }) {
+  const db = await requireDb();
+  const conditions = [eq(emailMessages.userId, userId)];
+  if (input?.accountId) conditions.push(eq(emailMessages.emailAccountId, input.accountId));
+  if (input?.status) conditions.push(eq(emailMessages.status, input.status));
+  return db.select().from(emailMessages).where(and(...conditions)).orderBy(desc(emailMessages.receivedAt)).limit(input?.limit ?? 50);
+}
+
+export async function updateEmailMessageStatus(userId: number, messageId: number, status: EmailMessageStatus) {
+  const db = await requireDb();
+  await db.update(emailMessages).set({ status }).where(and(eq(emailMessages.id, messageId), eq(emailMessages.userId, userId)));
+}
+
+export async function updateEmailAiSyncSettings(userId: number, accountId: number, input: { enabled: boolean; intervalMinutes: number; taskUid?: string | null }) {
+  const db = await requireDb();
+  await db.update(emailAccounts).set({ aiSyncEnabled: input.enabled, aiSyncIntervalMinutes: input.intervalMinutes, aiSyncJobUid: input.taskUid, aiSyncLastError: null }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+}
+
+export async function getEmailAccountByAiSyncJob(taskUid: string) {
+  const db = await requireDb();
+  return (await db.select().from(emailAccounts).where(eq(emailAccounts.aiSyncJobUid, taskUid)).limit(1))[0];
+}
+
+export async function setEmailAiSyncRunState(userId: number, accountId: number, error?: string | null) {
+  const db = await requireDb();
+  await db.update(emailAccounts).set({ aiSyncLastRunAt: new Date(), aiSyncLastError: error?.slice(0, 1000) || null }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+}
+
+export async function listEmailMessagesForAiAnalysis(userId: number, accountId: number, limit = 6) {
+  const db = await requireDb();
+  return db.select().from(emailMessages).where(and(eq(emailMessages.userId, userId), eq(emailMessages.emailAccountId, accountId), isNull(emailMessages.aiAnalyzedAt))).orderBy(desc(emailMessages.receivedAt)).limit(limit);
+}
+
+export async function markEmailMessageAiAnalyzed(userId: number, accountId: number, messageId: number) {
+  const db = await requireDb();
+  await db.update(emailMessages).set({ aiAnalyzedAt: new Date() }).where(and(eq(emailMessages.id, messageId), eq(emailMessages.emailAccountId, accountId), eq(emailMessages.userId, userId)));
+}
+
+export async function getEmailSuggestionForMessage(userId: number, messageId: number) {
+  const db = await requireDb();
+  return (await db.select().from(emailEventSuggestions).where(and(eq(emailEventSuggestions.userId, userId), eq(emailEventSuggestions.emailMessageId, messageId))).limit(1))[0];
+}
+
+export async function createEmailEventSuggestion(userId: number, input: { emailAccountId: number; emailMessageId: number; title: string; description?: string | null; startAt: Date; endAt: Date; reminderMinutes: number; planLink?: string | null; sourceExcerpt?: string | null; confidence: number; model: string }) {
+  const db = await requireDb();
+  await db.insert(emailEventSuggestions).values({ userId, emailAccountId: input.emailAccountId, emailMessageId: input.emailMessageId, title: input.title.slice(0, 240), description: input.description?.slice(0, 4000) || null, startAt: input.startAt, endAt: input.endAt, reminderMinutes: input.reminderMinutes, planLink: input.planLink?.slice(0, 1000) || null, sourceExcerpt: input.sourceExcerpt?.slice(0, 1000) || null, confidence: input.confidence, model: input.model });
+}
+
+export async function listEmailEventSuggestions(userId: number, input?: { accountId?: number; status?: EmailSuggestionStatus; limit?: number }) {
+  const db = await requireDb();
+  const conditions = [eq(emailEventSuggestions.userId, userId)];
+  if (input?.accountId) conditions.push(eq(emailEventSuggestions.emailAccountId, input.accountId));
+  if (input?.status) conditions.push(eq(emailEventSuggestions.status, input.status));
+  return db.select({ id: emailEventSuggestions.id, emailAccountId: emailEventSuggestions.emailAccountId, emailMessageId: emailEventSuggestions.emailMessageId, title: emailEventSuggestions.title, description: emailEventSuggestions.description, startAt: emailEventSuggestions.startAt, endAt: emailEventSuggestions.endAt, reminderMinutes: emailEventSuggestions.reminderMinutes, planLink: emailEventSuggestions.planLink, sourceExcerpt: emailEventSuggestions.sourceExcerpt, confidence: emailEventSuggestions.confidence, status: emailEventSuggestions.status, calendarEventId: emailEventSuggestions.calendarEventId, analyzedAt: emailEventSuggestions.analyzedAt, emailSubject: emailMessages.subject, senderName: emailMessages.senderName, senderEmail: emailMessages.senderEmail, webLink: emailMessages.webLink }).from(emailEventSuggestions).innerJoin(emailMessages, and(eq(emailEventSuggestions.emailMessageId, emailMessages.id), eq(emailMessages.userId, userId))).where(and(...conditions)).orderBy(desc(emailEventSuggestions.analyzedAt)).limit(input?.limit ?? 50);
+}
+
+export async function getPendingEmailEventSuggestion(userId: number, suggestionId: number) {
+  const db = await requireDb();
+  return (await db.select().from(emailEventSuggestions).where(and(eq(emailEventSuggestions.id, suggestionId), eq(emailEventSuggestions.userId, userId), eq(emailEventSuggestions.status, "pending"))).limit(1))[0];
+}
+
+export async function acceptEmailEventSuggestion(userId: number, suggestionId: number, calendarEventId: number) {
+  const db = await requireDb();
+  await db.update(emailEventSuggestions).set({ status: "accepted", calendarEventId, errorMessage: null }).where(and(eq(emailEventSuggestions.id, suggestionId), eq(emailEventSuggestions.userId, userId), eq(emailEventSuggestions.status, "pending")));
+}
+
+export async function dismissEmailEventSuggestion(userId: number, suggestionId: number) {
+  const db = await requireDb();
+  await db.update(emailEventSuggestions).set({ status: "dismissed" }).where(and(eq(emailEventSuggestions.id, suggestionId), eq(emailEventSuggestions.userId, userId), eq(emailEventSuggestions.status, "pending")));
 }
 
 export async function syncDueNotifications(userId: number) {

@@ -8,4 +8,10 @@ export const ENV = {
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+  publicAppUrl: process.env.TASKFLOW_PUBLIC_URL ?? "",
+  emailTokenEncryptionKey: process.env.EMAIL_TOKEN_ENCRYPTION_KEY ?? "",
+  googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
+  googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
+  microsoftOAuthClientId: process.env.MICROSOFT_OAUTH_CLIENT_ID ?? "",
+  microsoftOAuthClientSecret: process.env.MICROSOFT_OAUTH_CLIENT_SECRET ?? "",
 };
