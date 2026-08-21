@@ -25,4 +25,12 @@ describe("email OAuth token protection", () => {
 
     expect(() => encryptEmailToken("secret-token")).toThrow("EMAIL_TOKEN_ENCRYPTION_KEY");
   });
+
+  it("reports Gmail and Webmail as ready when a valid IMAP encryption key is configured", async () => {
+    vi.stubEnv("EMAIL_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 47).toString("base64"));
+    vi.resetModules();
+    const { getEmailProviderConfiguration } = await import("./emailOAuth");
+
+    expect(getEmailProviderConfiguration()).toEqual({ google: true, webmail: true });
+  });
 });

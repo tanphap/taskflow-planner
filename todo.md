@@ -159,3 +159,6 @@
 - [x] Tạo lịch Heartbeat dự án chạy mỗi ngày cho handler câu nói AI đã xuất bản.
 - [x] Thêm công tắc Tự động / Câu cố định cho người dùng, hỗ trợ VI/EN và lưu lựa chọn trên thiết bị.
 - [x] Bổ sung kiểm thử, kiểm chứng responsive và xuất bản tính năng câu nói AI hằng ngày.
+- [x] Chẩn đoán trạng thái “Webmail chưa sẵn sàng trên máy chủ này” khi người dùng kết nối IMAP SSL.
+- [x] Cấu hình khóa mã hóa mật khẩu IMAP trên máy chủ và kiểm chứng lại luồng Webmail / IMAP SSL.
+- [x] Kiểm thử, cập nhật ghi chú và xuất bản bản sửa trạng thái sẵn sàng Webmail.
