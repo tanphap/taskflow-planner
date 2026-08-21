@@ -215,3 +215,5 @@
 - [x] Bổ sung kiểm thử, kiểm chứng giao diện desktop/mobile và xuất bản cải tiến Inbox.
 - [x] Thay nhãn “Đặt lịch hẹn” trong danh sách công việc bằng biểu tượng lịch có nhãn trợ năng và gợi ý thao tác.
 - [x] Kiểm thử responsive và xuất bản điều chỉnh giao diện thao tác lịch hẹn.
+- [x] Gỡ nút “Mở email gốc” khỏi hộp thoại Chi tiết tóm tắt AI, giữ các thao tác còn lại.
+- [x] Kiểm thử giao diện tóm tắt AI và xuất bản điều chỉnh.
