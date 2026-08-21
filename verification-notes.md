@@ -197,3 +197,9 @@ Thông báo **“Webmail chưa sẵn sàng trên máy chủ này”** được x
 ## Chuẩn hóa biểu mẫu Gmail / IMAP SSL
 
 Biểu mẫu Gmail nay dùng cấu trúc nhất quán với Webmail / IMAP SSL: địa chỉ Gmail, tên đăng nhập IMAP tùy chọn, máy chủ `imap.gmail.com` và cổng SSL `993` được hiển thị cố định, cùng trường **Mật khẩu ứng dụng Google**. Mật khẩu đăng nhập Google thông thường không được chấp nhận; giao diện nêu rõ yêu cầu Mật khẩu ứng dụng 16 ký tự và vẫn giữ toàn bộ hướng dẫn VI/EN. Ảnh xem trước desktop 1280×720 và mobile 375×812 xác nhận shell Dashboard, chuyển đổi ngôn ngữ, thông báo, nút tạo nhanh và các khối nội dung giữ bố cục ổn định, không có tràn ngang. Phần biểu mẫu được kiểm chứng bằng kiểm tra kiểu, build production và **62 kiểm thử Vitest**; không dùng thông tin đăng nhập Gmail thực tế trong lần xác minh này.
+
+## Biểu mẫu đăng nhập email thu gọn
+
+Hai thẻ Gmail và Webmail / IMAP SSL nay được thu gọn mặc định. Mỗi thẻ có biểu tượng bánh răng riêng; người dùng bấm biểu tượng này để mở hoặc đóng trường thông tin đăng nhập và hướng dẫn kết nối. Nút có `aria-label`, `title` và vòng focus hiển thị rõ, nên có thể dùng bằng chuột, chạm hoặc bàn phím. Nội dung đăng nhập chỉ được render khi thẻ được mở; không thay đổi luồng IMAP, trạng thái cấu hình hay dữ liệu mật khẩu đang được mã hóa phía máy chủ.
+
+Đã xác nhận `pnpm check`, production build và **62 kiểm thử Vitest** đều đạt. Ảnh xem trước tại 1280×720 và 375×812 xác nhận shell ứng dụng tiếp tục ổn định, không tràn ngang hoặc làm chồng lấn header/navigation. Không nhập thông tin đăng nhập, tạo kết nối IMAP hoặc thay đổi dữ liệu email trong bước kiểm chứng này.

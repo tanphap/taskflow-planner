@@ -165,3 +165,6 @@
 - [x] Chuẩn hóa biểu mẫu Gmail theo trải nghiệm Webmail, với máy chủ và cổng IMAP Google đặt sẵn.
 - [x] Giữ hướng dẫn rõ ràng về Mật khẩu ứng dụng Google, hỗ trợ VI/EN và phản hồi lỗi phù hợp.
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản biểu mẫu Gmail đã chuẩn hóa.
+- [x] Thu gọn biểu mẫu đăng nhập Gmail và Webmail trong Quản trị email theo trạng thái ban đầu.
+- [x] Thêm biểu tượng bánh răng có nhãn trợ năng để mở/đóng biểu mẫu kết nối từng nhà cung cấp.
+- [x] Kiểm thử keyboard, responsive và xuất bản giao diện đăng nhập email thu gọn.
