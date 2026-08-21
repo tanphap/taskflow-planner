@@ -1,52 +1,48 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle, Home } from "lucide-react";
+import { ArrowLeft, Compass } from "lucide-react";
+import { useLanguage } from "@/hooks/useLanguage";
 import { useLocation } from "wouter";
 
 export default function NotFound() {
   const [, setLocation] = useLocation();
-
-  const handleGoHome = () => {
-    setLocation("/");
-  };
+  const { language } = useLanguage();
+  const copy = language === "en"
+    ? {
+        label: "Page not found",
+        title: "It looks like you wandered off the plan.",
+        description: "This page does not exist or has been moved. Return to your workspace to continue your day.",
+        action: "Back to TaskFlow",
+      }
+    : {
+        label: "Không tìm thấy trang",
+        title: "Có vẻ bạn đã đi lệch khỏi kế hoạch.",
+        description: "Trang này không tồn tại hoặc đã được di chuyển. Trở về không gian làm việc để tiếp tục ngày của bạn.",
+        action: "Về TaskFlow",
+      };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <Card className="w-full max-w-lg mx-4 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-        <CardContent className="pt-8 pb-8 text-center">
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-100 rounded-full animate-pulse" />
-              <AlertCircle className="relative h-16 w-16 text-red-500" />
-            </div>
+    <main className="not-found-shell min-h-screen px-5 py-10">
+      <section className="not-found-card mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center overflow-hidden">
+        <div className="grid w-full gap-12 px-7 py-14 md:grid-cols-[0.7fr_1fr] md:items-center md:px-14">
+          <div aria-hidden="true" className="not-found-mark">
+            404
           </div>
-
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">404</h1>
-
-          <h2 className="text-xl font-semibold text-slate-700 mb-4">
-            Page Not Found
-          </h2>
-
-          <p className="text-slate-600 mb-8 leading-relaxed">
-            Sorry, the page you are looking for doesn't exist.
-            <br />
-            It may have been moved or deleted.
-          </p>
-
-          <div
-            id="not-found-button-group"
-            className="flex flex-col sm:flex-row gap-3 justify-center"
-          >
-            <Button
-              onClick={handleGoHome}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Go Home
+          <div>
+            <p className="mono-label text-[var(--terracotta)]">{copy.label}</p>
+            <h1 className="mt-4 max-w-xl font-display text-5xl leading-[0.96] tracking-[-0.04em] text-[var(--ink)] md:text-7xl">
+              {copy.title}
+            </h1>
+            <p className="mt-6 max-w-lg text-base leading-7 text-[var(--ink-muted)]">
+              {copy.description}
+            </p>
+            <Button onClick={() => setLocation("/")} size="lg" className="mt-9 rounded-xl px-5 shadow-sm">
+              <ArrowLeft className="h-4 w-4" />
+              {copy.action}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+        <Compass aria-hidden="true" className="not-found-compass" />
+      </section>
+    </main>
   );
 }
