@@ -228,6 +228,12 @@ Popup tóm tắt nay có ba thao tác. **Sao chép tóm tắt** dùng clipboard 
 
 Đã thêm kiểm thử `eventPrefillFromEmailSummary` cho bản nháp lịch hẹn và xác nhận `pnpm check`, production build cùng **64 kiểm thử Vitest** đều đạt. Ảnh Overview tại 1280×720 và 375×812 xác nhận shell desktop/mobile vẫn không tràn ngang sau khi bổ sung logic popup. Không có thao tác clipboard, liên kết email thật hoặc lịch hẹn nào được kích hoạt trong bước kiểm chứng trực quan.
 
+## Đồng bộ Webmail theo metadata và timeout
+
+Sau khi xuất bản checkpoint `61598fe0`, một lần đồng bộ trực tiếp được khởi động trong phiên My Browser đã xác thực cho hộp thư Webmail `ntphap@vnpt.vn`. Giao diện chuyển nút sang trạng thái **Đang đồng bộ…** và vẫn đang chờ phản hồi tại thời điểm ghi nhận; không có thông báo lỗi mới hoặc dữ liệu xác thực nào được hiển thị. Lần quan sát này được dùng để đánh giá timeout và khả năng tương thích của luồng chỉ lấy metadata.
+
+Lần kiểm tra tiếp theo hoàn tất thành công: nút trở lại **Đồng bộ**, thời điểm đồng bộ gần nhất cập nhật thành **20:31** và toast xác nhận hiển thị **“Đã đồng bộ 37 email”**. Không có thông báo lỗi IMAP; thao tác được kiểm chứng trong phiên người dùng đã kết nối hộp thư thực tế.
+
 ## Ngày giờ từ tóm tắt AI và toast sao chép
 
 Dịch vụ Gemini hiện yêu cầu JSON có cấu trúc gồm tóm tắt, `eventStartAt` và `eventEndAt`. Chỉ khi email nêu hoặc cho phép suy luận rõ ràng cả ngày và giờ, hệ thống mới lưu ngày giờ ở dạng UTC để tiền điền EventDialog; không suy đoán được thì giữ bản nháp lịch hẹn một giờ theo cơ chế dự phòng. Ngày giờ trích xuất luôn chỉ là dữ liệu điền sẵn để người dùng xem, chỉnh sửa và tự xác nhận lưu. Dữ liệu thời gian được lưu theo từng `userId` trong bản tóm tắt tương ứng; migration `0012_clever_killmonger.sql` chỉ thêm hai cột thời gian, không sửa hoặc xóa dữ liệu hiện có.

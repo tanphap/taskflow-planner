@@ -205,7 +205,7 @@
 - [x] Xuất bản bản khôi phục ổn định và xác nhận thao tác Đồng bộ hoạt động trở lại.
 - [x] Truy nguyên lỗi IMAP “không thể xử lý lô đồng bộ” còn xuất hiện sau khi hạ giới hạn 50 thư.
 - [x] Sửa nguyên nhân kết nối hoặc câu lệnh IMAP thực tế, kèm kiểm thử hồi quy.
-- [ ] Kiểm chứng thao tác Đồng bộ với hộp thư đã kết nối và xuất bản bản sửa.
+- [x] Kiểm chứng thao tác Đồng bộ với hộp thư đã kết nối và xuất bản bản sửa.
 - [x] Phân tích lỗi production mới nhất sau khi người dùng xác nhận đồng bộ vẫn thất bại.
 - [x] Khắc phục tương thích IMAP theo lỗi gốc bằng đồng bộ metadata và timeout rõ ràng.
-- [ ] Xác minh lại thao tác Đồng bộ với hộp thư thực tế sau khi xuất bản bản sửa metadata IMAP.
+- [x] Xác minh lại thao tác Đồng bộ với hộp thư thực tế sau khi xuất bản bản sửa metadata IMAP.
