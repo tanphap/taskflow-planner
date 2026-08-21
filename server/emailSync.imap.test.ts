@@ -4,17 +4,24 @@ const imapMocks = vi.hoisted(() => ({
   ImapFlow: vi.fn(),
   connect: vi.fn(),
   getMailboxLock: vi.fn(),
+  fetch: vi.fn(),
   logout: vi.fn(),
   close: vi.fn(),
   release: vi.fn(),
 }));
 
+const dbMocks = vi.hoisted(() => ({
+  getEmailAccountWithCredentials: vi.fn(),
+  upsertEmailMessages: vi.fn(),
+  setEmailAccountSyncState: vi.fn(),
+}));
+
 vi.mock("imapflow", () => ({ ImapFlow: imapMocks.ImapFlow }));
-vi.mock("./db", () => ({}));
+vi.mock("./db", () => dbMocks);
 vi.mock("./emailOAuth", () => ({ decryptEmailToken: vi.fn(), encryptEmailToken: vi.fn() }));
 vi.mock("./webmailImap", () => ({ resolvePublicWebmailImapHost: vi.fn().mockResolvedValue({ hostname: "email.vnpt.vn", address: "203.0.113.44" }) }));
 
-import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 
 describe("IMAP connection verification", () => {
   beforeEach(() => {
@@ -25,6 +32,7 @@ describe("IMAP connection verification", () => {
     imapMocks.ImapFlow.mockImplementation(() => ({
       connect: imapMocks.connect,
       getMailboxLock: imapMocks.getMailboxLock,
+      fetch: imapMocks.fetch,
       logout: imapMocks.logout,
       close: imapMocks.close,
     }));
@@ -75,5 +83,47 @@ describe("IMAP inbox pagination", () => {
   it("replaces opaque IMAP command failures with actionable guidance", () => {
     expect(getMailboxSyncErrorMessage(new Error("Command failed"))).toContain("Máy chủ IMAP");
     expect(getMailboxSyncErrorMessage(new Error("Authentication failed"))).toBe("Authentication failed");
+  });
+
+  it("passes the UID range as a fetch option instead of a fetch data item", async () => {
+    const client = {
+      connect: imapMocks.connect,
+      getMailboxLock: imapMocks.getMailboxLock,
+      mailbox: { exists: 1, uidNext: 1201, uidValidity: 987 },
+      fetch: imapMocks.fetch,
+      logout: imapMocks.logout,
+      close: imapMocks.close,
+    };
+    imapMocks.ImapFlow.mockImplementation(() => client);
+    imapMocks.fetch.mockImplementation(async function* () {
+      yield {
+        uid: 1200,
+        envelope: { subject: "Thông báo", from: [{ name: "TaskFlow", address: "no-reply@example.com" }], messageId: "id-1200" },
+        flags: new Set<string>(),
+        internalDate: new Date("2026-08-21T00:00:00.000Z"),
+        source: Buffer.from("Subject: Thông báo\r\n\r\nNội dung"),
+      };
+    });
+    dbMocks.getEmailAccountWithCredentials.mockResolvedValue({
+      id: 7,
+      provider: "gmail",
+      authMethod: "app_password",
+      imapHost: "imap.gmail.com",
+      imapPort: 993,
+      imapSecure: true,
+      imapUsername: "owner@example.com",
+      imapPasswordCiphertext: "encrypted-password",
+      imapMailbox: "INBOX",
+    });
+    dbMocks.upsertEmailMessages.mockResolvedValue(undefined);
+    dbMocks.setEmailAccountSyncState.mockResolvedValue(undefined);
+
+    await syncMailbox(1, 7);
+
+    expect(imapMocks.fetch).toHaveBeenCalledWith(
+      "1151:1200",
+      { envelope: true, flags: true, internalDate: true, source: true },
+      { uid: true },
+    );
   });
 });

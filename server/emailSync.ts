@@ -94,7 +94,7 @@ async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAcco
     if (!page.range) return { messages: [], hasMore: false, nextBeforeUid: null };
     const uidValidity = mailbox?.uidValidity || 0;
     const messages: MailboxMessage[] = [];
-    for await (const message of client.fetch(page.range, { uid: true, envelope: true, flags: true, internalDate: true, source: true })) {
+    for await (const message of client.fetch(page.range, { envelope: true, flags: true, internalDate: true, source: true }, { uid: true })) {
       const from = message.envelope?.from?.[0];
       messages.push({
         providerMessageId: `${uidValidity || 0}:${message.uid}`,
@@ -144,6 +144,10 @@ export async function syncMailbox(userId: number, accountId: number) {
     await db.setEmailAccountSyncState(userId, account.id, "connected");
     return { count: page.messages.length };
   } catch (error) {
+    console.error("[Email sync] IMAP synchronization failed", {
+      accountId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     const message = getMailboxSyncErrorMessage(error);
     const needsReconnect = /auth|login|token|reconnect|authentication/i.test(message);
     await db.setEmailAccountSyncState(userId, accountId, needsReconnect ? "needs_reconnect" : "error", message);
@@ -161,6 +165,10 @@ export async function fetchOlderMailboxMessages(userId: number, accountId: numbe
     const messages = await db.listEmailMessagesByProviderIds(userId, account.id, page.messages.map(message => message.providerMessageId));
     return { count: page.messages.length, messages, hasMore: page.hasMore, nextBeforeUid: page.nextBeforeUid, total: await db.countEmailMessages(userId, account.id) };
   } catch (error) {
+    console.error("[Email sync] IMAP older-message fetch failed", {
+      accountId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     const message = getMailboxSyncErrorMessage(error);
     const needsReconnect = /auth|login|token|reconnect|authentication/i.test(message);
     await db.setEmailAccountSyncState(userId, accountId, needsReconnect ? "needs_reconnect" : "error", message);

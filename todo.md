@@ -203,3 +203,6 @@
 - [x] Khôi phục giới hạn đồng bộ IMAP ổn định về 50 thư theo yêu cầu người dùng.
 - [x] Điều chỉnh phân trang, nhãn Inbox và kiểm thử hồi quy theo lô 50 thư.
 - [x] Xuất bản bản khôi phục ổn định và xác nhận thao tác Đồng bộ hoạt động trở lại.
+- [x] Truy nguyên lỗi IMAP “không thể xử lý lô đồng bộ” còn xuất hiện sau khi hạ giới hạn 50 thư.
+- [x] Sửa nguyên nhân kết nối hoặc câu lệnh IMAP thực tế, kèm kiểm thử hồi quy.
+- [ ] Kiểm chứng thao tác Đồng bộ với hộp thư đã kết nối và xuất bản bản sửa.
