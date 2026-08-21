@@ -209,3 +209,7 @@
 - [x] Phân tích lỗi production mới nhất sau khi người dùng xác nhận đồng bộ vẫn thất bại.
 - [x] Khắc phục tương thích IMAP theo lỗi gốc bằng đồng bộ metadata và timeout rõ ràng.
 - [x] Xác minh lại thao tác Đồng bộ với hộp thư thực tế sau khi xuất bản bản sửa metadata IMAP.
+- [x] Rà soát dữ liệu email hiện có và bổ sung cách lấy nội dung thư gốc theo yêu cầu người dùng, không làm chậm đồng bộ metadata.
+- [x] Xây dựng hộp xem email gốc có định dạng dễ đọc, hỗ trợ mở nội dung đầy đủ và nhãn VI/EN.
+- [x] Hiển thị rõ số email mới của lần đồng bộ so với tổng số email đang có của từng hộp thư.
+- [x] Bổ sung kiểm thử, kiểm chứng giao diện desktop/mobile và xuất bản cải tiến Inbox.

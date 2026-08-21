@@ -170,7 +170,7 @@ export async function consumeEmailOAuthSession(stateHash: string) {
 
 export async function listEmailAccounts(userId: number) {
   const db = await requireDb();
-  return db.select({ id: emailAccounts.id, provider: emailAccounts.provider, email: emailAccounts.email, displayName: emailAccounts.displayName, authMethod: emailAccounts.authMethod, imapHost: emailAccounts.imapHost, imapPort: emailAccounts.imapPort, imapSecure: emailAccounts.imapSecure, imapUsername: emailAccounts.imapUsername, imapMailbox: emailAccounts.imapMailbox, connectionStatus: emailAccounts.connectionStatus, lastSyncedAt: emailAccounts.lastSyncedAt, lastSyncError: emailAccounts.lastSyncError, aiSyncEnabled: emailAccounts.aiSyncEnabled, aiSyncIntervalMinutes: emailAccounts.aiSyncIntervalMinutes, aiSyncLastRunAt: emailAccounts.aiSyncLastRunAt, aiSyncLastError: emailAccounts.aiSyncLastError, createdAt: emailAccounts.createdAt }).from(emailAccounts).where(eq(emailAccounts.userId, userId)).orderBy(asc(emailAccounts.provider), asc(emailAccounts.email));
+  return db.select({ id: emailAccounts.id, provider: emailAccounts.provider, email: emailAccounts.email, displayName: emailAccounts.displayName, authMethod: emailAccounts.authMethod, imapHost: emailAccounts.imapHost, imapPort: emailAccounts.imapPort, imapSecure: emailAccounts.imapSecure, imapUsername: emailAccounts.imapUsername, imapMailbox: emailAccounts.imapMailbox, connectionStatus: emailAccounts.connectionStatus, lastSyncedAt: emailAccounts.lastSyncedAt, lastSyncError: emailAccounts.lastSyncError, lastSyncFetchedCount: emailAccounts.lastSyncFetchedCount, lastSyncNewCount: emailAccounts.lastSyncNewCount, mailboxMessageCount: emailAccounts.mailboxMessageCount, aiSyncEnabled: emailAccounts.aiSyncEnabled, aiSyncIntervalMinutes: emailAccounts.aiSyncIntervalMinutes, aiSyncLastRunAt: emailAccounts.aiSyncLastRunAt, aiSyncLastError: emailAccounts.aiSyncLastError, createdAt: emailAccounts.createdAt }).from(emailAccounts).where(eq(emailAccounts.userId, userId)).orderBy(asc(emailAccounts.provider), asc(emailAccounts.email));
 }
 
 export async function getEmailAccountWithCredentials(userId: number, accountId: number) {
@@ -232,9 +232,9 @@ export async function updateEmailAccountTokens(userId: number, accountId: number
   await db.update(emailAccounts).set({ ...input, connectionStatus: "connected", lastSyncError: null }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
 }
 
-export async function setEmailAccountSyncState(userId: number, accountId: number, status: "connected" | "needs_reconnect" | "error", error?: string | null) {
+export async function setEmailAccountSyncState(userId: number, accountId: number, status: "connected" | "needs_reconnect" | "error", error?: string | null, stats?: { fetchedCount: number; newCount: number; mailboxCount: number }) {
   const db = await requireDb();
-  await db.update(emailAccounts).set({ connectionStatus: status, lastSyncError: error?.slice(0, 1000) || null, lastSyncedAt: status === "connected" ? new Date() : undefined }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+  await db.update(emailAccounts).set({ connectionStatus: status, lastSyncError: error?.slice(0, 1000) || null, lastSyncedAt: status === "connected" ? new Date() : undefined, ...(stats ? { lastSyncFetchedCount: Math.max(0, stats.fetchedCount), lastSyncNewCount: Math.max(0, stats.newCount), mailboxMessageCount: Math.max(0, stats.mailboxCount) } : {}) }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
 }
 
 export async function removeEmailAccount(userId: number, accountId: number) {
@@ -287,6 +287,12 @@ export async function listEmailMessagesByProviderIds(userId: number, accountId: 
     eq(emailMessages.emailAccountId, accountId),
     inArray(emailMessages.providerMessageId, providerMessageIds),
   )).orderBy(desc(emailMessages.receivedAt));
+}
+
+/** Finds one user-owned metadata record before requesting its original MIME body from IMAP. */
+export async function getEmailMessageForOriginalContent(userId: number, messageId: number) {
+  const db = await requireDb();
+  return (await db.select({ id: emailMessages.id, emailAccountId: emailMessages.emailAccountId, providerMessageId: emailMessages.providerMessageId, subject: emailMessages.subject, senderName: emailMessages.senderName, senderEmail: emailMessages.senderEmail, receivedAt: emailMessages.receivedAt }).from(emailMessages).where(and(eq(emailMessages.id, messageId), eq(emailMessages.userId, userId))).limit(1))[0];
 }
 
 export async function updateEmailMessageStatus(userId: number, messageId: number, status: EmailMessageStatus) {

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Readable } from "node:stream";
 
 const imapMocks = vi.hoisted(() => ({
   ImapFlow: vi.fn(),
   connect: vi.fn(),
   getMailboxLock: vi.fn(),
   fetch: vi.fn(),
+  download: vi.fn(),
   logout: vi.fn(),
   close: vi.fn(),
   release: vi.fn(),
@@ -12,8 +14,11 @@ const imapMocks = vi.hoisted(() => ({
 
 const dbMocks = vi.hoisted(() => ({
   getEmailAccountWithCredentials: vi.fn(),
+  listEmailMessagesByProviderIds: vi.fn(),
+  countEmailMessages: vi.fn(),
   upsertEmailMessages: vi.fn(),
   setEmailAccountSyncState: vi.fn(),
+  getEmailMessageForOriginalContent: vi.fn(),
 }));
 
 vi.mock("imapflow", () => ({ ImapFlow: imapMocks.ImapFlow }));
@@ -21,7 +26,7 @@ vi.mock("./db", () => dbMocks);
 vi.mock("./emailOAuth", () => ({ decryptEmailToken: vi.fn(), encryptEmailToken: vi.fn() }));
 vi.mock("./webmailImap", () => ({ resolvePublicWebmailImapHost: vi.fn().mockResolvedValue({ hostname: "email.vnpt.vn", address: "203.0.113.44" }) }));
 
-import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, IMAP_CONNECTION_TIMEOUT_MS, IMAP_SOCKET_TIMEOUT_MS, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { EMAIL_SYNC_BATCH_SIZE, fetchOriginalMailboxMessage, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, IMAP_CONNECTION_TIMEOUT_MS, IMAP_SOCKET_TIMEOUT_MS, ORIGINAL_EMAIL_MAX_BYTES, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 
 describe("IMAP connection verification", () => {
   beforeEach(() => {
@@ -33,6 +38,7 @@ describe("IMAP connection verification", () => {
       connect: imapMocks.connect,
       getMailboxLock: imapMocks.getMailboxLock,
       fetch: imapMocks.fetch,
+      download: imapMocks.download,
       logout: imapMocks.logout,
       close: imapMocks.close,
     }));
@@ -73,6 +79,10 @@ describe("IMAP connection verification", () => {
 });
 
 describe("IMAP inbox pagination", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("builds a bounded UID window and keeps only batches of 50 messages", () => {
     expect(EMAIL_SYNC_BATCH_SIZE).toBe(50);
     expect(getImapFetchWindow(1201)).toEqual({ range: "1151:1200", mayHaveOlderMessages: true });
@@ -122,6 +132,8 @@ describe("IMAP inbox pagination", () => {
       imapMailbox: "INBOX",
     });
     dbMocks.upsertEmailMessages.mockResolvedValue(undefined);
+    dbMocks.listEmailMessagesByProviderIds.mockResolvedValue([]);
+    dbMocks.countEmailMessages.mockResolvedValue(1);
     dbMocks.setEmailAccountSyncState.mockResolvedValue(undefined);
 
     await syncMailbox(1, 7);
@@ -131,5 +143,46 @@ describe("IMAP inbox pagination", () => {
       { envelope: true, flags: true, internalDate: true },
       { uid: true },
     );
+  });
+
+  it("loads and parses one original message on demand without persisting its MIME body", async () => {
+    const client = {
+      connect: imapMocks.connect,
+      getMailboxLock: imapMocks.getMailboxLock,
+      download: imapMocks.download,
+      logout: imapMocks.logout,
+      close: imapMocks.close,
+    };
+    imapMocks.ImapFlow.mockImplementation(() => client);
+    dbMocks.getEmailMessageForOriginalContent.mockResolvedValue({
+      id: 91,
+      emailAccountId: 7,
+      providerMessageId: "987:1200",
+      subject: "Thông báo lịch họp",
+      senderName: "TaskFlow",
+      senderEmail: "no-reply@example.com",
+      receivedAt: new Date("2026-08-21T00:00:00.000Z"),
+    });
+    dbMocks.getEmailAccountWithCredentials.mockResolvedValue({
+      id: 7,
+      provider: "gmail",
+      authMethod: "app_password",
+      imapHost: "imap.gmail.com",
+      imapPort: 993,
+      imapSecure: true,
+      imapUsername: "owner@example.com",
+      imapPasswordCiphertext: "encrypted-password",
+      imapMailbox: "INBOX",
+    });
+    imapMocks.download.mockResolvedValue({
+      content: Readable.from([Buffer.from("From: TaskFlow <no-reply@example.com>\r\nSubject: Thông báo lịch họp\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nNội dung dễ đọc")]),
+      meta: { expectedSize: 2_000_001 },
+    });
+
+    const result = await fetchOriginalMailboxMessage(1, 91);
+
+    expect(imapMocks.download).toHaveBeenCalledWith("1200", undefined, { uid: true, maxBytes: ORIGINAL_EMAIL_MAX_BYTES });
+    expect(result).toMatchObject({ subject: "Thông báo lịch họp", text: "Nội dung dễ đọc", truncated: true });
+    expect(dbMocks.upsertEmailMessages).not.toHaveBeenCalled();
   });
 });

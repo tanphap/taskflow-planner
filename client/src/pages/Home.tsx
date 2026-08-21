@@ -145,6 +145,16 @@ Object.assign(englishCopy, {
   "Đã lưu cấu hình quét AI": "AI scan settings saved",
   "AI đã phân tích": "AI analyzed",
   "email mới": "new emails",
+  "Thư mới / Tổng thư": "New / total messages",
+  "Trong lần đồng bộ gần nhất": "In the latest sync",
+  "Chưa có số liệu đồng bộ": "No sync metrics yet",
+  "Xem nội dung đầy đủ": "View full message",
+  "Đang tải nội dung thư…": "Loading message content…",
+  "Nội dung email gốc": "Original email content",
+  "Thư gốc được tải theo yêu cầu từ hộp thư của bạn và không lưu lại trên TaskFlow.": "The original message is loaded on demand from your mailbox and is not stored in TaskFlow.",
+  "Nội dung thư bị cắt bớt do giới hạn bảo vệ an toàn.": "This message was shortened to stay within the safety limit.",
+  "Không có phần nội dung văn bản để hiển thị.": "There is no text content to display.",
+  "Đóng thư gốc": "Close original message",
   "Đồng bộ inbox qua IMAP. Gmail dùng mật khẩu ứng dụng được mã hóa; Outlook/Microsoft 365 đăng nhập OAuth2 theo yêu cầu bảo mật của Microsoft.": "Sync inboxes through IMAP. Gmail uses an encrypted app password; Outlook/Microsoft 365 signs in with OAuth2 as required by Microsoft.",
   "Mật khẩu này không hiển thị lại sau khi lưu. Bạn có thể ngắt kết nối bất cứ lúc nào để xóa secret.": "This password is never shown again after saving. Disconnect at any time to remove the secret.",
   "Đồng bộ metadata thư; không hiển thị token hoặc mật khẩu ứng dụng.": "Only mail metadata is synced; tokens and app passwords are never shown.",
@@ -324,6 +334,9 @@ type EmailAccountRecord = {
   aiSyncIntervalMinutes: number;
   aiSyncLastRunAt: Date | null;
   aiSyncLastError: string | null;
+  lastSyncFetchedCount: number | null;
+  lastSyncNewCount: number | null;
+  mailboxMessageCount: number | null;
   createdAt: Date;
 };
 
@@ -346,6 +359,7 @@ type EmailProviderConfiguration = { google: boolean; webmail: boolean };
 type EmailEventSuggestionRecord = { id: number; emailAccountId: number; emailMessageId: number; title: string; description: string | null; startAt: Date; endAt: Date; reminderMinutes: number; planLink: string | null; sourceExcerpt: string | null; confidence: number; status: "pending" | "accepted" | "dismissed" | "error"; calendarEventId: number | null; analyzedAt: Date; emailSubject: string; senderName: string | null; senderEmail: string | null; webLink: string | null };
 type EmailGeminiSummaryRecord = { id: number; emailMessageId: number; emailAccountId: number; summary: string; eventStartAt: Date | null; eventEndAt: Date | null; locale: string; model: string; generatedAt: Date };
 type EmailAiOverviewData = { inboxCount: number; summarizedCount: number; summarizedToday: number; recentSummaries: Array<{ id: number; emailMessageId: number; summary: string; generatedAt: Date; emailSubject: string; senderName: string | null }> };
+type EmailOriginalContent = { subject: string; sender: string | null; receivedAt: Date; html: string | null; text: string | null; truncated: boolean; maxBytes: number };
 
 function NotificationBell({ open, onOpenChange, emails, dueNotifications, onOpenEmail, onOpenReminders, onMarkAllRead }: {
   open: boolean;
@@ -441,7 +455,7 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, loadingOlderAccountId, canLoadOlder, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onLoadOlder, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail, onCreateEventFromSummary }: {
+function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, loadingOlderAccountId, canLoadOlder, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, openingOriginalMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onLoadOlder, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail, onOpenOriginalContent, onCreateEventFromSummary }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
@@ -462,6 +476,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   analyzingAccountId: number | null;
   dismissingSuggestionId: number | null;
   summarizingMessageId: number | null;
+  openingOriginalMessageId: number | null;
   connectingGmail: boolean;
   connectingWebmail: boolean;
   onAccountFilter: (value: number | "all") => void;
@@ -479,6 +494,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   onReviewSuggestion: (suggestion: EmailEventSuggestionRecord) => void;
   onDismissSuggestion: (id: number) => void;
   onSummarizeGmail: (id: number) => void;
+  onOpenOriginalContent: (id: number) => Promise<EmailOriginalContent>;
   onCreateEventFromSummary: (message: EmailMessageRecord, summary: EmailGeminiSummaryRecord) => void;
 }) {
   const { language } = useLanguage();
@@ -492,14 +508,23 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const [connectionGuide, setConnectionGuide] = useState<"gmail" | "webmail" | null>(null);
   const [summaryDialogMessageId, setSummaryDialogMessageId] = useState<number | null>(null);
   const [copiedSummaryMessageId, setCopiedSummaryMessageId] = useState<number | null>(null);
+  const [originalDialogMessageId, setOriginalDialogMessageId] = useState<number | null>(null);
+  const [originalContent, setOriginalContent] = useState<EmailOriginalContent | null>(null);
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
   const selectedGeminiSummary = summaryDialogMessageId === null ? undefined : geminiSummaryByMessage.get(summaryDialogMessageId);
   const selectedSummaryMessage = summaryDialogMessageId === null ? undefined : messages.find(message => message.id === summaryDialogMessageId);
+  const selectedOriginalMessage = originalDialogMessageId === null ? undefined : messages.find(message => message.id === originalDialogMessageId);
   const summarizedMessageIds = useMemo(() => new Set(geminiSummaries.map(summary => summary.emailMessageId)), [geminiSummaries]);
   const suggestedMessageIds = useMemo(() => new Set(suggestions.map(suggestion => suggestion.emailMessageId)), [suggestions]);
   const filteredMessages = useMemo(() => filterEmailInbox(messages, { searchQuery, focus: focusFilter, summarizedMessageIds, suggestedMessageIds }), [messages, searchQuery, focusFilter, summarizedMessageIds, suggestedMessageIds]);
   const hasInboxFilters = Boolean(searchQuery.trim()) || focusFilter !== "all";
+  const handleOpenOriginalMessage = async (message: EmailMessageRecord) => {
+    setOriginalDialogMessageId(message.id);
+    setOriginalContent(null);
+    try { setOriginalContent(await onOpenOriginalContent(message.id)); }
+    catch { setOriginalDialogMessageId(null); }
+  };
   const handleGmailConnect = () => {
     const feedback = getEmailConnectionFeedback({ provider: "google", configured: providerEnabled("google"), email: gmailForm.email, password: gmailForm.appPassword });
     if (feedback === "gmail-credentials-required") {
@@ -566,7 +591,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
       </div>
       {accounts.length === 0 ? <div className="p-8 text-center"><Mail className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-3 font-bold">Chưa có hộp thư nào được kết nối</p><p className="mt-1 text-sm text-neutral-500">Chọn Gmail hoặc Webmail / IMAP SSL ở trên để bắt đầu.</p></div> : <div className="divide-y divide-[#18211b]/15">
         {accounts.map(account => <div key={account.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className="mono-label border border-[#18211b] px-2 py-1">IMAP · {account.authMethod === "oauth2" ? "OAUTH2" : "APP PASSWORD"}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className="mono-label border border-[#18211b] px-2 py-1">IMAP · {account.authMethod === "oauth2" ? "OAUTH2" : "APP PASSWORD"}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.mailboxMessageCount === null ? <p className="mt-2 text-xs text-neutral-500">{t("Chưa có số liệu đồng bộ")}</p> : <div className="mt-2 flex w-fit items-baseline gap-2 border-l-2 border-[#e23221] bg-[#fff2ef] px-3 py-2"><span className="mono-label text-[10px] text-[#e23221]">{t("Thư mới / Tổng thư")}</span><span className="text-sm font-extrabold">{account.lastSyncNewCount ?? 0} / {account.mailboxMessageCount}</span><span className="text-xs text-neutral-500">{t("Trong lần đồng bộ gần nhất")}</span></div>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
             <div className="mt-4 grid gap-2 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3 sm:grid-cols-[auto_minmax(160px,1fr)_auto] sm:items-center"><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={account.aiSyncEnabled} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => onConfigureAiSync(account.id, event.target.checked, intervalFor(account))} /> Bật quét AI tự động</label><select className="input-swiss h-9 text-xs" value={intervalFor(account)} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => setIntervals(previous => ({ ...previous, [account.id]: Number(event.target.value) }))}>{[[15, "Mỗi 15 phút"], [30, "Mỗi 30 phút"], [60, "Mỗi giờ"], [120, "Mỗi 2 giờ"], [240, "Mỗi 4 giờ"], [720, "Mỗi 12 giờ"], [1440, "Mỗi ngày"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="swiss-button-outline h-9 justify-center text-xs" onClick={() => onConfigureAiSync(account.id, account.aiSyncEnabled, intervalFor(account))} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id}>{configuringAccountId === account.id ? "Đang lưu…" : "Lưu chu kỳ"}</button></div>
             {account.aiSyncLastRunAt && <p className="mt-2 text-xs text-neutral-500">AI quét gần nhất: {formatDate(account.aiSyncLastRunAt)} · {formatTime(account.aiSyncLastRunAt)}</p>}{account.aiSyncLastError && <p className="mt-1 text-xs text-[#e23221]">{account.aiSyncLastError}</p>}</div>
           <div className="flex flex-wrap gap-2 xl:justify-end"><button className="swiss-button-outline" onClick={() => onSync(account.id)} disabled={syncingAccountId === account.id}>{syncingAccountId === account.id ? "Đang đồng bộ…" : "Đồng bộ"}</button><button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onAnalyze(account.id)} disabled={account.connectionStatus !== "connected" || analyzingAccountId === account.id}>{analyzingAccountId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} {analyzingAccountId === account.id ? "AI đang quét…" : "Quét AI ngay"}</button><button className="swiss-button-outline text-[#e23221]" onClick={() => onDisconnect(account.id)} disabled={disconnectingAccountId === account.id}>{disconnectingAccountId === account.id ? "Đang ngắt…" : "Ngắt kết nối"}</button></div>
@@ -589,7 +614,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
       <div className="border-b-2 border-[#e23221] bg-[#fff2ef] px-5 py-3"><p className="mono-label text-[#e23221]">GEMINI / OPT-IN</p><p className="mt-1 text-sm leading-5 text-neutral-700">Gemini miễn phí — tóm tắt theo yêu cầu</p><p className="mt-1 text-xs leading-5 text-neutral-600">Chỉ gửi tiêu đề, người gửi và phần xem trước của thư bạn bấm tóm tắt tới Gemini. Không quét inbox tự động; sau khi tóm tắt thành công, thư được chuyển sang Đã đọc trong TaskFlow.</p></div>
       {loading ? <div className="p-10 text-center text-sm text-neutral-500">Đang tải email…</div> : messages.length === 0 ? <div className="p-10 text-center"><p className="font-bold">Chưa có thư phù hợp</p><p className="mt-1 text-sm text-neutral-500">Hãy kết nối hộp thư và bấm Đồng bộ để cập nhật inbox.</p></div> : filteredMessages.length === 0 ? <div className="p-10 text-center"><Search className="mx-auto h-7 w-7 text-neutral-400" /><p className="mt-3 font-bold">{t("Không tìm thấy email phù hợp")}</p><p className="mt-1 text-sm text-neutral-500">{t("Thử đổi từ khóa tìm kiếm hoặc bộ lọc.")}</p>{hasInboxFilters && <button type="button" className="swiss-button-outline mt-4" onClick={() => { onSearchQuery(""); onFocusFilter("all"); }}>{t("Xóa bộ lọc")}</button>}</div> : <div className="divide-y divide-[#18211b]/15">{filteredMessages.map(message => {
         const geminiSummary = geminiSummaryByMessage.get(message.id);
-        return <article key={message.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`mono-label px-2 py-1 ${message.status === "done" ? "bg-[#e4ff3f]" : "bg-neutral-100"}`}>{t(statusLabel[message.status])}</span>{message.status === "new" && !message.isRead && <span className="mono-label bg-[#ff5d3d] px-2 py-1 text-white">CHƯA ĐỌC</span>}</div><h4 className="mt-2 truncate font-bold">{message.subject}</h4><p className="mt-1 truncate text-sm text-neutral-600">{message.senderName || message.senderEmail || "Không rõ người gửi"} · {formatDate(message.receivedAt)} {formatTime(message.receivedAt)}</p>{message.snippet && <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-500">{message.snippet}</p>}</div><div className="flex flex-wrap gap-2 lg:justify-end"><select className="input-swiss h-9 min-w-36 text-xs" value={message.status} onChange={event => onSetMessageStatus(message.id, event.target.value as EmailMessageStatus)} disabled={updatingMessageId === message.id}>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{t(label)}</option>)}</select>{geminiSummary ? <button className="swiss-button-outline h-9" onClick={() => setSummaryDialogMessageId(message.id)}><Sparkles className="h-4 w-4" /> {t("Xem tóm tắt AI")}</button> : <button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onSummarizeGmail(message.id)} disabled={summarizingMessageId === message.id}>{summarizingMessageId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{summarizingMessageId === message.id ? "Gemini đang tóm tắt…" : "Tóm tắt bằng Gemini"}</button>}{message.webLink && <a className="swiss-button-outline h-9" href={message.webLink} target="_blank" rel="noreferrer">Mở thư <ExternalLink className="h-3.5 w-3.5" /></a>}</div></article>;
+        return <article key={message.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`mono-label px-2 py-1 ${message.status === "done" ? "bg-[#e4ff3f]" : "bg-neutral-100"}`}>{t(statusLabel[message.status])}</span>{message.status === "new" && !message.isRead && <span className="mono-label bg-[#ff5d3d] px-2 py-1 text-white">CHƯA ĐỌC</span>}</div><h4 className="mt-2 truncate font-bold">{message.subject}</h4><p className="mt-1 truncate text-sm text-neutral-600">{message.senderName || message.senderEmail || "Không rõ người gửi"} · {formatDate(message.receivedAt)} {formatTime(message.receivedAt)}</p>{message.snippet && <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-500">{message.snippet}</p>}</div><div className="flex flex-wrap gap-2 lg:justify-end"><select className="input-swiss h-9 min-w-36 text-xs" value={message.status} onChange={event => onSetMessageStatus(message.id, event.target.value as EmailMessageStatus)} disabled={updatingMessageId === message.id}>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{t(label)}</option>)}</select><button className="swiss-button-outline h-9" onClick={() => void handleOpenOriginalMessage(message)} disabled={openingOriginalMessageId === message.id}>{openingOriginalMessageId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}{openingOriginalMessageId === message.id ? t("Đang tải nội dung thư…") : t("Xem nội dung đầy đủ")}</button>{geminiSummary ? <button className="swiss-button-outline h-9" onClick={() => setSummaryDialogMessageId(message.id)}><Sparkles className="h-4 w-4" /> {t("Xem tóm tắt AI")}</button> : <button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onSummarizeGmail(message.id)} disabled={summarizingMessageId === message.id}>{summarizingMessageId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{summarizingMessageId === message.id ? "Gemini đang tóm tắt…" : "Tóm tắt bằng Gemini"}</button>}{message.webLink && <a className="swiss-button-outline h-9" href={message.webLink} target="_blank" rel="noreferrer">Mở thư <ExternalLink className="h-3.5 w-3.5" /></a>}</div></article>;
       })}</div>}
       <div className="flex flex-col gap-3 border-t border-[var(--line)] bg-[var(--surface-soft)] p-5 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-xl text-xs leading-5 text-[var(--ink-muted)]">{accountFilter === "all" ? t("Chọn một hộp thư để tải thư cũ.") : canLoadOlder ? t("Mỗi lần tải thêm tối đa 50 thư cũ của hộp thư đang chọn.") : t("Đã tải hết thư đã tìm thấy.")}</p><button type="button" className="swiss-button-outline shrink-0" onClick={() => accountFilter !== "all" && onLoadOlder(accountFilter)} disabled={accountFilter === "all" || loadingOlderAccountId === accountFilter || !canLoadOlder}>{loadingOlderAccountId === accountFilter ? <Loader2 className="h-4 w-4 animate-spin" /> : <Inbox className="h-4 w-4" />}{loadingOlderAccountId === accountFilter ? t("Đang tải thư cũ…") : canLoadOlder ? t("Tải thêm 50 thư cũ") : t("Đã tải hết thư đã tìm thấy.")}</button></div>
     </div>
@@ -601,6 +626,13 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
         </DialogHeader>
         {selectedGeminiSummary && selectedSummaryMessage && <div className="space-y-5"><div className="border-y border-[var(--line)] py-4"><p className="truncate text-lg font-bold text-[var(--ink)]">{selectedSummaryMessage.subject || t("Không có tiêu đề")}</p><dl className="mt-3 grid gap-2 text-sm text-[var(--ink-muted)] sm:grid-cols-2"><div><dt className="mono-label text-[10px]">{t("Người gửi")}</dt><dd className="mt-1 truncate">{selectedSummaryMessage.senderName || selectedSummaryMessage.senderEmail || "—"}</dd></div><div><dt className="mono-label text-[10px]">{t("Đã nhận")}</dt><dd className="mt-1">{formatDate(selectedSummaryMessage.receivedAt)} · {formatTime(selectedSummaryMessage.receivedAt)}</dd></div></dl></div><div className="border-l-2 border-[#e23221] bg-[var(--surface-soft)] p-4"><p className="mono-label text-[#e23221]">{t("Tóm tắt từ Gemini")}</p><p className="mt-3 whitespace-pre-line text-sm leading-7 text-[var(--ink)]">{selectedGeminiSummary.summary}</p></div><p className="text-xs leading-5 text-[var(--ink-muted)]">{t("Bản tóm tắt này được tạo từ tiêu đề và phần xem trước đã đồng bộ, có thể chưa phản ánh toàn bộ nội dung email.")}</p></div>}
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-between"><button type="button" className="swiss-button-outline" onClick={() => setSummaryDialogMessageId(null)}>{t("Đóng tóm tắt")}</button>{selectedGeminiSummary && selectedSummaryMessage && <div className="flex flex-wrap justify-end gap-2"><button type="button" className="swiss-button-outline" onClick={async () => { try { await navigator.clipboard.writeText(selectedGeminiSummary.summary); setCopiedSummaryMessageId(selectedSummaryMessage.id); toast.success(t("Đã sao chép tóm tắt AI"), { duration: 2800 }); window.setTimeout(() => setCopiedSummaryMessageId(current => current === selectedSummaryMessage.id ? null : current), 2000); } catch { toast.error(t("Không thể sao chép tóm tắt trên thiết bị này.")); } }}><Copy className="h-4 w-4" /> {copiedSummaryMessageId === selectedSummaryMessage.id ? <><Check className="h-4 w-4" /> {t("Đã sao chép")}</> : t("Sao chép tóm tắt")}</button><button type="button" className="swiss-button-outline" onClick={() => { if (!selectedSummaryMessage.webLink) { toast.error(t("Không có liên kết trực tiếp đến email gốc này.")); return; } window.open(selectedSummaryMessage.webLink, "_blank", "noopener,noreferrer"); }}><ExternalLink className="h-4 w-4" /> {t("Mở email gốc")}</button><button type="button" className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => { onCreateEventFromSummary(selectedSummaryMessage, selectedGeminiSummary); setSummaryDialogMessageId(null); }}><CalendarDays className="h-4 w-4" /> {t("Tạo lịch hẹn từ tóm tắt")}</button></div>}</DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={originalDialogMessageId !== null} onOpenChange={open => { if (!open) { setOriginalDialogMessageId(null); setOriginalContent(null); } }}>
+      <DialogContent className="max-h-[min(88vh,52rem)] overflow-y-auto border-[var(--line)] bg-[var(--surface)] sm:max-w-4xl">
+        <DialogHeader><p className="mono-label text-[var(--terracotta)]">IMAP / ON-DEMAND</p><DialogTitle className="mt-2 pr-8 font-display text-2xl leading-tight tracking-[-0.04em] text-[var(--ink)]">{t("Nội dung email gốc")}</DialogTitle></DialogHeader>
+        {selectedOriginalMessage && <div className="space-y-4"><div className="border-y border-[var(--line)] py-3"><p className="truncate text-lg font-bold text-[var(--ink)]">{originalContent?.subject || selectedOriginalMessage.subject}</p><p className="mt-1 text-sm text-[var(--ink-muted)]">{originalContent?.sender || selectedOriginalMessage.senderName || selectedOriginalMessage.senderEmail || "—"} · {formatDate(originalContent?.receivedAt || selectedOriginalMessage.receivedAt)} · {formatTime(originalContent?.receivedAt || selectedOriginalMessage.receivedAt)}</p></div>{openingOriginalMessageId === selectedOriginalMessage.id || !originalContent ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-[var(--ink-muted)]"><Loader2 className="h-5 w-5 animate-spin" />{t("Đang tải nội dung thư…")}</div> : <><p className="text-xs leading-5 text-[var(--ink-muted)]">{t("Thư gốc được tải theo yêu cầu từ hộp thư của bạn và không lưu lại trên TaskFlow.")}</p>{originalContent.truncated && <p className="border-l-2 border-[#e23221] bg-[#fff2ef] px-3 py-2 text-xs text-[#7f1d1d]">{t("Nội dung thư bị cắt bớt do giới hạn bảo vệ an toàn.")}</p>}{originalContent.html ? <iframe title={t("Nội dung email gốc")} sandbox="" referrerPolicy="no-referrer" className="min-h-96 w-full rounded-lg border border-[var(--line)] bg-white" srcDoc={originalContent.html} /> : <pre className="max-h-[48vh] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-4 font-sans text-sm leading-7 text-[var(--ink)]">{originalContent.text || t("Không có phần nội dung văn bản để hiển thị.")}</pre>}</>}</div>}
+        <DialogFooter><button type="button" className="swiss-button-outline" onClick={() => { setOriginalDialogMessageId(null); setOriginalContent(null); }}>{t("Đóng thư gốc")}</button></DialogFooter>
       </DialogContent>
     </Dialog>
   </section>;
@@ -739,7 +771,7 @@ export default function Home() {
     await Promise.all([utils.email.accounts.invalidate(), utils.email.messages.invalidate(), utils.email.suggestions.invalidate(), utils.email.geminiSummaries.invalidate(), utils.email.aiOverview.invalidate()]);
   };
   const syncEmailMailbox = trpc.email.sync.useMutation({
-    onSuccess: async data => { await refreshEmailData(); toast.success(`Đã đồng bộ ${data.count} email`); },
+    onSuccess: async data => { await refreshEmailData(); toast.success(language === "en" ? `Synced ${data.newCount} new email${data.newCount === 1 ? "" : "s"} / ${data.mailboxTotal} total.` : `Đã đồng bộ ${data.newCount} email mới / ${data.mailboxTotal} tổng.`); },
     onError: error => toast.error(error.message),
   });
   const loadOlderEmailMessages = trpc.email.fetchOlderMessages.useMutation({
@@ -780,6 +812,9 @@ export default function Home() {
   });
   const summarizeEmailWithGemini = trpc.email.summarizeWithGemini.useMutation({
     onSuccess: async () => { await refreshEmailData(); toast.success("Tóm tắt Gemini đã sẵn sàng"); },
+    onError: error => toast.error(error.message),
+  });
+  const originalEmailContent = trpc.email.originalContent.useMutation({
     onError: error => toast.error(error.message),
   });
   const dismissEmailSuggestion = trpc.email.dismissSuggestion.useMutation({
@@ -915,6 +950,7 @@ export default function Home() {
               analyzingAccountId={analyzeEmailMailbox.isPending ? analyzeEmailMailbox.variables?.id : null}
               dismissingSuggestionId={dismissEmailSuggestion.isPending ? dismissEmailSuggestion.variables?.id : null}
               summarizingMessageId={summarizeEmailWithGemini.isPending ? summarizeEmailWithGemini.variables?.messageId : null}
+              openingOriginalMessageId={originalEmailContent.isPending ? originalEmailContent.variables?.messageId : null}
               connectingGmail={connectGmailImap.isPending}
               connectingWebmail={connectWebmailImap.isPending}
               onAccountFilter={setEmailAccountFilter}
@@ -935,6 +971,7 @@ export default function Home() {
                 if (!window.confirm("Đồng ý gửi tiêu đề, người gửi và phần xem trước của thư này tới Gemini miễn phí? Google có thể xử lý dữ liệu theo điều khoản của dịch vụ miễn phí. Không gửi email nhạy cảm.")) return;
                 summarizeEmailWithGemini.mutate({ messageId, locale: language, acknowledgeUnpaidDataUse: true });
               }}
+              onOpenOriginalContent={(messageId: number) => originalEmailContent.mutateAsync({ messageId })}
               onCreateEventFromSummary={openCreateEventFromEmailSummary}
             />}
             {view === "profile" && <ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} />}
