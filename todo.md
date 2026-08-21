@@ -197,3 +197,6 @@
 - [x] Tăng đồng bộ định kỳ và thủ công lên 100 thư mới nhất theo từng hộp thư.
 - [x] Bổ sung nút Tải thêm thư cũ theo từng đợt 100 thư, có trạng thái tải và lỗi VI/EN.
 - [x] Kiểm thử phân trang IMAP, tránh trùng email, responsive và xuất bản phương án B.
+- [x] Chẩn đoán lỗi “command fail” khi người dùng đồng bộ hộp thư IMAP.
+- [x] Hiển thị rõ điều khiển tải thư cũ và trạng thái sẵn có của thư cũ cho hộp thư đã chọn.
+- [x] Kiểm thử lỗi đồng bộ và giao diện Inbox sau khi khắc phục, rồi xuất bản bản sửa.

@@ -9,7 +9,6 @@ type MailboxMessage = { providerMessageId: string; threadId?: string | null; sub
 type MailboxPage = { messages: MailboxMessage[]; hasMore: boolean; nextBeforeUid: number | null };
 
 export const EMAIL_SYNC_BATCH_SIZE = 100;
-const IMAP_FETCH_WINDOW_MULTIPLIER = 4;
 
 /** Extracts the IMAP UID from TaskFlow's `<uidValidity>:<uid>` provider identifier. */
 export function getImapUidFromProviderMessageId(providerMessageId: string) {
@@ -23,9 +22,17 @@ export function getImapFetchWindow(uidNext: number, beforeUid?: number, limit = 
   const normalizedLimit = Math.min(Math.max(Math.trunc(limit), 1), EMAIL_SYNC_BATCH_SIZE);
   const upperUid = Math.max(0, Math.trunc((beforeUid ?? uidNext) - 1));
   if (!upperUid) return { range: null, mayHaveOlderMessages: false };
-  const windowSize = normalizedLimit * IMAP_FETCH_WINDOW_MULTIPLIER;
-  const lowerUid = Math.max(1, upperUid - windowSize + 1);
+  const lowerUid = Math.max(1, upperUid - normalizedLimit + 1);
   return { range: `${lowerUid}:${upperUid}`, mayHaveOlderMessages: lowerUid > 1 };
+}
+
+/** Converts opaque IMAP command failures into a clear, actionable message for the mailbox owner. */
+export function getMailboxSyncErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "Unknown mailbox synchronization error";
+  if (/^command failed$/i.test(message.trim())) {
+    return "Máy chủ IMAP không thể xử lý lô đồng bộ này. Vui lòng thử lại; nếu lỗi lặp lại, hãy kiểm tra kết nối IMAP SSL và Mật khẩu ứng dụng.";
+  }
+  return message;
 }
 
 function cleanSnippet(raw: Buffer | string | undefined) {
@@ -137,10 +144,10 @@ export async function syncMailbox(userId: number, accountId: number) {
     await db.setEmailAccountSyncState(userId, account.id, "connected");
     return { count: page.messages.length };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown mailbox synchronization error";
+    const message = getMailboxSyncErrorMessage(error);
     const needsReconnect = /auth|login|token|reconnect|authentication/i.test(message);
     await db.setEmailAccountSyncState(userId, accountId, needsReconnect ? "needs_reconnect" : "error", message);
-    throw error;
+    throw new Error(message);
   }
 }
 
@@ -154,9 +161,9 @@ export async function fetchOlderMailboxMessages(userId: number, accountId: numbe
     const messages = await db.listEmailMessagesByProviderIds(userId, account.id, page.messages.map(message => message.providerMessageId));
     return { count: page.messages.length, messages, hasMore: page.hasMore, nextBeforeUid: page.nextBeforeUid, total: await db.countEmailMessages(userId, account.id) };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown older mailbox synchronization error";
+    const message = getMailboxSyncErrorMessage(error);
     const needsReconnect = /auth|login|token|reconnect|authentication/i.test(message);
     await db.setEmailAccountSyncState(userId, accountId, needsReconnect ? "needs_reconnect" : "error", message);
-    throw error;
+    throw new Error(message);
   }
 }

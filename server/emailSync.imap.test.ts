@@ -14,7 +14,7 @@ vi.mock("./db", () => ({}));
 vi.mock("./emailOAuth", () => ({ decryptEmailToken: vi.fn(), encryptEmailToken: vi.fn() }));
 vi.mock("./webmailImap", () => ({ resolvePublicWebmailImapHost: vi.fn().mockResolvedValue({ hostname: "email.vnpt.vn", address: "203.0.113.44" }) }));
 
-import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 
 describe("IMAP connection verification", () => {
   beforeEach(() => {
@@ -61,8 +61,8 @@ describe("IMAP connection verification", () => {
 describe("IMAP inbox pagination", () => {
   it("builds a bounded UID window and keeps only batches of 100 messages", () => {
     expect(EMAIL_SYNC_BATCH_SIZE).toBe(100);
-    expect(getImapFetchWindow(1201)).toEqual({ range: "801:1200", mayHaveOlderMessages: true });
-    expect(getImapFetchWindow(801)).toEqual({ range: "401:800", mayHaveOlderMessages: true });
+    expect(getImapFetchWindow(1201)).toEqual({ range: "1101:1200", mayHaveOlderMessages: true });
+    expect(getImapFetchWindow(801)).toEqual({ range: "701:800", mayHaveOlderMessages: true });
     expect(getImapFetchWindow(1)).toEqual({ range: null, mayHaveOlderMessages: false });
   });
 
@@ -70,5 +70,10 @@ describe("IMAP inbox pagination", () => {
     expect(getImapUidFromProviderMessageId("987:1200")).toBe(1200);
     expect(getImapUidFromProviderMessageId("invalid:1200")).toBeNull();
     expect(getImapUidFromProviderMessageId("987:0")).toBeNull();
+  });
+
+  it("replaces opaque IMAP command failures with actionable guidance", () => {
+    expect(getMailboxSyncErrorMessage(new Error("Command failed"))).toContain("Máy chủ IMAP");
+    expect(getMailboxSyncErrorMessage(new Error("Authentication failed"))).toBe("Authentication failed");
   });
 });
