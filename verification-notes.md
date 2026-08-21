@@ -193,3 +193,7 @@ Checkpoint `9d9c293e` đã được xuất bản trước khi đăng ký lịch 
 ## Khắc phục trạng thái Webmail / IMAP SSL
 
 Thông báo **“Webmail chưa sẵn sàng trên máy chủ này”** được xác định do thiếu biến bí mật `EMAIL_TOKEN_ENCRYPTION_KEY`, vốn bắt buộc để mã hóa AES-256-GCM mật khẩu IMAP trước khi lưu. Sau khi người dùng thêm khóa base64 32 byte trong cấu hình dự án và dịch vụ được khởi động lại, môi trường máy chủ xác nhận khóa có độ dài hợp lệ. Kiểm thử mới xác nhận truy vấn cấu hình trả về Gmail và Webmail đều sẵn sàng khi khóa hợp lệ; toàn bộ `pnpm test` đạt **62 kiểm thử**, cùng với `pnpm check` và production build thành công. Không đọc, ghi, hoặc hiển thị lại giá trị bí mật trong quá trình kiểm chứng.
+
+## Chuẩn hóa biểu mẫu Gmail / IMAP SSL
+
+Biểu mẫu Gmail nay dùng cấu trúc nhất quán với Webmail / IMAP SSL: địa chỉ Gmail, tên đăng nhập IMAP tùy chọn, máy chủ `imap.gmail.com` và cổng SSL `993` được hiển thị cố định, cùng trường **Mật khẩu ứng dụng Google**. Mật khẩu đăng nhập Google thông thường không được chấp nhận; giao diện nêu rõ yêu cầu Mật khẩu ứng dụng 16 ký tự và vẫn giữ toàn bộ hướng dẫn VI/EN. Ảnh xem trước desktop 1280×720 và mobile 375×812 xác nhận shell Dashboard, chuyển đổi ngôn ngữ, thông báo, nút tạo nhanh và các khối nội dung giữ bố cục ổn định, không có tràn ngang. Phần biểu mẫu được kiểm chứng bằng kiểm tra kiểu, build production và **62 kiểm thử Vitest**; không dùng thông tin đăng nhập Gmail thực tế trong lần xác minh này.

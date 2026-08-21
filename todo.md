@@ -162,3 +162,6 @@
 - [x] Chẩn đoán trạng thái “Webmail chưa sẵn sàng trên máy chủ này” khi người dùng kết nối IMAP SSL.
 - [x] Cấu hình khóa mã hóa mật khẩu IMAP trên máy chủ và kiểm chứng lại luồng Webmail / IMAP SSL.
 - [x] Kiểm thử, cập nhật ghi chú và xuất bản bản sửa trạng thái sẵn sàng Webmail.
+- [x] Chuẩn hóa biểu mẫu Gmail theo trải nghiệm Webmail, với máy chủ và cổng IMAP Google đặt sẵn.
+- [x] Giữ hướng dẫn rõ ràng về Mật khẩu ứng dụng Google, hỗ trợ VI/EN và phản hồi lỗi phù hợp.
+- [x] Kiểm thử, kiểm chứng responsive và xuất bản biểu mẫu Gmail đã chuẩn hóa.
