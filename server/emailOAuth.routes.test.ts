@@ -16,8 +16,8 @@ async function request(app: Express, path: string) {
 }
 
 async function setup() {
-  vi.stubEnv("GOOGLE_OAUTH_CLIENT_ID", "google-client-id");
-  vi.stubEnv("GOOGLE_OAUTH_CLIENT_SECRET", "google-client-secret");
+  vi.stubEnv("MICROSOFT_OAUTH_CLIENT_ID", "microsoft-client-id");
+  vi.stubEnv("MICROSOFT_OAUTH_CLIENT_SECRET", "microsoft-client-secret");
   vi.stubEnv("EMAIL_TOKEN_ENCRYPTION_KEY", Buffer.alloc(32, 21).toString("base64"));
   vi.resetModules();
   const db = await import("./db");
@@ -36,13 +36,14 @@ describe("email OAuth state and PKCE routes", () => {
     vi.mocked(sdk.authenticateRequest).mockResolvedValue({ id: 73 } as never);
     vi.mocked(db.createEmailOAuthSession).mockResolvedValue(undefined);
 
-    const response = await request(app, "/api/email/oauth/google/start");
+    const response = await request(app, "/api/email/oauth/microsoft/start");
     const location = new URL(response.headers.get("location")!);
     const state = location.searchParams.get("state")!;
     const verifierHash = vi.mocked(db.createEmailOAuthSession).mock.calls[0]?.[2];
 
     expect(response.status).toBe(302);
-    expect(location.origin).toBe("https://accounts.google.com");
+    expect(location.origin).toBe("https://login.microsoftonline.com");
+    expect(location.searchParams.get("scope")).toContain("IMAP.AccessAsUser.All");
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
     expect(state.length).toBeGreaterThanOrEqual(40);
     expect(verifierHash).toBe(crypto.createHash("sha256").update(state).digest("hex"));
@@ -53,10 +54,10 @@ describe("email OAuth state and PKCE routes", () => {
     const { app, db } = await setup();
     vi.mocked(db.consumeEmailOAuthSession).mockResolvedValue(null);
 
-    const response = await request(app, "/api/email/oauth/google/callback?state=expired-or-forged&code=provider-code");
+    const response = await request(app, "/api/email/oauth/microsoft/callback?state=expired-or-forged&code=provider-code");
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/?email=invalid-state&provider=google");
+    expect(response.headers.get("location")).toBe("/?email=invalid-state&provider=microsoft");
     expect(db.consumeEmailOAuthSession).toHaveBeenCalledWith(crypto.createHash("sha256").update("expired-or-forged").digest("hex"));
     expect(db.upsertEmailAccount).not.toHaveBeenCalled();
   });

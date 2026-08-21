@@ -146,6 +146,7 @@ export async function getTelegramDeliveryHistory(userId: number, limit = 30) {
 }
 
 export type EmailProvider = "google" | "microsoft";
+export type EmailAuthMethod = "app_password" | "oauth2";
 export type EmailMessageStatus = "new" | "in_progress" | "done" | "archived";
 export type EmailSuggestionStatus = "pending" | "accepted" | "dismissed" | "error";
 
@@ -163,17 +164,61 @@ export async function consumeEmailOAuthSession(stateHash: string) {
 
 export async function listEmailAccounts(userId: number) {
   const db = await requireDb();
-  return db.select({ id: emailAccounts.id, provider: emailAccounts.provider, email: emailAccounts.email, displayName: emailAccounts.displayName, connectionStatus: emailAccounts.connectionStatus, lastSyncedAt: emailAccounts.lastSyncedAt, lastSyncError: emailAccounts.lastSyncError, aiSyncEnabled: emailAccounts.aiSyncEnabled, aiSyncIntervalMinutes: emailAccounts.aiSyncIntervalMinutes, aiSyncLastRunAt: emailAccounts.aiSyncLastRunAt, aiSyncLastError: emailAccounts.aiSyncLastError, createdAt: emailAccounts.createdAt }).from(emailAccounts).where(eq(emailAccounts.userId, userId)).orderBy(asc(emailAccounts.provider), asc(emailAccounts.email));
+  return db.select({ id: emailAccounts.id, provider: emailAccounts.provider, email: emailAccounts.email, displayName: emailAccounts.displayName, authMethod: emailAccounts.authMethod, imapHost: emailAccounts.imapHost, imapPort: emailAccounts.imapPort, imapSecure: emailAccounts.imapSecure, imapUsername: emailAccounts.imapUsername, imapMailbox: emailAccounts.imapMailbox, connectionStatus: emailAccounts.connectionStatus, lastSyncedAt: emailAccounts.lastSyncedAt, lastSyncError: emailAccounts.lastSyncError, aiSyncEnabled: emailAccounts.aiSyncEnabled, aiSyncIntervalMinutes: emailAccounts.aiSyncIntervalMinutes, aiSyncLastRunAt: emailAccounts.aiSyncLastRunAt, aiSyncLastError: emailAccounts.aiSyncLastError, createdAt: emailAccounts.createdAt }).from(emailAccounts).where(eq(emailAccounts.userId, userId)).orderBy(asc(emailAccounts.provider), asc(emailAccounts.email));
 }
 
-export async function getEmailAccountWithTokens(userId: number, accountId: number) {
+export async function getEmailAccountWithCredentials(userId: number, accountId: number) {
   const db = await requireDb();
   return (await db.select().from(emailAccounts).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId))).limit(1))[0];
 }
 
+export async function getEmailAccountByProviderEmail(userId: number, provider: EmailProvider, email: string) {
+  const db = await requireDb();
+  return (await db.select().from(emailAccounts).where(and(eq(emailAccounts.userId, userId), eq(emailAccounts.provider, provider), eq(emailAccounts.email, email.toLowerCase()))).limit(1))[0];
+}
+
+/** @deprecated Use getEmailAccountWithCredentials for IMAP and OAuth2 mailboxes. */
+export const getEmailAccountWithTokens = getEmailAccountWithCredentials;
+
+export type ImapAccountInput = {
+  provider: EmailProvider;
+  email: string;
+  displayName?: string | null;
+  imapHost: string;
+  imapPort: number;
+  imapSecure: boolean;
+  imapUsername: string;
+  imapPasswordCiphertext: string;
+  imapMailbox?: string;
+};
+
+export async function upsertImapEmailAccount(userId: number, input: ImapAccountInput) {
+  const db = await requireDb();
+  const values = {
+    userId,
+    provider: input.provider,
+    email: input.email.toLowerCase(),
+    displayName: input.displayName ?? null,
+    authMethod: "app_password" as const,
+    imapHost: input.imapHost,
+    imapPort: input.imapPort,
+    imapSecure: input.imapSecure,
+    imapUsername: input.imapUsername,
+    imapPasswordCiphertext: input.imapPasswordCiphertext,
+    imapMailbox: input.imapMailbox ?? "INBOX",
+    accessTokenCiphertext: null,
+    refreshTokenCiphertext: null,
+    tokenExpiresAt: null,
+    scopes: null,
+    connectionStatus: "connected" as const,
+    lastSyncError: null,
+  };
+  await db.insert(emailAccounts).values(values).onDuplicateKeyUpdate({ set: { ...values, userId: undefined } });
+}
+
 export async function upsertEmailAccount(userId: number, input: { provider: EmailProvider; email: string; displayName?: string | null; accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null; scopes?: string | null }) {
   const db = await requireDb();
-  await db.insert(emailAccounts).values({ userId, provider: input.provider, email: input.email.toLowerCase(), displayName: input.displayName ?? null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null }).onDuplicateKeyUpdate({ set: { displayName: input.displayName ?? null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null } });
+  await db.insert(emailAccounts).values({ userId, provider: input.provider, email: input.email.toLowerCase(), displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null }).onDuplicateKeyUpdate({ set: { displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", imapPasswordCiphertext: null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null } });
 }
 
 export async function updateEmailAccountTokens(userId: number, accountId: number, input: { accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null }) {

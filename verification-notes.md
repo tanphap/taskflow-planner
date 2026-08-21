@@ -2,6 +2,12 @@
 
 ## 2026-08-17
 
+## Chuyển đổi IMAP (Gmail + Outlook/Microsoft 365)
+
+Kiểm chứng trực tiếp trong phiên **My Browser** đã đăng nhập cho thấy mục **Quản trị email** tải ổn định sau khi chuyển luồng đồng bộ sang IMAP. Giao diện hiển thị hai thẻ rõ ràng: Gmail dùng `imap.gmail.com:993` qua TLS cùng các trường email, tên đăng nhập IMAP tùy chọn và mật khẩu ứng dụng; Outlook/Microsoft 365 dùng IMAP với nút OAuth2 riêng phù hợp Modern Auth. Không có mật khẩu hoặc token nào hiển thị trong danh sách tài khoản và chú thích trên giao diện nêu rõ secret có thể bị xóa khi ngắt kết nối.
+
+Trong môi trường hiện tại chưa cấu hình `EMAIL_TOKEN_ENCRYPTION_KEY` hay Microsoft OAuth nên các thẻ hiển thị đúng trạng thái **CẦN CẤU HÌNH** và nút Outlook bị vô hiệu hóa có giải thích. Không gửi dữ liệu đăng nhập, không kết nối hộp thư và không thay đổi dữ liệu người dùng trong kiểm chứng trực quan này.
+
 Giao diện đã được kiểm tra ở kích thước 1280×720 và 375×812. Bố cục dashboard giữ được hệ lưới Swiss Design, độ tương phản đen–trắng–đỏ rõ ràng, thanh điều hướng desktop và nút mở menu trên thiết bị di động hiển thị phù hợp. Hero, hành động nhanh, danh sách công việc và lịch hẹn co giãn theo chiều dọc trên màn hình hẹp mà không xuất hiện thanh cuộn ngang.
 
 Kiểm tra trực quan cũng xác nhận các trạng thái rỗng vẫn có thông điệp và hành động tiếp theo rõ ràng. Không phát hiện lỗi chồng lấn hoặc nội dung khó đọc trong hai khung hình đã kiểm tra.

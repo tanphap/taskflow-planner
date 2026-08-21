@@ -100,9 +100,16 @@
 - [x] Bổ sung đồng bộ định kỳ có kiểm soát để quét thư mới của từng hộp thư đã kết nối và tạo đề xuất trùng lặp an toàn.
 - [x] Cho phép mỗi người dùng bật/tắt AI quét email và chọn chu kỳ đồng bộ riêng, với ràng buộc tần suất an toàn và lịch chạy theo tài khoản.
 - [x] Bổ sung bản dịch VI/EN, kiểm thử Vitest và xác minh build cho AI-email trước khi xuất bản.
-- [ ] Kiểm chứng Gmail và Outlook OAuth2 đầu cuối bằng Client ID/Secret thật, rồi xác nhận đồng bộ email và AI trong phiên người dùng thực.
+- [x] Không tiếp tục kiểm chứng Gmail và Outlook OAuth2 đầu cuối vì phạm vi được thay thế bằng kết nối IMAP theo yêu cầu người dùng.
 - [x] Viết kiểm thử OAuth state/PKCE cho start/callback email và xác minh trạng thái giao diện AI-email trên desktop; shell responsive đã được kiểm tra ở mobile.
 - [x] Ghi rõ luồng hiện tại: người dùng chỉnh sửa đề xuất trong EventDialog trước khi chấp nhận tạo lịch, không sửa bản ghi đề xuất riêng.
 - [x] Kiểm chứng handler Heartbeat email-AI theo từng hộp thư, gồm chống tạo đề xuất trùng và xử lý job định kỳ bằng kiểm thử đơn vị.
 - [x] Chạy production build, kiểm tra trực quan desktop và shell mobile, rồi cập nhật verification-notes.md.
 - [x] Viết kiểm thử trực tiếp để bảo đảm quét AI lặp lại trên cùng email không tạo đề xuất lịch hẹn trùng.
+- [x] Rà soát thư viện IMAP, TLS và chính sách xử lý mật khẩu ứng dụng trước khi thay thế luồng OAuth email.
+- [x] Mở rộng schema và migration để lưu cấu hình IMAP cùng secret được mã hóa AES-256-GCM, cô lập theo userId.
+- [x] Thay thế backend OAuth Gmail/Graph bằng kết nối IMAP xác thực, đồng bộ metadata inbox và tác vụ quét AI theo chu kỳ riêng của từng hộp thư.
+- [x] Cập nhật API tRPC và giao diện VI/EN để kết nối Gmail IMAP qua TLS/mật khẩu ứng dụng, đồng thời kết nối Outlook qua IMAP OAuth2.
+- [x] Bổ sung kiểm thử mã hóa secret dùng chung, validation cấu hình Gmail IMAP, cô lập userId, đồng bộ và scheduler sau chuyển đổi.
+- [x] Kiểm tra responsive, production build và xuất bản bản IMAP; ghi rõ hướng dẫn Gmail/Outlook và hạn chế bảo mật.
+- [x] Triển khai IMAP làm luồng đồng bộ chung, với OAuth2 qua IMAP riêng cho Outlook/Microsoft 365 theo yêu cầu Modern Auth.

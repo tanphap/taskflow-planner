@@ -11,8 +11,8 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { findPrivateChatForLinkCode } from "./telegram";
 import { parseRecurrenceRule } from "../shared/recurrence";
-import { getEmailProviderConfiguration } from "./emailOAuth";
-import { syncMailbox } from "./emailSync";
+import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
+import { syncMailbox, verifyImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 
@@ -89,6 +89,18 @@ export const appRouter = router({
     accounts: protectedProcedure.query(({ ctx }) => db.listEmailAccounts(ctx.user.id)),
     messages: protectedProcedure.input(z.object({ accountId: z.number().int().positive().optional(), status: z.enum(["new", "in_progress", "done", "archived"]).optional(), limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ ctx, input }) => db.listEmailMessages(ctx.user.id, input)),
     updateMessageStatus: protectedProcedure.input(z.object({ id: z.number().int().positive(), status: z.enum(["new", "in_progress", "done", "archived"]) })).mutation(async ({ ctx, input }) => { await db.updateEmailMessageStatus(ctx.user.id, input.id, input.status); return { success: true } as const; }),
+    connectGmailImap: protectedProcedure.input(z.object({ email: z.string().trim().email("Địa chỉ Gmail không hợp lệ").max(320), username: z.string().trim().min(1).max(320).optional(), appPassword: z.string().min(1, "Hãy nhập mật khẩu ứng dụng").max(512), mailbox: z.string().trim().min(1).max(255).optional() })).mutation(async ({ ctx, input }) => {
+      const email = input.email.toLowerCase();
+      const username = (input.username || email).toLowerCase();
+      const mailbox = input.mailbox || "INBOX";
+      try {
+        await verifyImapConnection({ host: "imap.gmail.com", port: 993, secure: true, user: username, pass: input.appPassword, mailbox });
+        await db.upsertImapEmailAccount(ctx.user.id, { provider: "google", email, imapHost: "imap.gmail.com", imapPort: 993, imapSecure: true, imapUsername: username, imapPasswordCiphertext: encryptEmailToken(input.appPassword), imapMailbox: mailbox });
+        const account = await db.getEmailAccountByProviderEmail(ctx.user.id, "google", email);
+        if (!account) throw new Error("Không thể lưu hộp thư Gmail");
+        return { success: true as const, id: account.id };
+      } catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể kết nối Gmail qua IMAP" }); }
+    }),
     sync: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       try { return { success: true as const, ...(await syncMailbox(ctx.user.id, input.id)) }; }
       catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể đồng bộ hộp thư" }); }

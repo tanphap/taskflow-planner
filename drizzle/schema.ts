@@ -105,7 +105,7 @@ export const telegramConnections = mysqlTable(
   ],
 );
 
-/** OAuth2 mailbox credentials are encrypted server-side and never exposed to the client. */
+/** IMAP credentials and Outlook OAuth2 tokens remain encrypted server-side and are never exposed to the client. */
 export const emailAccounts = mysqlTable(
   "email_accounts",
   {
@@ -114,7 +114,14 @@ export const emailAccounts = mysqlTable(
     provider: mysqlEnum("provider", ["google", "microsoft"]).notNull(),
     email: varchar("email", { length: 320 }).notNull(),
     displayName: varchar("displayName", { length: 240 }),
-    accessTokenCiphertext: text("accessTokenCiphertext").notNull(),
+    authMethod: mysqlEnum("authMethod", ["app_password", "oauth2"]).default("app_password").notNull(),
+    imapHost: varchar("imapHost", { length: 255 }),
+    imapPort: int("imapPort").default(993),
+    imapSecure: boolean("imapSecure").default(true).notNull(),
+    imapUsername: varchar("imapUsername", { length: 320 }),
+    imapPasswordCiphertext: text("imapPasswordCiphertext"),
+    imapMailbox: varchar("imapMailbox", { length: 255 }).default("INBOX").notNull(),
+    accessTokenCiphertext: text("accessTokenCiphertext"),
     refreshTokenCiphertext: text("refreshTokenCiphertext"),
     tokenExpiresAt: timestamp("tokenExpiresAt"),
     scopes: varchar("scopes", { length: 1000 }),

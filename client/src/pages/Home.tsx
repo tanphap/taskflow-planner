@@ -128,7 +128,25 @@ Object.assign(englishCopy, {
   "Liên kết kế hoạch": "Planning link",
   "Đã lưu cấu hình quét AI": "AI scan settings saved",
   "AI đã phân tích": "AI analyzed",
-  "email mới": "new emails"
+  "email mới": "new emails",
+  "Đồng bộ inbox qua IMAP. Gmail dùng mật khẩu ứng dụng được mã hóa; Outlook/Microsoft 365 đăng nhập OAuth2 theo yêu cầu bảo mật của Microsoft.": "Sync inboxes through IMAP. Gmail uses an encrypted app password; Outlook/Microsoft 365 signs in with OAuth2 as required by Microsoft.",
+  "Mật khẩu này không hiển thị lại sau khi lưu. Bạn có thể ngắt kết nối bất cứ lúc nào để xóa secret.": "This password is never shown again after saving. Disconnect at any time to remove the secret.",
+  "Đồng bộ metadata thư; không hiển thị token hoặc mật khẩu ứng dụng.": "Only mail metadata is synced; tokens and app passwords are never shown.",
+  "Kết nối Gmail qua IMAP": "Connect Gmail via IMAP",
+  "Kết nối Outlook qua IMAP": "Connect Outlook via IMAP",
+  "Đang kiểm tra IMAP…": "Checking IMAP…",
+  "Đã kết nối Gmail qua IMAP": "Gmail connected through IMAP",
+  "Cần cấu hình OAuth Microsoft trước khi kết nối": "Microsoft OAuth must be configured before connecting",
+  "Cần cấu hình OAuth Microsoft trước": "Microsoft OAuth configuration is required",
+  "Địa chỉ Gmail": "Gmail address",
+  "Tên đăng nhập IMAP": "IMAP username",
+  "(nếu khác Gmail)": "(if different from Gmail)",
+  "Mật khẩu ứng dụng": "App password",
+  "Chỉ dùng mật khẩu ứng dụng; TaskFlow mã hóa secret trước khi lưu.": "Use an app password only; TaskFlow encrypts the secret before storing it.",
+  "Đồng bộ bằng IMAP, xác thực OAuth2 theo yêu cầu Modern Auth của Microsoft. Bạn tự đăng nhập và cấp quyền.": "Sync through IMAP and authenticate with OAuth2 as required by Microsoft Modern Auth. You sign in and grant permission yourself.",
+  "Quản trị viên cần cấu hình OAuth Microsoft một lần. Người dùng sẽ tự đăng nhập và cấp quyền hộp thư của mình.": "An administrator must configure Microsoft OAuth once. Each user then signs in and grants mailbox permission.",
+  "CẦN CẤU HÌNH": "CONFIGURATION REQUIRED",
+  "SẴN SÀNG": "READY"
 });
 
 const vietnameseCopy: Record<string, string> = Object.fromEntries(Object.entries(englishCopy).map(([vietnamese, english]) => [english, vietnamese]));
@@ -215,6 +233,12 @@ type EmailAccountRecord = {
   provider: "google" | "microsoft";
   email: string;
   displayName: string | null;
+  authMethod: "app_password" | "oauth2";
+  imapHost: string | null;
+  imapPort: number | null;
+  imapSecure: boolean;
+  imapUsername: string | null;
+  imapMailbox: string;
   connectionStatus: "connected" | "needs_reconnect" | "error";
   lastSyncedAt: Date | null;
   lastSyncError: string | null;
@@ -305,7 +329,7 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, loading, accountFilter, statusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, onAccountFilter, onStatusFilter, onConnect, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion }: {
+function EmailManager({ configuration, accounts, messages, suggestions, loading, accountFilter, statusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, connectingGmail, onAccountFilter, onStatusFilter, onConnectGmail, onConnectMicrosoft, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
@@ -319,9 +343,11 @@ function EmailManager({ configuration, accounts, messages, suggestions, loading,
   configuringAccountId: number | null;
   analyzingAccountId: number | null;
   dismissingSuggestionId: number | null;
+  connectingGmail: boolean;
   onAccountFilter: (value: number | "all") => void;
   onStatusFilter: (value: EmailMessageStatus | "all") => void;
-  onConnect: (provider: "google" | "microsoft") => void;
+  onConnectGmail: (input: { email: string; username?: string; appPassword: string }) => void;
+  onConnectMicrosoft: () => void;
   onSync: (id: number) => void;
   onDisconnect: (id: number) => void;
   onSetMessageStatus: (id: number, status: EmailMessageStatus) => void;
@@ -334,6 +360,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, loading,
   const providerLabel = (provider: EmailAccountRecord["provider"]) => provider === "google" ? "Gmail" : "Outlook / Microsoft 365";
   const providerEnabled = (provider: "google" | "microsoft") => Boolean(configuration?.[provider]);
   const [intervals, setIntervals] = useState<Record<number, number>>({});
+  const [gmailForm, setGmailForm] = useState({ email: "", username: "", appPassword: "" });
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
 
   return <section className="mx-auto max-w-7xl space-y-7 px-4 py-6 md:px-8 md:py-9">
@@ -341,39 +368,29 @@ function EmailManager({ configuration, accounts, messages, suggestions, loading,
       <div>
         <p className="mono-label text-[#ff5d3d]">EMAIL OPERATIONS</p>
         <h2 className="mt-2 text-3xl font-black tracking-[-0.055em] text-[#18211b] md:text-4xl">Quản trị email</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">Kết nối hộp thư bằng OAuth để xem inbox, phân loại công việc và theo dõi thư cần xử lý — không cần nhập mật khẩu vào TaskFlow.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">Đồng bộ inbox qua IMAP. Gmail dùng mật khẩu ứng dụng được mã hóa; Outlook/Microsoft 365 đăng nhập OAuth2 theo yêu cầu bảo mật của Microsoft.</p>
       </div>
       <span className="mono-label w-fit border border-[#18211b] bg-white px-3 py-2 text-[#18211b]">{accounts.length} HỘP THƯ</span>
     </div>
 
     <div className="grid gap-4 lg:grid-cols-2">
-      {(["google", "microsoft"] as const).map(provider => {
-        const enabled = providerEnabled(provider);
-        return <div key={provider} className="border-2 border-[#18211b] bg-white p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="mono-label text-neutral-500">OAUTH 2.0</p>
-              <h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">{provider === "google" ? "Gmail" : "Outlook / Microsoft 365"}</h3>
-              <p className="mt-2 text-sm leading-6 text-neutral-600">{provider === "google" ? "Đọc inbox Gmail sau khi bạn tự đăng nhập và cấp quyền." : "Kết nối Microsoft 365 hoặc Outlook qua tài khoản tổ chức/cá nhân."}</p>
-            </div>
-            <span className={`mono-label px-2 py-1 ${enabled ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{enabled ? "SẴN SÀNG" : "CẦN CẤU HÌNH"}</span>
-          </div>
-          <button onClick={() => onConnect(provider)} className="swiss-button mt-5 w-full justify-center" disabled={!enabled} title={enabled ? undefined : "Cần cấu hình OAuth của nhà cung cấp trước"}>
-            <Mail className="h-4 w-4" /> Kết nối {provider === "google" ? "Gmail" : "Outlook"}
-          </button>
-          {!enabled && <p className="mt-3 text-xs leading-5 text-neutral-500">Quản trị viên cần hoàn tất cấu hình OAuth một lần; người dùng vẫn sẽ tự đăng nhập và cấp quyền cho hộp thư của mình.</p>}
-        </div>;
-      })}
+      <form className="border-2 border-[#18211b] bg-white p-5" onSubmit={event => { event.preventDefault(); onConnectGmail({ email: gmailForm.email, username: gmailForm.username || undefined, appPassword: gmailForm.appPassword }); }}>
+        <div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + TLS</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Gmail</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Kết nối qua <strong>imap.gmail.com:993</strong>. Chỉ dùng mật khẩu ứng dụng; TaskFlow mã hóa secret trước khi lưu.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("google") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("google") ? "SẴN SÀNG" : "CẦN CẤU HÌNH"}</span></div>
+        <div className="mt-5 grid gap-3"><label className="text-xs font-bold">Địa chỉ Gmail<input className="input-swiss mt-1 w-full" type="email" value={gmailForm.email} onChange={event => setGmailForm(previous => ({ ...previous, email: event.target.value }))} autoComplete="email" required /></label><label className="text-xs font-bold">Tên đăng nhập IMAP <span className="font-normal text-neutral-500">(nếu khác Gmail)</span><input className="input-swiss mt-1 w-full" value={gmailForm.username} onChange={event => setGmailForm(previous => ({ ...previous, username: event.target.value }))} autoComplete="username" /></label><label className="text-xs font-bold">Mật khẩu ứng dụng<input className="input-swiss mt-1 w-full" type="password" value={gmailForm.appPassword} onChange={event => setGmailForm(previous => ({ ...previous, appPassword: event.target.value }))} autoComplete="new-password" required /></label></div>
+        <button type="submit" className="swiss-button mt-5 w-full justify-center" disabled={!providerEnabled("google") || connectingGmail}>{connectingGmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} {connectingGmail ? "Đang kiểm tra IMAP…" : "Kết nối Gmail qua IMAP"}</button>
+        <p className="mt-3 text-xs leading-5 text-neutral-500">Mật khẩu này không hiển thị lại sau khi lưu. Bạn có thể ngắt kết nối bất cứ lúc nào để xóa secret.</p>
+      </form>
+      <div className="border-2 border-[#18211b] bg-white p-5"><div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + OAUTH2</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Outlook / Microsoft 365</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Đồng bộ bằng IMAP, xác thực OAuth2 theo yêu cầu Modern Auth của Microsoft. Bạn tự đăng nhập và cấp quyền.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("microsoft") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("microsoft") ? "SẴN SÀNG" : "CẦN CẤU HÌNH"}</span></div><button onClick={onConnectMicrosoft} className="swiss-button mt-5 w-full justify-center" disabled={!providerEnabled("microsoft")} title={providerEnabled("microsoft") ? undefined : "Cần cấu hình OAuth Microsoft trước"}><Mail className="h-4 w-4" /> Kết nối Outlook qua IMAP</button>{!providerEnabled("microsoft") && <p className="mt-3 text-xs leading-5 text-neutral-500">Quản trị viên cần cấu hình OAuth Microsoft một lần. Người dùng sẽ tự đăng nhập và cấp quyền hộp thư của mình.</p>}</div>
     </div>
 
     <div className="border-2 border-[#18211b] bg-white">
       <div className="flex flex-col gap-3 border-b border-[#18211b] p-5 md:flex-row md:items-center md:justify-between">
         <div><p className="mono-label text-neutral-500">CONNECTED ACCOUNTS</p><h3 className="mt-1 text-xl font-extrabold">Hộp thư đã kết nối</h3></div>
-        <span className="text-sm text-neutral-500">Đồng bộ metadata thư; không hiển thị token truy cập.</span>
+        <span className="text-sm text-neutral-500">Đồng bộ metadata thư; không hiển thị token hoặc mật khẩu ứng dụng.</span>
       </div>
       {accounts.length === 0 ? <div className="p-8 text-center"><Mail className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-3 font-bold">Chưa có hộp thư nào được kết nối</p><p className="mt-1 text-sm text-neutral-500">Chọn Gmail hoặc Outlook ở trên để bắt đầu.</p></div> : <div className="divide-y divide-[#18211b]/15">
         {accounts.map(account => <div key={account.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
+          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className="mono-label border border-[#18211b] px-2 py-1">IMAP · {account.authMethod === "oauth2" ? "OAUTH2" : "APP PASSWORD"}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
             <div className="mt-4 grid gap-2 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3 sm:grid-cols-[auto_minmax(160px,1fr)_auto] sm:items-center"><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={account.aiSyncEnabled} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => onConfigureAiSync(account.id, event.target.checked, intervalFor(account))} /> Bật quét AI tự động</label><select className="input-swiss h-9 text-xs" value={intervalFor(account)} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => setIntervals(previous => ({ ...previous, [account.id]: Number(event.target.value) }))}>{[[15, "Mỗi 15 phút"], [30, "Mỗi 30 phút"], [60, "Mỗi giờ"], [120, "Mỗi 2 giờ"], [240, "Mỗi 4 giờ"], [720, "Mỗi 12 giờ"], [1440, "Mỗi ngày"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="swiss-button-outline h-9 justify-center text-xs" onClick={() => onConfigureAiSync(account.id, account.aiSyncEnabled, intervalFor(account))} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id}>{configuringAccountId === account.id ? "Đang lưu…" : "Lưu chu kỳ"}</button></div>
             {account.aiSyncLastRunAt && <p className="mt-2 text-xs text-neutral-500">AI quét gần nhất: {formatDate(account.aiSyncLastRunAt)} · {formatTime(account.aiSyncLastRunAt)}</p>}{account.aiSyncLastError && <p className="mt-1 text-xs text-[#e23221]">{account.aiSyncLastError}</p>}</div>
           <div className="flex flex-wrap gap-2 xl:justify-end"><button className="swiss-button-outline" onClick={() => onSync(account.id)} disabled={syncingAccountId === account.id}>{syncingAccountId === account.id ? "Đang đồng bộ…" : "Đồng bộ"}</button><button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onAnalyze(account.id)} disabled={account.connectionStatus !== "connected" || analyzingAccountId === account.id}>{analyzingAccountId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} {analyzingAccountId === account.id ? "AI đang quét…" : "Quét AI ngay"}</button><button className="swiss-button-outline text-[#e23221]" onClick={() => onDisconnect(account.id)} disabled={disconnectingAccountId === account.id}>{disconnectingAccountId === account.id ? "Đang ngắt…" : "Ngắt kết nối"}</button></div>
@@ -511,6 +528,10 @@ export default function Home() {
     onSuccess: async data => { await refreshEmailData(); toast.success(`Đã đồng bộ ${data.count} email`); },
     onError: error => toast.error(error.message),
   });
+  const connectGmailImap = trpc.email.connectGmailImap.useMutation({
+    onSuccess: async () => { await refreshEmailData(); toast.success("Đã kết nối Gmail qua IMAP"); },
+    onError: error => toast.error(error.message),
+  });
   const disconnectEmailMailbox = trpc.email.disconnect.useMutation({
     onSuccess: async () => { await refreshEmailData(); setEmailAccountFilter("all"); toast.success("Đã ngắt kết nối hộp thư"); },
     onError: error => toast.error(error.message),
@@ -543,9 +564,9 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
-  const connectEmailProvider = (provider: "google" | "microsoft") => {
-    if (!emailConfiguration.data?.[provider]) { toast.error("Cần cấu hình OAuth trước khi kết nối"); return; }
-    window.location.assign(`/api/email/oauth/${provider}/start`);
+  const connectMicrosoftImap = () => {
+    if (!emailConfiguration.data?.microsoft) { toast.error("Cần cấu hình OAuth Microsoft trước khi kết nối"); return; }
+    window.location.assign("/api/email/oauth/microsoft/start");
   };
 
   const openCreateTask = () => { setEditingTask(null); setTaskDialogOpen(true); };
@@ -638,9 +659,11 @@ export default function Home() {
               configuringAccountId={configureEmailAiSync.isPending ? configureEmailAiSync.variables?.id : null}
               analyzingAccountId={analyzeEmailMailbox.isPending ? analyzeEmailMailbox.variables?.id : null}
               dismissingSuggestionId={dismissEmailSuggestion.isPending ? dismissEmailSuggestion.variables?.id : null}
+              connectingGmail={connectGmailImap.isPending}
               onAccountFilter={setEmailAccountFilter}
               onStatusFilter={setEmailStatusFilter}
-              onConnect={connectEmailProvider}
+              onConnectGmail={input => connectGmailImap.mutate(input)}
+              onConnectMicrosoft={connectMicrosoftImap}
               onSync={(id: number) => syncEmailMailbox.mutate({ id })}
               onDisconnect={(id: number) => { if (window.confirm("Ngắt kết nối hộp thư này?")) disconnectEmailMailbox.mutate({ id }); }}
               onSetMessageStatus={(id: number, status: EmailMessageStatus) => updateEmailMessageStatus.mutate({ id, status })}
