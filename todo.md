@@ -135,3 +135,5 @@
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản chuông thông báo.
 - [x] Hiển thị các email mới nhất đã được Gemini AI tóm tắt trong Overview, có trạng thái rỗng và liên kết tới Quản trị email.
 - [x] Bổ sung chuỗi VI/EN, kiểm thử, kiểm chứng responsive và xuất bản khối email AI mới nhất trên Overview.
+- [x] Bỏ giới hạn lượt tóm tắt Gemini theo ngày, vẫn giữ đồng ý rõ ràng trước mỗi email.
+- [x] Cập nhật giao diện, kiểm thử và xuất bản cơ chế tóm tắt email không giới hạn.

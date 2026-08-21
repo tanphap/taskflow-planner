@@ -1,7 +1,6 @@
 import { ENV } from "./_core/env";
 
 export const GEMINI_EMAIL_SUMMARY_MODEL = "gemini-2.5-flash-lite";
-export const GEMINI_EMAIL_DAILY_LIMIT = 10;
 
 export type GeminiSummarySource = {
   subject: string;

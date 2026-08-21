@@ -15,7 +15,7 @@ import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
 import { syncMailbox, verifyImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
-import { GEMINI_EMAIL_DAILY_LIMIT, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -127,18 +127,14 @@ export const appRouter = router({
       acknowledgeUnpaidDataUse: z.literal(true, { message: "Cần xác nhận về xử lý dữ liệu Gemini miễn phí trước khi tóm tắt." }),
     })).mutation(async ({ ctx, input }) => {
       const cached = await db.getEmailGeminiSummary(ctx.user.id, input.messageId);
-      if (cached) return { ...cached, cached: true as const, remainingToday: GEMINI_EMAIL_DAILY_LIMIT };
+      if (cached) return { ...cached, cached: true as const };
       const source = await db.getGmailMessageForGeminiSummary(ctx.user.id, input.messageId);
       if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Chỉ có thể tóm tắt email Gmail đã kết nối của bạn." });
-      const now = new Date();
-      const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      const usedToday = await db.countEmailGeminiSummariesSince(ctx.user.id, todayUtc);
-      if (usedToday >= GEMINI_EMAIL_DAILY_LIMIT) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `Bạn đã dùng hết ${GEMINI_EMAIL_DAILY_LIMIT} lượt tóm tắt Gemini miễn phí hôm nay.` });
       try {
         const result = await summarizeGmailEmailWithGemini(source, input.locale);
         const summary = await db.createEmailGeminiSummary(ctx.user.id, { emailAccountId: source.emailAccountId, emailMessageId: source.id, summary: result.summary, locale: input.locale, model: result.model });
         if (!summary) throw new Error("Không thể lưu tóm tắt Gemini.");
-        return { ...summary, cached: false as const, remainingToday: GEMINI_EMAIL_DAILY_LIMIT - usedToday - 1 };
+        return { ...summary, cached: false as const };
       } catch (error) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể tóm tắt email bằng Gemini." });
       }
