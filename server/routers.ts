@@ -127,13 +127,17 @@ export const appRouter = router({
       acknowledgeUnpaidDataUse: z.literal(true, { message: "Cần xác nhận về xử lý dữ liệu Gemini miễn phí trước khi tóm tắt." }),
     })).mutation(async ({ ctx, input }) => {
       const cached = await db.getEmailGeminiSummary(ctx.user.id, input.messageId);
-      if (cached) return { ...cached, cached: true as const };
-      const source = await db.getGmailMessageForGeminiSummary(ctx.user.id, input.messageId);
-      if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Chỉ có thể tóm tắt email Gmail đã kết nối của bạn." });
+      if (cached) {
+        await db.markEmailMessageRead(ctx.user.id, input.messageId);
+        return { ...cached, cached: true as const };
+      }
+      const source = await db.getEmailMessageForGeminiSummary(ctx.user.id, input.messageId);
+      if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Chỉ có thể tóm tắt email đã kết nối của bạn." });
       try {
         const result = await summarizeGmailEmailWithGemini(source, input.locale);
         const summary = await db.createEmailGeminiSummary(ctx.user.id, { emailAccountId: source.emailAccountId, emailMessageId: source.id, summary: result.summary, locale: input.locale, model: result.model });
         if (!summary) throw new Error("Không thể lưu tóm tắt Gemini.");
+        await db.markEmailMessageRead(ctx.user.id, input.messageId);
         return { ...summary, cached: false as const };
       } catch (error) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể tóm tắt email bằng Gemini." });

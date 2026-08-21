@@ -264,7 +264,13 @@ export async function updateEmailMessageStatus(userId: number, messageId: number
   await db.update(emailMessages).set({ status }).where(and(eq(emailMessages.id, messageId), eq(emailMessages.userId, userId)));
 }
 
-export async function getGmailMessageForGeminiSummary(userId: number, messageId: number) {
+/** Marks a user-owned inbox message as read in TaskFlow after a user-requested AI summary. */
+export async function markEmailMessageRead(userId: number, messageId: number) {
+  const db = await requireDb();
+  await db.update(emailMessages).set({ isRead: true, status: "done" }).where(and(eq(emailMessages.id, messageId), eq(emailMessages.userId, userId)));
+}
+
+export async function getEmailMessageForGeminiSummary(userId: number, messageId: number) {
   const db = await requireDb();
   return (await db.select({
     id: emailMessages.id,
@@ -281,7 +287,6 @@ export async function getGmailMessageForGeminiSummary(userId: number, messageId:
   )).where(and(
     eq(emailMessages.id, messageId),
     eq(emailMessages.userId, userId),
-    eq(emailAccounts.provider, "google"),
   )).limit(1))[0];
 }
 

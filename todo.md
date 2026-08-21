@@ -168,3 +168,7 @@
 - [x] Thu gọn biểu mẫu đăng nhập Gmail và Webmail trong Quản trị email theo trạng thái ban đầu.
 - [x] Thêm biểu tượng bánh răng có nhãn trợ năng để mở/đóng biểu mẫu kết nối từng nhà cung cấp.
 - [x] Kiểm thử keyboard, responsive và xuất bản giao diện đăng nhập email thu gọn.
+- [x] Rà soát luồng tóm tắt Gemini từng thư và cách cập nhật trạng thái Inbox hiện có.
+- [x] Khi người dùng chủ động tóm tắt thành công, tự chuyển thư từ Mới sang Đã đọc trong phạm vi userId.
+- [x] Hiển thị tóm tắt AI rõ ràng ngay tại email đã chọn, giữ xác nhận quyền riêng tư và hỗ trợ VI/EN.
+- [x] Kiểm thử, kiểm chứng responsive và xuất bản luồng tóm tắt AI kèm trạng thái đã đọc.

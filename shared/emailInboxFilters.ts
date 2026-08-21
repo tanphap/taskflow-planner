@@ -1,4 +1,4 @@
-export type EmailInboxFocus = "all" | "unread" | "summarized" | "suggested";
+export type EmailInboxFocus = "all" | "unread" | "read" | "summarized" | "suggested";
 
 export type SearchableEmailMessage = {
   id: number;
@@ -7,6 +7,7 @@ export type SearchableEmailMessage = {
   senderEmail?: string | null;
   snippet?: string | null;
   isRead: boolean;
+  status: "new" | "in_progress" | "done" | "archived";
 };
 
 function normalize(value: string | null | undefined) {
@@ -30,7 +31,8 @@ export function filterEmailInbox<T extends SearchableEmailMessage>(
       .some(value => normalize(value).includes(query));
     if (!matchesQuery) return false;
 
-    if (input.focus === "unread") return !message.isRead;
+    if (input.focus === "unread") return message.status === "new" && !message.isRead;
+    if (input.focus === "read") return message.status === "done" || message.isRead;
     if (input.focus === "summarized") return input.summarizedMessageIds.has(message.id);
     if (input.focus === "suggested") return input.suggestedMessageIds.has(message.id);
     return true;

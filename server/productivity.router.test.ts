@@ -30,8 +30,9 @@ vi.mock("./db", () => ({
   updateEmailNote: vi.fn(),
   deleteEmailNote: vi.fn(),
   updateEmailMessageStatus: vi.fn(),
+  markEmailMessageRead: vi.fn(),
   getEmailGeminiSummary: vi.fn(),
-  getGmailMessageForGeminiSummary: vi.fn(),
+  getEmailMessageForGeminiSummary: vi.fn(),
   createEmailGeminiSummary: vi.fn(),
   countEmailGeminiSummariesSince: vi.fn(),
   getEmailAccountWithTokens: vi.fn(),
@@ -256,7 +257,7 @@ describe("productivity router data isolation", () => {
 
   it("summarizes a selected Gmail email without applying a daily in-app limit", async () => {
     vi.mocked(db.getEmailGeminiSummary).mockResolvedValue(null);
-    vi.mocked(db.getGmailMessageForGeminiSummary).mockResolvedValue({
+    vi.mocked(db.getEmailMessageForGeminiSummary).mockResolvedValue({
       id: 17,
       emailAccountId: 9,
       subject: "Kế hoạch triển khai",
@@ -273,6 +274,19 @@ describe("productivity router data isolation", () => {
 
     expect(db.countEmailGeminiSummariesSince).not.toHaveBeenCalled();
     expect(db.createEmailGeminiSummary).toHaveBeenCalledWith(73, expect.objectContaining({ emailAccountId: 9, emailMessageId: 17 }));
+    expect(db.markEmailMessageRead).toHaveBeenCalledWith(73, 17);
     expect(result).not.toHaveProperty("remainingToday");
+  });
+
+  it("marks a message as read when returning a previously generated summary", async () => {
+    vi.mocked(db.getEmailGeminiSummary).mockResolvedValue({ id: 61, summary: "Tóm tắt có sẵn." } as never);
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    const result = await caller.email.summarizeWithGemini({ messageId: 17, locale: "vi", acknowledgeUnpaidDataUse: true });
+
+    expect(result).toMatchObject({ cached: true, summary: "Tóm tắt có sẵn." });
+    expect(db.markEmailMessageRead).toHaveBeenCalledWith(73, 17);
+    expect(db.getEmailMessageForGeminiSummary).not.toHaveBeenCalled();
+    expect(summarizeGmailEmailWithGemini).not.toHaveBeenCalled();
   });
 });

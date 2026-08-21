@@ -203,3 +203,9 @@ Biểu mẫu Gmail nay dùng cấu trúc nhất quán với Webmail / IMAP SSL: 
 Hai thẻ Gmail và Webmail / IMAP SSL nay được thu gọn mặc định. Mỗi thẻ có biểu tượng bánh răng riêng; người dùng bấm biểu tượng này để mở hoặc đóng trường thông tin đăng nhập và hướng dẫn kết nối. Nút có `aria-label`, `title` và vòng focus hiển thị rõ, nên có thể dùng bằng chuột, chạm hoặc bàn phím. Nội dung đăng nhập chỉ được render khi thẻ được mở; không thay đổi luồng IMAP, trạng thái cấu hình hay dữ liệu mật khẩu đang được mã hóa phía máy chủ.
 
 Đã xác nhận `pnpm check`, production build và **62 kiểm thử Vitest** đều đạt. Ảnh xem trước tại 1280×720 và 375×812 xác nhận shell ứng dụng tiếp tục ổn định, không tràn ngang hoặc làm chồng lấn header/navigation. Không nhập thông tin đăng nhập, tạo kết nối IMAP hoặc thay đổi dữ liệu email trong bước kiểm chứng này.
+
+## Tóm tắt AI và trạng thái Đã đọc trong Inbox
+
+Khi người dùng chủ động bấm **Tóm tắt bằng Gemini** ở bất kỳ thư đã đồng bộ nào, TaskFlow giữ hộp xác nhận quyền riêng tư, tạo hoặc dùng lại bản tóm tắt và chỉ sau khi thành công mới cập nhật thư đó thành **Đã đọc** trong phạm vi `userId`. Trạng thái này đồng thời đặt `isRead` và trạng thái nghiệp vụ `done`, vì vậy thư không còn được tính là email Mới trong chuông thông báo. Mỗi email có tóm tắt hiển thị khối nội dung Gemini ngay trong dòng thư; AI không tự quét Inbox và chỉ gửi tiêu đề, người gửi cùng phần xem trước của thư người dùng chọn.
+
+Ảnh xem trước ở 1280×720 và 375×812 xác nhận vùng Inbox, thanh lọc và các dòng thư vẫn xếp dọc rõ ràng, không bị tràn ngang. Bộ lọc nhanh bổ sung mục **Đã đọc** để xem lại các thư đã chuyển trạng thái. Do phiên kiểm chứng không tạo yêu cầu Gemini hay thay đổi dữ liệu email thực, luồng kết quả được xác nhận bằng router/unit test: cả tóm tắt mới và tóm tắt đã lưu đều gọi cập nhật Đã đọc đúng `userId`/`messageId`. `pnpm check`, production build và **63 kiểm thử Vitest** đều đạt.
