@@ -9,6 +9,8 @@ type MailboxMessage = { providerMessageId: string; threadId?: string | null; sub
 type MailboxPage = { messages: MailboxMessage[]; hasMore: boolean; nextBeforeUid: number | null };
 
 export const EMAIL_SYNC_BATCH_SIZE = 50;
+export const IMAP_CONNECTION_TIMEOUT_MS = 15_000;
+export const IMAP_SOCKET_TIMEOUT_MS = 30_000;
 
 /** Extracts the IMAP UID from TaskFlow's `<uidValidity>:<uid>` provider identifier. */
 export function getImapUidFromProviderMessageId(providerMessageId: string) {
@@ -83,7 +85,17 @@ async function getImapAuth(userId: number, accountId: number) {
 async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAccountWithCredentials>>, auth: { user: string; pass?: string; accessToken?: string }, options?: { beforeUid?: number; limit?: number }): Promise<MailboxPage> {
   if (!account?.imapHost || !account.imapPort) throw new Error("Mailbox IMAP configuration is incomplete");
   const webmailTarget = account.provider === "webmail" ? await resolvePublicWebmailImapHost(account.imapHost) : null;
-  const client = new ImapFlow({ host: webmailTarget?.address ?? account.imapHost, port: account.imapPort, secure: account.imapSecure, auth, tls: { servername: webmailTarget?.hostname ?? account.imapHost }, logger: false });
+  const client = new ImapFlow({
+    host: webmailTarget?.address ?? account.imapHost,
+    port: account.imapPort,
+    secure: account.imapSecure,
+    auth,
+    tls: { servername: webmailTarget?.hostname ?? account.imapHost },
+    connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+    socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
+    logger: false,
+  });
   await client.connect();
   let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | undefined;
   try {
@@ -94,7 +106,7 @@ async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAcco
     if (!page.range) return { messages: [], hasMore: false, nextBeforeUid: null };
     const uidValidity = mailbox?.uidValidity || 0;
     const messages: MailboxMessage[] = [];
-    for await (const message of client.fetch(page.range, { envelope: true, flags: true, internalDate: true, source: true }, { uid: true })) {
+    for await (const message of client.fetch(page.range, { envelope: true, flags: true, internalDate: true }, { uid: true })) {
       const from = message.envelope?.from?.[0];
       messages.push({
         providerMessageId: `${uidValidity || 0}:${message.uid}`,
@@ -121,7 +133,17 @@ async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAcco
 }
 
 export async function verifyImapConnection(input: { host: string; port: number; secure: boolean; user: string; pass: string; mailbox?: string; tlsServername?: string }) {
-  const client = new ImapFlow({ host: input.host, port: input.port, secure: input.secure, auth: { user: input.user, pass: input.pass }, tls: { servername: input.tlsServername ?? input.host }, logger: false });
+  const client = new ImapFlow({
+    host: input.host,
+    port: input.port,
+    secure: input.secure,
+    auth: { user: input.user, pass: input.pass },
+    tls: { servername: input.tlsServername ?? input.host },
+    connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+    socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
+    logger: false,
+  });
   await client.connect();
   try {
     const lock = await client.getMailboxLock(input.mailbox || "INBOX");

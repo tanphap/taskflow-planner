@@ -21,7 +21,7 @@ vi.mock("./db", () => dbMocks);
 vi.mock("./emailOAuth", () => ({ decryptEmailToken: vi.fn(), encryptEmailToken: vi.fn() }));
 vi.mock("./webmailImap", () => ({ resolvePublicWebmailImapHost: vi.fn().mockResolvedValue({ hostname: "email.vnpt.vn", address: "203.0.113.44" }) }));
 
-import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { EMAIL_SYNC_BATCH_SIZE, getImapFetchWindow, getImapUidFromProviderMessageId, getMailboxSyncErrorMessage, IMAP_CONNECTION_TIMEOUT_MS, IMAP_SOCKET_TIMEOUT_MS, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 
 describe("IMAP connection verification", () => {
   beforeEach(() => {
@@ -45,6 +45,9 @@ describe("IMAP connection verification", () => {
       host: "imap.gmail.com",
       port: 993,
       secure: true,
+      connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+      greetingTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+      socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
       tls: { servername: "imap.gmail.com" },
       auth: { user: "owner@example.com", pass: "app-password" },
     }));
@@ -60,6 +63,9 @@ describe("IMAP connection verification", () => {
       host: "203.0.113.44",
       port: 993,
       secure: true,
+      connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+      greetingTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+      socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
       tls: { servername: "email.vnpt.vn" },
       auth: { user: "owner@vnpt.vn", pass: "mail-password" },
     }));
@@ -122,7 +128,7 @@ describe("IMAP inbox pagination", () => {
 
     expect(imapMocks.fetch).toHaveBeenCalledWith(
       "1151:1200",
-      { envelope: true, flags: true, internalDate: true, source: true },
+      { envelope: true, flags: true, internalDate: true },
       { uid: true },
     );
   });
