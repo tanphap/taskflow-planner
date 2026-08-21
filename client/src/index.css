@@ -63,6 +63,41 @@
   --ring: oklch(0.63 0.11 42);
 }
 
+.dark {
+  --canvas: #171916;
+  --canvas-deep: #10120f;
+  --surface: #20231f;
+  --surface-soft: #2a2e29;
+  --ink: #f3f0e8;
+  --ink-muted: #b9b5aa;
+  --line: #3a4039;
+  --line-strong: #555d53;
+  --terracotta: #df8261;
+  --terracotta-dark: #f09a77;
+  --terracotta-soft: #4b3028;
+  --sage: #a5b8a7;
+  --sage-soft: #2f4734;
+  --butter: #574d2a;
+  --background: oklch(0.18 0.01 145);
+  --foreground: oklch(0.94 0.01 90);
+  --card: oklch(0.22 0.01 145);
+  --card-foreground: oklch(0.94 0.01 90);
+  --popover: oklch(0.24 0.01 145);
+  --popover-foreground: oklch(0.94 0.01 90);
+  --primary: oklch(0.72 0.12 43);
+  --primary-foreground: oklch(0.2 0.01 145);
+  --secondary: oklch(0.29 0.01 145);
+  --secondary-foreground: oklch(0.94 0.01 90);
+  --muted: oklch(0.28 0.01 145);
+  --muted-foreground: oklch(0.74 0.01 90);
+  --accent: oklch(0.34 0.04 145);
+  --accent-foreground: oklch(0.9 0.03 145);
+  --destructive: oklch(0.68 0.16 28);
+  --border: oklch(0.34 0.01 145);
+  --input: oklch(0.42 0.01 145);
+  --ring: oklch(0.72 0.12 43);
+}
+
 * { border-color: var(--line); }
 html { background: var(--canvas); }
 body {
@@ -297,6 +332,41 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: rgb(197 101 71 / 0.09);
 }
 
+.dark .app-shell {
+  background: radial-gradient(circle at 72% 0%, rgb(223 130 97 / 0.12), transparent 28rem), linear-gradient(180deg, #1d201d 0%, var(--canvas) 46%, #121411 100%);
+}
+.dark .app-sidebar { background: rgb(25 28 24 / 0.95); box-shadow: 18px 0 50px rgb(0 0 0 / 0.22); }
+.dark .app-header { border-bottom-color: rgb(85 93 83 / 0.72); background: rgb(23 25 22 / 0.86); }
+.dark .login-shell { background: radial-gradient(circle at 8% 12%, rgb(78 57 44 / 0.55), transparent 29rem), radial-gradient(circle at 95% 88%, rgb(223 130 97 / 0.1), transparent 30rem), #151714; }
+.dark .login-card, .dark .not-found-card { background: rgb(32 35 31 / 0.94); box-shadow: 0 36px 110px rgb(0 0 0 / 0.34); }
+.dark .swiss-grid, .dark .not-found-shell { background: radial-gradient(circle at center, rgb(223 130 97 / 0.12), transparent 20rem), var(--canvas); }
+.dark .swiss-button.ghost, .dark .swiss-button-outline { background: var(--surface); color: var(--ink); }
+.dark .swiss-button.ghost:hover, .dark .swiss-button-outline:hover { border-color: var(--terracotta); background: var(--surface-soft); }
+.dark .swiss-input:focus, .dark .input-swiss:focus { background: var(--surface-soft); }
+.dark .nav-item { color: var(--ink-muted); }
+.dark .nav-item:hover { color: var(--ink); background: var(--surface-soft); }
+.dark .nav-item.active { color: #ffd9c9; border-color: rgb(223 130 97 / 0.24); background: var(--terracotta-soft); box-shadow: inset 3px 0 var(--terracotta); }
+.dark .app-sidebar .absolute.bottom-0 { background: rgb(25 28 24 / 0.86); }
+.dark .app-shell main .bg-white { background-color: rgb(32 35 31 / 0.94); }
+.dark .app-shell main .bg-black { background-color: var(--ink); }
+.dark .app-shell main .bg-\[\#fff2ef\] { background-color: #402b29; }
+.dark .app-shell main .bg-\[\#f1f1ed\],
+.dark .app-shell main .bg-\[\#f5f5f2\],
+.dark .app-shell main .bg-\[\#f8f8f6\],
+.dark .app-shell main .bg-\[\#fbfbfa\],
+.dark .app-shell main .bg-neutral-100 { background-color: var(--surface-soft); }
+.dark .app-shell main .bg-\[\#e4ff3f\] { background-color: var(--sage-soft); }
+.dark .app-shell main .text-neutral-400,
+.dark .app-shell main .text-neutral-500,
+.dark .app-shell main .text-neutral-600,
+.dark .app-shell main .text-neutral-700,
+.dark .app-shell main .text-neutral-800 { color: var(--ink-muted); }
+.dark .app-shell main .border-neutral-300 { border-color: var(--line-strong); }
+.dark .app-shell main .text-\[\#18211b\] { color: var(--ink); }
+.dark [data-slot="dialog-content"] { background: var(--surface); color: var(--ink); }
+.dark [data-slot="dialog-content"] .bg-\[\#fbfbfa\],
+.dark [data-slot="dialog-content"] .bg-\[\#f1f1ed\] { background-color: var(--surface-soft) !important; }
+
 @media (max-width: 1023px) {
   .app-sidebar { box-shadow: 20px 0 60px rgb(52 41 32 / 0.18); }
 }
@@ -315,7 +385,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .app-header > div:last-child > div[aria-label="Chọn ngôn ngữ"] { padding: 2px; }
   .app-header > div:last-child > div[aria-label="Chọn ngôn ngữ"] button { padding: 5px 7px; }
   .app-header .swiss-button { min-width: 40px; padding-inline: 9px; }
-  .app-header h1 { max-width: 8.25rem; font-size: 1.05rem; line-height: 1.15; }
+  .app-header h1 { max-width: 6.3rem; overflow: hidden; font-size: 1.05rem; line-height: 1.15; text-overflow: ellipsis; text-wrap: nowrap; white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

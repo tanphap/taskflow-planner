@@ -12,7 +12,7 @@ function Router() {
 }
 
 function App() {
-  return <ErrorBoundary><ThemeProvider defaultTheme="light"><LanguageProvider><TooltipProvider><Toaster richColors position="top-right" /><Router /></TooltipProvider></LanguageProvider></ThemeProvider></ErrorBoundary>;
+  return <ErrorBoundary><ThemeProvider defaultTheme="light" switchable><LanguageProvider><TooltipProvider><Toaster richColors position="top-right" /><Router /></TooltipProvider></LanguageProvider></ThemeProvider></ErrorBoundary>;
 }
 
 export default App;

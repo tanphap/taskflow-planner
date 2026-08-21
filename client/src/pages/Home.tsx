@@ -3,6 +3,8 @@ import { startLogin } from "@/const";
 import { type Language } from "@/contexts/languageStore";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
+import { useTheme } from "@/contexts/ThemeContext";
+import { filterEmailInbox, type EmailInboxFocus } from "../../../shared/emailInboxFilters";
 import { quickReminderAt } from "../../../shared/recurrence";
 import { getNotificationBellData } from "../../../shared/notificationBell";
 import { eventPrefillFromTask, type EventPrefill } from "../../../shared/taskEvent";
@@ -25,9 +27,12 @@ import {
   LogOut,
   Mail,
   Menu,
+  Moon,
   Plus,
+  Search,
   ShieldCheck,
   Sparkles,
+  Sun,
   Trash2,
   UserRound,
   X,
@@ -53,6 +58,7 @@ const englishCopy: Record<string, string> = {
   "Thứ Hai": "Monday", "T2": "Mon", "T3": "Tue", "T4": "Wed", "T5": "Thu", "T6": "Fri", "T7": "Sat", "CN": "Sun", "Chưa làm": "To do", "Đang làm": "In progress", "Hoàn thành": "Completed",
   "Thông báo": "Notifications", "Bạn không có thông báo mới.": "You have no new notifications.", "Email mới": "New email", "Việc cần chú ý": "Items needing attention", "Xem trung tâm nhắc việc": "Open reminder center", "Đánh dấu tất cả đã đọc": "Mark all as read", "Công việc tới hạn": "Task due", "Lịch hẹn tới hạn": "Event due", "Không có tiêu đề": "No subject",
   "Email AI mới nhất": "Latest AI email", "Tóm tắt từ Gemini": "Gemini summary", "Chưa có email nào được AI tóm tắt.": "No emails have been summarized by AI yet.", "Mở Quản trị email": "Open email manager", "AI đã tóm tắt": "AI summarized",
+  "Chuyển sang chế độ tối": "Switch to dark mode", "Chuyển sang chế độ sáng": "Switch to light mode", "Tìm kiếm email": "Search email", "Tìm theo tiêu đề, người gửi hoặc nội dung": "Search subject, sender or content", "Lọc nhanh": "Quick filter", "Tất cả email": "All email", "Chưa đọc": "Unread", "Có tóm tắt AI": "Has AI summary", "Có đề xuất AI": "Has AI suggestion", "Xóa bộ lọc": "Clear filters", "Không tìm thấy email phù hợp": "No matching email", "Thử đổi từ khóa tìm kiếm hoặc bộ lọc.": "Try changing the search query or filters.", "Kết quả hiển thị trong các email đã đồng bộ.": "Results are shown within synced emails.",
   "Thấp": "Low", "Trung bình": "Medium", "Cao": "High", "Chưa có thời hạn": "No due date", "Bạn có một nhắc việc mới.": "You have a new reminder.",
   "Đã tạo công việc": "Task created", "Đã cập nhật công việc": "Task updated", "Đã xóa công việc": "Task deleted", "Đã tạo lịch hẹn": "Event created", "Đã cập nhật lịch hẹn": "Event updated", "Đã xóa lịch hẹn": "Event deleted",
   "Thông tin hồ sơ đã được lưu": "Profile saved", "Đã tạo mã liên kết Telegram": "Telegram link code created", "Telegram đã được liên kết": "Telegram linked",
@@ -404,7 +410,7 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, onAccountFilter, onStatusFilter, onConnectGmail, onConnectMicrosoft, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail }: {
+function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectMicrosoft, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
@@ -414,6 +420,8 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   loading: boolean;
   accountFilter: number | "all";
   statusFilter: EmailMessageStatus | "all";
+  searchQuery: string;
+  focusFilter: EmailInboxFocus;
   syncingAccountId: number | null;
   disconnectingAccountId: number | null;
   updatingMessageId: number | null;
@@ -424,6 +432,8 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   connectingGmail: boolean;
   onAccountFilter: (value: number | "all") => void;
   onStatusFilter: (value: EmailMessageStatus | "all") => void;
+  onSearchQuery: (value: string) => void;
+  onFocusFilter: (value: EmailInboxFocus) => void;
   onConnectGmail: (input: { email: string; username?: string; appPassword: string }) => void;
   onConnectMicrosoft: () => void;
   onSync: (id: number) => void;
@@ -444,6 +454,10 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const [gmailForm, setGmailForm] = useState({ email: "", username: "", appPassword: "" });
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
+  const summarizedMessageIds = useMemo(() => new Set(geminiSummaries.map(summary => summary.emailMessageId)), [geminiSummaries]);
+  const suggestedMessageIds = useMemo(() => new Set(suggestions.map(suggestion => suggestion.emailMessageId)), [suggestions]);
+  const filteredMessages = useMemo(() => filterEmailInbox(messages, { searchQuery, focus: focusFilter, summarizedMessageIds, suggestedMessageIds }), [messages, searchQuery, focusFilter, summarizedMessageIds, suggestedMessageIds]);
+  const hasInboxFilters = Boolean(searchQuery.trim()) || focusFilter !== "all";
   const overviewStats = [
     { label: t("Tổng email"), value: aiOverview?.inboxCount ?? messages.length, className: "bg-black text-white", icon: Inbox },
     { label: t("Đã tóm tắt"), value: aiOverview?.summarizedCount ?? geminiSummaries.length, className: "bg-[#e4ff3f] text-[#18211b]", icon: Sparkles },
@@ -496,9 +510,9 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
     </div>
 
     <div className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)]">
-      <div className="flex flex-col gap-4 border-b border-[#18211b] p-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="mono-label text-neutral-500">INBOX</p><h3 className="mt-1 text-xl font-extrabold">Thư đến cần theo dõi</h3></div><div className="grid gap-2 sm:grid-cols-2"><label className="mono-label flex flex-col gap-1 text-neutral-500">Hộp thư<select className="input-swiss min-w-48 normal-case" value={accountFilter} onChange={event => onAccountFilter(event.target.value === "all" ? "all" : Number(event.target.value))}><option value="all">Tất cả hộp thư</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.email}</option>)}</select></label><label className="mono-label flex flex-col gap-1 text-neutral-500">Trạng thái<select className="input-swiss min-w-40 normal-case" value={statusFilter} onChange={event => onStatusFilter(event.target.value as EmailMessageStatus | "all")}><option value="all">Tất cả trạng thái</option>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{label}</option>)}</select></label></div></div>
+      <div className="flex flex-col gap-4 border-b border-[#18211b] p-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="mono-label text-neutral-500">INBOX</p><h3 className="mt-1 text-xl font-extrabold">Thư đến cần theo dõi</h3><p className="mt-1 text-xs text-neutral-500">{t("Kết quả hiển thị trong các email đã đồng bộ.")}</p></div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><label className="mono-label flex flex-col gap-1 text-neutral-500">{t("Tìm kiếm email")}<span className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /><input className="input-swiss min-w-48 pl-9 normal-case" value={searchQuery} onChange={event => onSearchQuery(event.target.value)} placeholder={t("Tìm theo tiêu đề, người gửi hoặc nội dung")} /></span></label><label className="mono-label flex flex-col gap-1 text-neutral-500">Hộp thư<select className="input-swiss min-w-48 normal-case" value={accountFilter} onChange={event => onAccountFilter(event.target.value === "all" ? "all" : Number(event.target.value))}><option value="all">Tất cả hộp thư</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.email}</option>)}</select></label><label className="mono-label flex flex-col gap-1 text-neutral-500">Trạng thái<select className="input-swiss min-w-40 normal-case" value={statusFilter} onChange={event => onStatusFilter(event.target.value as EmailMessageStatus | "all")}><option value="all">Tất cả trạng thái</option>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{label}</option>)}</select></label><label className="mono-label flex flex-col gap-1 text-neutral-500">{t("Lọc nhanh")}<select className="input-swiss min-w-40 normal-case" value={focusFilter} onChange={event => onFocusFilter(event.target.value as EmailInboxFocus)}><option value="all">{t("Tất cả email")}</option><option value="unread">{t("Chưa đọc")}</option><option value="summarized">{t("Có tóm tắt AI")}</option><option value="suggested">{t("Có đề xuất AI")}</option></select></label></div></div>
       <div className="border-b-2 border-[#e23221] bg-[#fff2ef] px-5 py-3"><p className="mono-label text-[#e23221]">GEMINI / OPT-IN</p><p className="mt-1 text-sm leading-5 text-neutral-700">Gemini miễn phí — tóm tắt theo yêu cầu</p><p className="mt-1 text-xs leading-5 text-neutral-600">Chỉ gửi tiêu đề, người gửi và phần xem trước của thư Gmail bạn bấm tóm tắt tới Gemini. Không quét inbox tự động; bạn có thể tóm tắt các email đã chọn không giới hạn lượt trong ứng dụng.</p></div>
-      {loading ? <div className="p-10 text-center text-sm text-neutral-500">Đang tải email…</div> : messages.length === 0 ? <div className="p-10 text-center"><p className="font-bold">Chưa có thư phù hợp</p><p className="mt-1 text-sm text-neutral-500">Hãy kết nối hộp thư và bấm Đồng bộ để cập nhật inbox.</p></div> : <div className="divide-y divide-[#18211b]/15">{messages.map(message => {
+      {loading ? <div className="p-10 text-center text-sm text-neutral-500">Đang tải email…</div> : messages.length === 0 ? <div className="p-10 text-center"><p className="font-bold">Chưa có thư phù hợp</p><p className="mt-1 text-sm text-neutral-500">Hãy kết nối hộp thư và bấm Đồng bộ để cập nhật inbox.</p></div> : filteredMessages.length === 0 ? <div className="p-10 text-center"><Search className="mx-auto h-7 w-7 text-neutral-400" /><p className="mt-3 font-bold">{t("Không tìm thấy email phù hợp")}</p><p className="mt-1 text-sm text-neutral-500">{t("Thử đổi từ khóa tìm kiếm hoặc bộ lọc.")}</p>{hasInboxFilters && <button type="button" className="swiss-button-outline mt-4" onClick={() => { onSearchQuery(""); onFocusFilter("all"); }}>{t("Xóa bộ lọc")}</button>}</div> : <div className="divide-y divide-[#18211b]/15">{filteredMessages.map(message => {
         const isGmail = accounts.find(account => account.id === message.emailAccountId)?.provider === "google";
         const geminiSummary = geminiSummaryByMessage.get(message.id);
         return <article key={message.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`mono-label px-2 py-1 ${message.status === "done" ? "bg-[#e4ff3f]" : "bg-neutral-100"}`}>{statusLabel[message.status]}</span>{!message.isRead && <span className="mono-label bg-[#ff5d3d] px-2 py-1 text-white">CHƯA ĐỌC</span>}{!isGmail && <span className="mono-label border border-neutral-300 px-2 py-1 text-neutral-500">Chỉ Gmail</span>}</div><h4 className="mt-2 truncate font-bold">{message.subject}</h4><p className="mt-1 truncate text-sm text-neutral-600">{message.senderName || message.senderEmail || "Không rõ người gửi"} · {formatDate(message.receivedAt)} {formatTime(message.receivedAt)}</p>{message.snippet && <p className="mt-2 line-clamp-2 text-sm leading-5 text-neutral-500">{message.snippet}</p>}{geminiSummary && <div className="mt-3 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3"><p className="mono-label text-[#e23221]">TÓM TẮT GEMINI</p><p className="mt-2 whitespace-pre-line text-sm leading-6 text-neutral-800">{geminiSummary.summary}</p><p className="mt-2 text-xs leading-5 text-neutral-500">Bản tóm tắt này được tạo từ tiêu đề và phần xem trước đã đồng bộ, có thể chưa phản ánh toàn bộ nội dung email.</p></div>}</div><div className="flex flex-wrap gap-2 lg:justify-end"><select className="input-swiss h-9 min-w-36 text-xs" value={message.status} onChange={event => onSetMessageStatus(message.id, event.target.value as EmailMessageStatus)} disabled={updatingMessageId === message.id}>{Object.entries(statusLabel).map(([status, label]) => <option key={status} value={status}>{label}</option>)}</select>{isGmail && !geminiSummary && <button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onSummarizeGmail(message.id)} disabled={summarizingMessageId === message.id}>{summarizingMessageId === message.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{summarizingMessageId === message.id ? "Gemini đang tóm tắt…" : "Tóm tắt bằng Gemini"}</button>}{message.webLink && <a className="swiss-button-outline h-9" href={message.webLink} target="_blank" rel="noreferrer">Mở thư <ExternalLink className="h-3.5 w-3.5" /></a>}</div></article>;
@@ -522,6 +536,7 @@ function pageTitle(view: View) {
 export default function Home() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState<View>(() => {
     const requestedView = new URLSearchParams(window.location.search).get("view");
     return requestedView && ["dashboard", "tasks", "calendar", "notifications", "profile", "email"].includes(requestedView)
@@ -538,6 +553,8 @@ export default function Home() {
   const [telegramLinkCode, setTelegramLinkCode] = useState("");
   const [emailAccountFilter, setEmailAccountFilter] = useState<number | "all">("all");
   const [emailStatusFilter, setEmailStatusFilter] = useState<EmailMessageRecord["status"] | "all">("all");
+  const [emailSearchQuery, setEmailSearchQuery] = useState("");
+  const [emailFocusFilter, setEmailFocusFilter] = useState<EmailInboxFocus>("all");
   const [notificationBellOpen, setNotificationBellOpen] = useState(false);
   const utils = trpc.useUtils();
 
@@ -747,7 +764,7 @@ export default function Home() {
         <main className="min-w-0 flex-1">
           <header className="app-header flex min-h-20 items-center justify-between gap-3 px-4 md:px-8">
             <div className="flex min-w-0 items-center gap-3 md:gap-4"><button type="button" onClick={() => setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] shadow-sm lg:hidden" aria-label="Mở menu"><Menu className="h-5 w-5" /></button><div className="min-w-0"><p className="mono-label hidden text-[var(--ink-muted)] sm:block">Không gian cá nhân / 2026</p><h1 className="truncate font-display text-2xl tracking-[-0.035em] text-[var(--ink)] md:text-[28px]">{pageTitle(view)}</h1></div></div>
-            <div className="flex items-center gap-2 sm:gap-3"><div className="flex rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 shadow-sm" aria-label="Chọn ngôn ngữ"><button type="button" onClick={() => setLanguage("vi")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "vi" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>VI</button><button type="button" onClick={() => setLanguage("en")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "en" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>EN</button></div><NotificationBell open={notificationBellOpen} onOpenChange={setNotificationBellOpen} emails={notificationBellData.newEmails} dueNotifications={notificationBellData.dueNotifications} onOpenEmail={() => setView("email")} onOpenReminders={() => setView("notifications")} onMarkAllRead={() => markAllRead.mutate()} /><p className="hidden max-w-44 text-right text-xs font-medium capitalize leading-5 text-[var(--ink-muted)] xl:block">{new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date())}</p><button type="button" onClick={view === "calendar" ? openCreateEvent : openCreateTask} className="swiss-button"><Plus className="h-4 w-4" /> <span className="hidden md:inline">{view === "calendar" ? "Lịch hẹn" : "Công việc"}</span></button></div>
+            <div className="flex items-center gap-2 sm:gap-3"><div className="flex rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 shadow-sm" aria-label="Chọn ngôn ngữ"><button type="button" onClick={() => setLanguage("vi")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "vi" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>VI</button><button type="button" onClick={() => setLanguage("en")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "en" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>EN</button></div><button type="button" onClick={toggleTheme} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] shadow-sm transition hover:bg-[var(--surface-soft)]" aria-label={translateAppText(language, theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối")} title={translateAppText(language, theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối")}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button><NotificationBell open={notificationBellOpen} onOpenChange={setNotificationBellOpen} emails={notificationBellData.newEmails} dueNotifications={notificationBellData.dueNotifications} onOpenEmail={() => setView("email")} onOpenReminders={() => setView("notifications")} onMarkAllRead={() => markAllRead.mutate()} /><p className="hidden max-w-44 text-right text-xs font-medium capitalize leading-5 text-[var(--ink-muted)] xl:block">{new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date())}</p><button type="button" onClick={view === "calendar" ? openCreateEvent : openCreateTask} className="swiss-button"><Plus className="h-4 w-4" /> <span className="hidden md:inline">{view === "calendar" ? "Lịch hẹn" : "Công việc"}</span></button></div>
           </header>
 
           <div className="mx-auto w-full max-w-[1440px] p-4 pb-10 md:p-8 lg:p-10">
@@ -765,6 +782,8 @@ export default function Home() {
               loading={emailAccounts.isLoading || emailMessages.isLoading}
               accountFilter={emailAccountFilter}
               statusFilter={emailStatusFilter}
+              searchQuery={emailSearchQuery}
+              focusFilter={emailFocusFilter}
               syncingAccountId={syncEmailMailbox.isPending ? syncEmailMailbox.variables?.id : null}
               disconnectingAccountId={disconnectEmailMailbox.isPending ? disconnectEmailMailbox.variables?.id : null}
               updatingMessageId={updateEmailMessageStatus.isPending ? updateEmailMessageStatus.variables?.id : null}
@@ -775,6 +794,8 @@ export default function Home() {
               connectingGmail={connectGmailImap.isPending}
               onAccountFilter={setEmailAccountFilter}
               onStatusFilter={setEmailStatusFilter}
+              onSearchQuery={setEmailSearchQuery}
+              onFocusFilter={setEmailFocusFilter}
               onConnectGmail={input => connectGmailImap.mutate(input)}
               onConnectMicrosoft={connectMicrosoftImap}
               onSync={(id: number) => syncEmailMailbox.mutate({ id })}

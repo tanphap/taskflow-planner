@@ -143,3 +143,8 @@
 - [x] Đồng bộ hoặc ghi rõ trạng thái xử lý sau khi đối chiếu repository GitHub.
 - [x] Khắc phục cảnh báo Fast Refresh của Dialog và tối ưu tiêu đề header trên màn hình điện thoại sau khi đồng bộ UI GitHub.
 - [x] Kiểm chứng, cập nhật ghi chú và xuất bản giao diện GitHub mới đã tương thích với TaskFlow.
+- [x] Rà soát cơ chế chủ đề hiện tại và triển khai chế độ tối có thể chuyển đổi, lưu lựa chọn theo thiết bị.
+- [x] Thêm tìm kiếm email theo nội dung, tiêu đề hoặc người gửi trong Quản trị email.
+- [x] Bổ sung bộ lọc email trực quan, giữ tương thích với bộ lọc hộp thư/trạng thái hiện có.
+- [x] Kiểm thử, kiểm chứng responsive và xuất bản chế độ tối cùng tìm kiếm/lọc email.
+- [x] Giữ tiêu đề header trên điện thoại gọn, không xuống nhiều dòng sau khi thêm nút chuyển chế độ tối.
