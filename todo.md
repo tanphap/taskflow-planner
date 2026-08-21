@@ -133,3 +133,5 @@
 - [x] Thêm chuông thông báo hiển thị email mới, công việc và lịch hẹn tới hạn theo tài khoản đang đăng nhập.
 - [x] Thiết kế danh sách cảnh báo song ngữ, có số lượng chưa đọc và liên kết thao tác phù hợp.
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản chuông thông báo.
+- [x] Hiển thị các email mới nhất đã được Gemini AI tóm tắt trong Overview, có trạng thái rỗng và liên kết tới Quản trị email.
+- [x] Bổ sung chuỗi VI/EN, kiểm thử, kiểm chứng responsive và xuất bản khối email AI mới nhất trên Overview.

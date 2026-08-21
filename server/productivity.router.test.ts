@@ -218,20 +218,22 @@ describe("productivity router data isolation", () => {
 
   it("scopes AI overview and email note operations to the authenticated account", async () => {
     const note = { id: 41, title: "Theo dõi hợp đồng", body: "Phản hồi trước thứ Sáu", isPinned: true, emailAccountId: 9, emailMessageId: 17 };
-    vi.mocked(db.getEmailAiOverview).mockResolvedValue({ inboxCount: 18, summarizedCount: 4, summarizedToday: 1, noteCount: 1, recentSummaries: [] } as never);
+    const recentSummary = { id: 61, emailSubject: "Kế hoạch triển khai", senderName: "Lan", summary: "Cuộc họp được dời sang thứ Năm.", generatedAt: new Date("2026-08-21T03:00:00.000Z") };
+    vi.mocked(db.getEmailAiOverview).mockResolvedValue({ inboxCount: 18, summarizedCount: 4, summarizedToday: 1, noteCount: 1, recentSummaries: [recentSummary] } as never);
     vi.mocked(db.listEmailNotes).mockResolvedValue([note] as never);
     vi.mocked(db.createEmailNote).mockResolvedValue(note as never);
     vi.mocked(db.updateEmailNote).mockResolvedValue(note as never);
     vi.mocked(db.deleteEmailNote).mockResolvedValue(undefined);
     const caller = appRouter.createCaller(createUserContext(73));
 
-    await caller.email.aiOverview();
+    const overview = await caller.email.aiOverview();
     await caller.email.notes({ limit: 25 });
     await caller.email.createNote(note);
     await caller.email.updateNote({ id: 41, data: { ...note, title: "Theo dõi hợp đồng đã cập nhật" } });
     await caller.email.deleteNote({ id: 41 });
 
     expect(db.getEmailAiOverview).toHaveBeenCalledWith(73);
+    expect(overview.recentSummaries).toEqual([recentSummary]);
     expect(db.listEmailNotes).toHaveBeenCalledWith(73, 25);
     expect(db.createEmailNote).toHaveBeenCalledWith(73, expect.objectContaining({ title: note.title, body: note.body, isPinned: note.isPinned, emailAccountId: note.emailAccountId, emailMessageId: note.emailMessageId }));
     expect(db.updateEmailNote).toHaveBeenCalledWith(73, 41, expect.objectContaining({ title: "Theo dõi hợp đồng đã cập nhật" }));
