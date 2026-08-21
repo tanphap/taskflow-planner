@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildGeminiEmailSummaryPrompt, normalizeGeminiSummary, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { GEMINI_EMAIL_SUMMARY_MODEL, buildGeminiEmailSummaryPrompt, normalizeGeminiSummary, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
 
 describe("Gemini email summary safeguards", () => {
   const source = {
@@ -32,6 +32,7 @@ describe("Gemini email summary safeguards", () => {
     const result = await summarizeGmailEmailWithGemini(source, "vi");
     expect(result.summary).toBe("- Cuộc họp thử nghiệm lúc 10:00.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`models/${GEMINI_EMAIL_SUMMARY_MODEL}:generateContent`);
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(request.contents[0].parts[0].text).toContain(source.snippet);
     expect(request.contents[0].parts[0].text).not.toContain("password");

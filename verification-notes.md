@@ -215,3 +215,9 @@ Khi người dùng chủ động bấm **Tóm tắt bằng Gemini** ở bất k�
 Danh sách Inbox nay không còn mở rộng nội dung Gemini ngay bên trong từng dòng email. Với thư đã có bản tóm tắt, người dùng bấm **Xem tóm tắt AI** để mở hộp thoại chi tiết; hộp thoại hiển thị tiêu đề, người gửi, thời điểm nhận, nội dung tóm tắt và lưu ý về giới hạn dữ liệu đã xử lý. Dialog dùng thành phần truy cập được có sẵn của ứng dụng, vì vậy hỗ trợ nút đóng, phím Escape, focus trap và cuộn nội dung khi bản tóm tắt dài.
 
 Ảnh xem trước Overview desktop 1280×720 và Email manager desktop xác nhận shell ứng dụng cùng danh sách Inbox tiếp tục ổn định sau thay đổi, không có khối tóm tắt dài chen vào các hàng thư. Do môi trường kiểm chứng không gửi thư thật tới Gemini, thao tác mở dialog được xác nhận qua state cục bộ có điều kiện và build/typecheck; `pnpm check`, production build và **63 kiểm thử Vitest** đều đạt.
+
+## Khắc phục lỗi Gemini HTTP 404
+
+Lỗi tóm tắt được tái hiện bằng yêu cầu tối thiểu tới Gemini API với khóa máy chủ đang cấu hình. Phản hồi `404` nêu rõ `gemini-2.5-flash-lite` không còn khả dụng cho người dùng API mới và đề nghị dùng `gemini-3.5-flash-lite`. Dịch vụ tóm tắt đã được chuyển sang model đề nghị này, vẫn chỉ gửi metadata và preview của email mà người dùng chủ động chọn.
+
+Yêu cầu tạo nội dung tối thiểu với `gemini-3.5-flash-lite` đã phản hồi HTTP `200` cùng nội dung `ok`; không có email hoặc dữ liệu người dùng nào được gửi trong kiểm chứng. Kiểm thử bổ sung xác nhận URL yêu cầu luôn dùng model cấu hình mới. Toàn bộ `pnpm check`, production build và **63 kiểm thử Vitest** đều đạt.

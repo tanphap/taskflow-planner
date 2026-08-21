@@ -1,6 +1,7 @@
 import { ENV } from "./_core/env";
 
-export const GEMINI_EMAIL_SUMMARY_MODEL = "gemini-2.5-flash-lite";
+// Gemini 2.5 Flash Lite is no longer provisioned for new API users and returns HTTP 404.
+export const GEMINI_EMAIL_SUMMARY_MODEL = "gemini-3.5-flash-lite";
 
 export type GeminiSummarySource = {
   subject: string;

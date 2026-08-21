@@ -175,3 +175,6 @@
 - [x] Rà soát phần hiển thị tóm tắt trong Inbox và các thành phần Dialog sẵn có.
 - [x] Chuyển tóm tắt AI của từng email sang hộp thoại chi tiết, có thao tác mở rõ ràng từ danh sách.
 - [x] Kiểm thử keyboard, responsive và xuất bản trải nghiệm popup tóm tắt AI.
+- [x] Chẩn đoán lỗi HTTP 404 khi nút AI gọi dịch vụ Gemini tóm tắt email.
+- [x] Sửa endpoint hoặc mô hình Gemini hợp lệ, đồng thời giữ xử lý quyền riêng tư và trạng thái Đã đọc.
+- [x] Kiểm thử, kiểm chứng popup và xuất bản bản sửa tóm tắt Gemini.
