@@ -4,6 +4,7 @@ import { type Language } from "@/contexts/languageStore";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
 import { quickReminderAt } from "../../../shared/recurrence";
+import { getNotificationBellData } from "../../../shared/notificationBell";
 import { eventPrefillFromTask, type EventPrefill } from "../../../shared/taskEvent";
 import { getVietnameseCalendarDay } from "../../../shared/vietnameseCalendar";
 import {
@@ -55,6 +56,7 @@ const englishCopy: Record<string, string> = {
   "Bảng điều khiển": "Workspace", "Không gian cá nhân / 2026": "Personal workspace / 2026", "Tài khoản của bạn": "Your account", "Chưa có email": "No email",
   "Đóng menu": "Close menu", "Mở menu": "Open menu", "Tổng quan hôm nay": "Today overview", "Trung tâm nhắc việc": "Reminder center", "Hồ sơ cá nhân": "Personal profile",
   "Thứ Hai": "Monday", "T2": "Mon", "T3": "Tue", "T4": "Wed", "T5": "Thu", "T6": "Fri", "T7": "Sat", "CN": "Sun", "Chưa làm": "To do", "Đang làm": "In progress", "Hoàn thành": "Completed",
+  "Thông báo": "Notifications", "Bạn không có thông báo mới.": "You have no new notifications.", "Email mới": "New email", "Việc cần chú ý": "Items needing attention", "Xem trung tâm nhắc việc": "Open reminder center", "Đánh dấu tất cả đã đọc": "Mark all as read", "Công việc tới hạn": "Task due", "Lịch hẹn tới hạn": "Event due", "Không có tiêu đề": "No subject",
   "Thấp": "Low", "Trung bình": "Medium", "Cao": "High", "Chưa có thời hạn": "No due date", "Bạn có một nhắc việc mới.": "You have a new reminder.",
   "Đã tạo công việc": "Task created", "Đã cập nhật công việc": "Task updated", "Đã xóa công việc": "Task deleted", "Đã tạo lịch hẹn": "Event created", "Đã cập nhật lịch hẹn": "Event updated", "Đã xóa lịch hẹn": "Event deleted",
   "Thông tin hồ sơ đã được lưu": "Profile saved", "Đã tạo mã liên kết Telegram": "Telegram link code created", "Telegram đã được liên kết": "Telegram linked",
@@ -314,6 +316,37 @@ type EmailNoteInput = { title: string; body: string | null; isPinned: boolean; e
 type EmailNoteRecord = EmailNoteInput & { id: number; createdAt: Date; updatedAt: Date; emailSubject: string | null; senderName: string | null };
 type EmailAiOverviewData = { inboxCount: number; summarizedCount: number; summarizedToday: number; noteCount: number; recentSummaries: Array<{ id: number; emailMessageId: number; summary: string; generatedAt: Date; emailSubject: string; senderName: string | null }> };
 
+function NotificationBell({ open, onOpenChange, emails, dueNotifications, onOpenEmail, onOpenReminders, onMarkAllRead }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  emails: EmailMessageRecord[];
+  dueNotifications: NotificationRecord[];
+  onOpenEmail: () => void;
+  onOpenReminders: () => void;
+  onMarkAllRead: () => void;
+}) {
+  const { language } = useLanguage();
+  const t = (value: string) => translateAppText(language, value);
+  const total = emails.length + dueNotifications.length;
+  const openEmail = () => { onOpenEmail(); onOpenChange(false); };
+  const openReminders = () => { onOpenReminders(); onOpenChange(false); };
+
+  return <div className="relative">
+    <button type="button" onClick={() => onOpenChange(!open)} aria-label={t("Thông báo")} aria-expanded={open} className="relative grid h-9 w-9 place-items-center border border-black bg-white text-[#18211b] transition hover:border-[#e23221] hover:text-[#e23221] active:scale-[0.97]">
+      <Bell className="h-4 w-4" />
+      {total > 0 && <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full border-2 border-[#fbfbfa] bg-[#e23221] px-1 text-[10px] font-black leading-none text-white">{total > 9 ? "9+" : total}</span>}
+    </button>
+    {open && <div role="dialog" aria-label={t("Thông báo")} className="absolute right-0 top-[calc(100%+0.6rem)] z-[70] w-[min(22rem,calc(100vw-2rem))] border-2 border-[#18211b] bg-[#fbfbfa] shadow-[6px_6px_0_#18211b]">
+      <div className="flex items-center justify-between border-b border-[#18211b] px-4 py-3"><div><p className="mono-label text-[#e23221]">ALERT CENTER</p><h2 className="mt-1 text-base font-black tracking-[-0.04em]">{t("Thông báo")}</h2></div>{dueNotifications.length > 0 && <button type="button" onClick={onMarkAllRead} className="mono-label border-b border-[#18211b] text-[#18211b] hover:border-[#e23221] hover:text-[#e23221]">{t("Đánh dấu tất cả đã đọc")}</button>}</div>
+      {total === 0 ? <div className="grid min-h-40 place-items-center p-6 text-center"><div><CheckCircle2 className="mx-auto h-7 w-7 text-[#397154]" /><p className="mt-3 text-sm font-bold">{t("Bạn không có thông báo mới.")}</p></div></div> : <div className="max-h-[min(60vh,30rem)] overflow-y-auto">
+        {emails.length > 0 && <section><div className="flex items-center justify-between border-b border-[#18211b]/15 bg-[#e4ff3f] px-4 py-2"><span className="mono-label">{t("Email mới")}</span><span className="mono-label">{emails.length.toString().padStart(2, "0")}</span></div>{emails.slice(0, 5).map(email => <button type="button" key={email.id} onClick={openEmail} className="block w-full border-b border-[#18211b]/15 px-4 py-3 text-left transition hover:bg-white"><div className="flex items-start gap-3"><Mail className="mt-0.5 h-4 w-4 shrink-0 text-[#e23221]" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{email.subject || t("Không có tiêu đề")}</p><p className="mt-1 truncate text-xs text-neutral-500">{email.senderName || email.senderEmail || "—"} · {formatTime(email.receivedAt)}</p></div></div></button>)}</section>}
+        {dueNotifications.length > 0 && <section><div className="flex items-center justify-between border-b border-[#18211b]/15 bg-[#fff2ef] px-4 py-2"><span className="mono-label text-[#e23221]">{t("Việc cần chú ý")}</span><span className="mono-label text-[#e23221]">{dueNotifications.length.toString().padStart(2, "0")}</span></div>{dueNotifications.slice(0, 5).map(notification => <button type="button" key={notification.id} onClick={openReminders} className="block w-full border-b border-[#18211b]/15 px-4 py-3 text-left transition hover:bg-white"><div className="flex items-start gap-3"><AlarmClock className="mt-0.5 h-4 w-4 shrink-0 text-[#e23221]" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{notification.title}</p><p className="mt-1 truncate text-xs text-neutral-500">{notification.kind === "task" ? t("Công việc tới hạn") : t("Lịch hẹn tới hạn")} · {formatTime(notification.scheduledFor)}</p></div></div></button>)}</section>}
+      </div>}
+      {total > 0 && <button type="button" onClick={openReminders} className="flex w-full items-center justify-between border-t border-[#18211b] px-4 py-3 text-left text-sm font-bold transition hover:bg-black hover:text-white"><span>{t("Xem trung tâm nhắc việc")}</span><ArrowRight className="h-4 w-4" /></button>}
+    </div>}
+  </div>;
+}
+
 const statusMeta: Record<TaskStatus, { label: string; className: string }> = {
   todo: { label: "Chưa làm", className: "bg-neutral-100 text-neutral-700" },
   in_progress: { label: "Đang làm", className: "bg-amber-100 text-amber-900" },
@@ -536,6 +569,7 @@ export default function Home() {
   const [telegramLinkCode, setTelegramLinkCode] = useState("");
   const [emailAccountFilter, setEmailAccountFilter] = useState<number | "all">("all");
   const [emailStatusFilter, setEmailStatusFilter] = useState<EmailMessageRecord["status"] | "all">("all");
+  const [notificationBellOpen, setNotificationBellOpen] = useState(false);
   const utils = trpc.useUtils();
 
   const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
@@ -608,7 +642,7 @@ export default function Home() {
     status: emailStatusFilter === "all" ? undefined : emailStatusFilter,
     limit: 100,
   }), [emailAccountFilter, emailStatusFilter]);
-  const emailMessages = trpc.email.messages.useQuery(emailMessagesInput, { enabled: isAuthenticated, refetchOnWindowFocus: true });
+  const emailMessages = trpc.email.messages.useQuery(emailMessagesInput, { enabled: isAuthenticated, refetchInterval: 30000, refetchOnWindowFocus: true });
   const emailSuggestions = trpc.email.suggestions.useQuery({ status: "pending" }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
   const emailGeminiSummaries = trpc.email.geminiSummaries.useQuery({ limit: 100 }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
   const emailAiOverview = trpc.email.aiOverview.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
@@ -721,6 +755,7 @@ export default function Home() {
   const notificationData = (notifications.data ?? []) as NotificationRecord[];
   const emailAccountData = (emailAccounts.data ?? []) as EmailAccountRecord[];
   const emailMessageData = (emailMessages.data ?? []) as EmailMessageRecord[];
+  const notificationBellData = getNotificationBellData(emailMessageData, notificationData);
 
   return (
     <div className="app-shell min-h-screen text-[#18211b]">
@@ -756,7 +791,7 @@ export default function Home() {
         <main className="min-w-0 flex-1">
           <header className="app-header flex min-h-20 items-center justify-between gap-4 px-4 md:px-8">
             <div className="flex items-center gap-4"><button onClick={() => setSidebarOpen(true)} className="lg:hidden" aria-label="Mở menu"><Menu className="h-5 w-5" /></button><div><p className="mono-label text-neutral-500">Không gian cá nhân / 2026</p><h1 className="text-xl font-bold tracking-[-0.05em] md:text-2xl">{pageTitle(view)}</h1></div></div>
-            <div className="flex items-center gap-2 sm:gap-3"><div className="flex border border-black bg-white" aria-label="Chọn ngôn ngữ"><button type="button" onClick={() => setLanguage("vi")} className={`px-2 py-1.5 text-[10px] font-bold ${language === "vi" ? "bg-black text-white" : "text-neutral-500 hover:bg-[#f1f1ed]"}`}>VI</button><button type="button" onClick={() => setLanguage("en")} className={`border-l border-black px-2 py-1.5 text-[10px] font-bold ${language === "en" ? "bg-black text-white" : "text-neutral-500 hover:bg-[#f1f1ed]"}`}>EN</button></div><p className="hidden text-xs font-medium text-neutral-500 sm:block">{new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date())}</p><button onClick={view === "calendar" ? openCreateEvent : openCreateTask} className="swiss-button"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">{view === "calendar" ? "Lịch hẹn" : "Công việc"}</span></button></div>
+            <div className="flex items-center gap-2 sm:gap-3"><div className="flex border border-black bg-white" aria-label="Chọn ngôn ngữ"><button type="button" onClick={() => setLanguage("vi")} className={`px-2 py-1.5 text-[10px] font-bold ${language === "vi" ? "bg-black text-white" : "text-neutral-500 hover:bg-[#f1f1ed]"}`}>VI</button><button type="button" onClick={() => setLanguage("en")} className={`border-l border-black px-2 py-1.5 text-[10px] font-bold ${language === "en" ? "bg-black text-white" : "text-neutral-500 hover:bg-[#f1f1ed]"}`}>EN</button></div><NotificationBell open={notificationBellOpen} onOpenChange={setNotificationBellOpen} emails={notificationBellData.newEmails} dueNotifications={notificationBellData.dueNotifications} onOpenEmail={() => setView("email")} onOpenReminders={() => setView("notifications")} onMarkAllRead={() => markAllRead.mutate()} /><p className="hidden text-xs font-medium text-neutral-500 sm:block">{new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date())}</p><button onClick={view === "calendar" ? openCreateEvent : openCreateTask} className="swiss-button"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">{view === "calendar" ? "Lịch hẹn" : "Công việc"}</span></button></div>
           </header>
 
           <div className="mx-auto w-full max-w-[1440px] p-4 pb-10 md:p-8 lg:p-10">

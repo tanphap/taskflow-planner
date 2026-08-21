@@ -126,6 +126,12 @@ Tùy chọn quét AI nằm trên từng hộp thư đã kết nối: người d�
 
 Đã hoàn thiện phần **Tổng quan AI** trong Quản trị email với bốn chỉ số tách theo tài khoản Manus đang đăng nhập: tổng email đã đồng bộ, số email đã tóm tắt bằng Gemini, đề xuất lịch hẹn AI đang chờ xác nhận và số ghi chú email. Giao diện nêu rõ phạm vi dữ liệu hiện tại; AI chỉ tạo đề xuất và người dùng vẫn phải chủ động xác nhận trước khi lịch hẹn hoặc nhắc Telegram được tạo.
 
+## Chuông thông báo email và việc tới hạn
+
+Đã bổ sung chuông thông báo trong thanh đầu trang, hoạt động theo tài khoản Manus đang đăng nhập. Badge đỏ chỉ xuất hiện khi có email mang trạng thái **Mới** hoặc nhắc việc/lịch hẹn đã đến thời điểm nhưng chưa đọc. Khi mở chuông, bảng cảnh báo phân tách rõ hai nhóm: email mới và việc cần chú ý; mỗi dòng mở đúng khu vực Quản trị email hoặc Trung tâm nhắc việc. Thao tác đánh dấu tất cả nhắc việc đã đọc dùng API hiện có, không thay đổi trạng thái email.
+
+Chuỗi hiển thị, aria-label và trạng thái rỗng đều hỗ trợ VI/EN. Đã thêm tiện ích `shared/notificationBell.ts` và hai kiểm thử đơn vị: chỉ đếm email trạng thái `new`, cộng chính xác các nhắc việc tới hạn, và không hiện badge khi cả hai nhóm đều rỗng. Xác nhận cuối cùng: `pnpm check`, production build và **47 kiểm thử Vitest** đều đạt. Ảnh kiểm tra ở 1280×720 và 375×812 xác nhận chuông giữ tỷ lệ rõ ràng trong header, không che bộ chọn ngôn ngữ, tiêu đề hay nút tạo nhanh. Chưa kết nối hộp thư hoặc tạo nhắc việc thực tế trong bước kiểm chứng giao diện này.
+
 Khu vực **Ghi chú email** hỗ trợ tạo, sửa, xóa, ghim ghi chú và liên kết tùy chọn tới hộp thư/thư nguồn đã đồng bộ. Bản ghi được truy vấn và thao tác theo `userId`; kiểm thử router xác nhận các API tổng quan, danh sách, tạo, sửa và xóa ghi chú luôn nhận định danh người dùng hiện tại. Tiêu đề rỗng bị chặn trước khi gọi tầng dữ liệu. Các nhãn, biểu mẫu, trạng thái trống, nhãn ghim và thao tác đã được nối với cơ chế VI/EN hiện có.
 
 Ảnh chụp tại 1280×720 và 375×812 cho thấy bốn thẻ số liệu, biểu mẫu ghi chú và trạng thái rỗng xếp rõ ràng theo lưới Swiss Design, không có thanh cuộn ngang hay phần tử chồng lấn. Kiểm tra cuối cùng xác nhận `pnpm check`, `pnpm build` và **45 kiểm thử Vitest** đều đạt. Production build chỉ đưa ra cảnh báo thông tin về kích thước chunk frontend vượt 500 kB; quá trình build vẫn hoàn tất thành công. Không kết nối hộp thư thực tế, không gửi dữ liệu email sang Gemini và không tạo hoặc thay đổi ghi chú người dùng trong quá trình kiểm chứng trực quan.

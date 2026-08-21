@@ -130,3 +130,6 @@
 - [x] Tạo API tổng quan email AI với số lượng thư được tóm tắt, lượt tóm tắt còn lại, các mục cần lưu ý và truy cập thư nguồn.
 - [x] Tích hợp giao diện VI/EN dễ nhìn cho thẻ số liệu, khu vực lưu ý và ghi chú trong Quản trị email.
 - [x] Bổ sung kiểm thử, kiểm chứng responsive và xuất bản phần ghi chú/tổng quan email AI.
+- [x] Thêm chuông thông báo hiển thị email mới, công việc và lịch hẹn tới hạn theo tài khoản đang đăng nhập.
+- [x] Thiết kế danh sách cảnh báo song ngữ, có số lượng chưa đọc và liên kết thao tác phù hợp.
+- [x] Kiểm thử, kiểm chứng responsive và xuất bản chuông thông báo.
