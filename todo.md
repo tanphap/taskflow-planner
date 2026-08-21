@@ -213,3 +213,5 @@
 - [x] Xây dựng hộp xem email gốc có định dạng dễ đọc, hỗ trợ mở nội dung đầy đủ và nhãn VI/EN.
 - [x] Hiển thị rõ số email mới của lần đồng bộ so với tổng số email đang có của từng hộp thư.
 - [x] Bổ sung kiểm thử, kiểm chứng giao diện desktop/mobile và xuất bản cải tiến Inbox.
+- [x] Thay nhãn “Đặt lịch hẹn” trong danh sách công việc bằng biểu tượng lịch có nhãn trợ năng và gợi ý thao tác.
+- [x] Kiểm thử responsive và xuất bản điều chỉnh giao diện thao tác lịch hẹn.
