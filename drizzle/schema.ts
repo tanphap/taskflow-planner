@@ -111,7 +111,7 @@ export const emailAccounts = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
-    provider: mysqlEnum("provider", ["google", "microsoft"]).notNull(),
+    provider: mysqlEnum("provider", ["google", "microsoft", "webmail"]).notNull(),
     email: varchar("email", { length: 320 }).notNull(),
     displayName: varchar("displayName", { length: 240 }),
     authMethod: mysqlEnum("authMethod", ["app_password", "oauth2"]).default("app_password").notNull(),

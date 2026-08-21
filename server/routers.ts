@@ -12,7 +12,7 @@ import * as db from "./db";
 import { findPrivateChatForLinkCode } from "./telegram";
 import { parseRecurrenceRule } from "../shared/recurrence";
 import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
-import { syncMailbox, verifyImapConnection } from "./emailSync";
+import { syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
@@ -151,6 +151,26 @@ export const appRouter = router({
         if (!account) throw new Error("Không thể lưu hộp thư Gmail");
         return { success: true as const, id: account.id };
       } catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể kết nối Gmail qua IMAP" }); }
+    }),
+    connectWebmailImap: protectedProcedure.input(z.object({
+      email: z.string().trim().email("Địa chỉ email không hợp lệ").max(320),
+      username: z.string().trim().min(1).max(320).optional(),
+      password: z.string().min(1, "Hãy nhập mật khẩu Webmail / IMAP").max(512),
+      host: z.string().trim().min(3).max(253),
+      port: z.number().int().min(1).max(65535).default(993),
+      mailbox: z.string().trim().min(1).max(255).optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const email = input.email.toLowerCase();
+      const username = (input.username || email).toLowerCase();
+      const host = input.host.toLowerCase();
+      const mailbox = input.mailbox || "INBOX";
+      try {
+        await verifyWebmailImapConnection({ host, port: input.port, user: username, pass: input.password, mailbox });
+        await db.upsertImapEmailAccount(ctx.user.id, { provider: "webmail", email, imapHost: host, imapPort: input.port, imapSecure: true, imapUsername: username, imapPasswordCiphertext: encryptEmailToken(input.password), imapMailbox: mailbox });
+        const account = await db.getEmailAccountByProviderEmail(ctx.user.id, "webmail", email);
+        if (!account) throw new Error("Không thể lưu hộp thư Webmail");
+        return { success: true as const, id: account.id };
+      } catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể kết nối Webmail qua IMAP SSL" }); }
     }),
     sync: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       try { return { success: true as const, ...(await syncMailbox(ctx.user.id, input.id)) }; }

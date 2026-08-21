@@ -151,3 +151,7 @@
 - [x] Chẩn đoán nút kết nối Gmail/Outlook không hiển thị phản hồi hoặc hướng dẫn khi người dùng bấm.
 - [x] Bổ sung trạng thái xử lý, cảnh báo lỗi/cấu hình và hướng dẫn kết nối Gmail/Outlook rõ ràng theo VI/EN.
 - [x] Kiểm thử, kiểm chứng và xuất bản luồng nút kết nối email đã sửa.
+- [x] Thay lựa chọn Outlook OAuth2 bằng Webmail / IMAP SSL cho hộp thư doanh nghiệp.
+- [x] Mở rộng mô hình kết nối và luồng đồng bộ IMAP SSL để lưu máy chủ, cổng và xác thực an toàn theo userId.
+- [x] Cập nhật giao diện, hướng dẫn VI/EN và kiểm thử kết nối Webmail / IMAP SSL.
+- [x] Kiểm chứng responsive, bảo mật và xuất bản kết nối Webmail / IMAP SSL.

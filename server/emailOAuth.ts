@@ -35,7 +35,7 @@ export function decryptEmailToken(value: string) {
 }
 function isMicrosoft(value: string): value is "microsoft" { return value === "microsoft"; }
 function configured() { return Boolean(providerConfig.microsoft.clientId() && providerConfig.microsoft.clientSecret() && ENV.emailTokenEncryptionKey); }
-export function getEmailProviderConfiguration() { return { google: Boolean(ENV.emailTokenEncryptionKey), microsoft: configured() }; }
+export function getEmailProviderConfiguration() { return { google: Boolean(ENV.emailTokenEncryptionKey), webmail: Boolean(ENV.emailTokenEncryptionKey) }; }
 
 async function exchangeCode(code: string, verifier: string, redirectUri: string): Promise<TokenResponse> {
   const config = providerConfig.microsoft; const body = new URLSearchParams({ client_id: config.clientId(), client_secret: config.clientSecret(), code, code_verifier: verifier, redirect_uri: redirectUri, grant_type: "authorization_code" });

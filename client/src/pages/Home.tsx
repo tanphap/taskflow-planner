@@ -288,7 +288,7 @@ type NotificationRecord = {
 
 type EmailAccountRecord = {
   id: number;
-  provider: "google" | "microsoft";
+  provider: "google" | "microsoft" | "webmail";
   email: string;
   displayName: string | null;
   authMethod: "app_password" | "oauth2";
@@ -321,7 +321,7 @@ type EmailMessageRecord = {
 };
 
 type EmailMessageStatus = "new" | "in_progress" | "done" | "archived";
-type EmailProviderConfiguration = { google: boolean; microsoft: boolean };
+type EmailProviderConfiguration = { google: boolean; webmail: boolean };
 type EmailEventSuggestionRecord = { id: number; emailAccountId: number; emailMessageId: number; title: string; description: string | null; startAt: Date; endAt: Date; reminderMinutes: number; planLink: string | null; sourceExcerpt: string | null; confidence: number; status: "pending" | "accepted" | "dismissed" | "error"; calendarEventId: number | null; analyzedAt: Date; emailSubject: string; senderName: string | null; senderEmail: string | null; webLink: string | null };
 type EmailGeminiSummaryRecord = { id: number; emailMessageId: number; emailAccountId: number; summary: string; locale: string; model: string; generatedAt: Date };
 type EmailAiOverviewData = { inboxCount: number; summarizedCount: number; summarizedToday: number; recentSummaries: Array<{ id: number; emailMessageId: number; summary: string; generatedAt: Date; emailSubject: string; senderName: string | null }> };
@@ -420,7 +420,7 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectMicrosoft, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail }: {
+function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, searchQuery, focusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, connectingWebmail, onAccountFilter, onStatusFilter, onSearchQuery, onFocusFilter, onConnectGmail, onConnectWebmail, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
@@ -440,12 +440,13 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   dismissingSuggestionId: number | null;
   summarizingMessageId: number | null;
   connectingGmail: boolean;
+  connectingWebmail: boolean;
   onAccountFilter: (value: number | "all") => void;
   onStatusFilter: (value: EmailMessageStatus | "all") => void;
   onSearchQuery: (value: string) => void;
   onFocusFilter: (value: EmailInboxFocus) => void;
   onConnectGmail: (input: { email: string; username?: string; appPassword: string }) => void;
-  onConnectMicrosoft: () => void;
+  onConnectWebmail: (input: { email: string; username?: string; password: string; host: string; port: number }) => void;
   onSync: (id: number) => void;
   onDisconnect: (id: number) => void;
   onSetMessageStatus: (id: number, status: EmailMessageStatus) => void;
@@ -458,11 +459,12 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const { language } = useLanguage();
   const t = (value: string) => translateAppText(language, value);
   const statusLabel: Record<EmailMessageStatus, string> = { new: "Mới", in_progress: "Đang xử lý", done: "Đã xử lý", archived: "Đã lưu trữ" };
-  const providerLabel = (provider: EmailAccountRecord["provider"]) => provider === "google" ? "Gmail" : "Outlook / Microsoft 365";
-  const providerEnabled = (provider: "google" | "microsoft") => Boolean(configuration?.[provider]);
+  const providerLabel = (provider: EmailAccountRecord["provider"]) => provider === "google" ? "Gmail" : provider === "webmail" ? "Webmail / IMAP SSL" : "Outlook / Microsoft 365";
+  const providerEnabled = (provider: "google" | "webmail") => Boolean(configuration?.[provider]);
   const [intervals, setIntervals] = useState<Record<number, number>>({});
   const [gmailForm, setGmailForm] = useState({ email: "", username: "", appPassword: "" });
-  const [connectionGuide, setConnectionGuide] = useState<"gmail" | "microsoft" | null>(null);
+  const [webmailForm, setWebmailForm] = useState({ email: "", username: "", password: "", host: "", port: "993" });
+  const [connectionGuide, setConnectionGuide] = useState<"gmail" | "webmail" | null>(null);
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
   const summarizedMessageIds = useMemo(() => new Set(geminiSummaries.map(summary => summary.emailMessageId)), [geminiSummaries]);
@@ -470,7 +472,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const filteredMessages = useMemo(() => filterEmailInbox(messages, { searchQuery, focus: focusFilter, summarizedMessageIds, suggestedMessageIds }), [messages, searchQuery, focusFilter, summarizedMessageIds, suggestedMessageIds]);
   const hasInboxFilters = Boolean(searchQuery.trim()) || focusFilter !== "all";
   const handleGmailConnect = () => {
-    const feedback = getEmailConnectionFeedback({ provider: "google", configured: providerEnabled("google"), gmailEmail: gmailForm.email, gmailAppPassword: gmailForm.appPassword });
+    const feedback = getEmailConnectionFeedback({ provider: "google", configured: providerEnabled("google"), email: gmailForm.email, password: gmailForm.appPassword });
     if (feedback === "gmail-credentials-required") {
       setConnectionGuide("gmail");
       toast.error(t("Bạn hãy nhập địa chỉ Gmail và Mật khẩu ứng dụng trước khi kết nối."));
@@ -484,14 +486,20 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
     setConnectionGuide(null);
     onConnectGmail({ email: gmailForm.email, username: gmailForm.username || undefined, appPassword: gmailForm.appPassword });
   };
-  const handleMicrosoftConnect = () => {
-    if (getEmailConnectionFeedback({ provider: "microsoft", configured: providerEnabled("microsoft") }) === "microsoft-oauth-configuration-required") {
-      setConnectionGuide("microsoft");
-      toast.error(t("Outlook chưa sẵn sàng trên máy chủ này."));
+  const handleWebmailConnect = () => {
+    const feedback = getEmailConnectionFeedback({ provider: "webmail", configured: providerEnabled("webmail"), email: webmailForm.email, password: webmailForm.password, imapHost: webmailForm.host });
+    if (feedback === "webmail-credentials-required") {
+      setConnectionGuide("webmail");
+      toast.error(t("Hãy nhập email, máy chủ IMAP SSL và mật khẩu trước khi kết nối."));
+      return;
+    }
+    if (feedback === "webmail-server-configuration-required") {
+      setConnectionGuide("webmail");
+      toast.error(t("Webmail chưa sẵn sàng trên máy chủ này."));
       return;
     }
     setConnectionGuide(null);
-    onConnectMicrosoft();
+    onConnectWebmail({ email: webmailForm.email, username: webmailForm.username || undefined, password: webmailForm.password, host: webmailForm.host, port: Number(webmailForm.port) || 993 });
   };
   const overviewStats = [
     { label: t("Tổng email"), value: aiOverview?.inboxCount ?? messages.length, className: "bg-black text-white", icon: Inbox },
@@ -504,7 +512,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
       <div>
         <p className="mono-label text-[var(--terracotta)]">Email operations</p>
         <h2 className="mt-2 font-display text-4xl tracking-[-0.04em] text-[var(--ink)] md:text-5xl">Quản trị email</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Đồng bộ inbox qua IMAP. Gmail dùng mật khẩu ứng dụng được mã hóa; Outlook/Microsoft 365 đăng nhập OAuth2 theo yêu cầu bảo mật của Microsoft.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--ink-muted)]">Đồng bộ inbox qua IMAP SSL. Gmail hoặc Webmail doanh nghiệp dùng thông tin đăng nhập được mã hóa trước khi lưu.</p>
       </div>
       <span className="mono-label w-fit rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[var(--ink-muted)]">{accounts.length} HỘP THƯ</span>
     </div>
@@ -517,7 +525,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
         {(!providerEnabled("google") || connectionGuide === "gmail") && <div role="alert" className="mt-3 border-l-2 border-[#e23221] bg-[#fff2ef] p-3 text-xs leading-5 text-[#7f1d1d]"><p className="font-bold">{t("Hướng dẫn kết nối Gmail")}</p>{!providerEnabled("google") && <p className="mt-1">{t("Để bảo vệ mật khẩu ứng dụng, quản trị viên cần cấu hình khóa mã hóa email trước khi bạn có thể kết nối Gmail.")}</p>}<p className="mt-1">{t("Để kết nối Gmail: bật Xác minh 2 bước trong tài khoản Google, tạo Mật khẩu ứng dụng cho Mail, rồi nhập thông tin vào biểu mẫu này.")}</p></div>}
         <p className="mt-3 text-xs leading-5 text-neutral-500">Mật khẩu này không hiển thị lại sau khi lưu. Bạn có thể ngắt kết nối bất cứ lúc nào để xóa secret.</p>
       </form>
-      <div className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)] p-5"><div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + OAUTH2</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Outlook / Microsoft 365</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Đồng bộ bằng IMAP, xác thực OAuth2 theo yêu cầu Modern Auth của Microsoft. Bạn tự đăng nhập và cấp quyền.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("microsoft") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("microsoft") ? t("SẴN SÀNG") : t("CẦN CẤU HÌNH")}</span></div><button type="button" onClick={handleMicrosoftConnect} className="swiss-button mt-5 w-full justify-center"><Mail className="h-4 w-4" /> Kết nối Outlook qua IMAP</button>{(!providerEnabled("microsoft") || connectionGuide === "microsoft") && <div role="alert" className="mt-3 border-l-2 border-[#e23221] bg-[#fff2ef] p-3 text-xs leading-5 text-[#7f1d1d]"><p className="font-bold">{t("Hướng dẫn kết nối Outlook")}</p><p className="mt-1">{t("Để kết nối Outlook: quản trị viên cần cấu hình OAuth Microsoft một lần; sau đó bạn sẽ được chuyển đến Microsoft để đăng nhập và cấp quyền IMAP.")}</p></div>}</div>
+      <form className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)] p-5" onSubmit={event => { event.preventDefault(); handleWebmailConnect(); }}><div className="flex items-start justify-between gap-4"><div><p className="mono-label text-neutral-500">IMAP + SSL</p><h3 className="mt-2 text-xl font-extrabold tracking-[-0.035em]">Webmail / IMAP SSL</h3><p className="mt-2 text-sm leading-6 text-neutral-600">Dành cho email doanh nghiệp, ví dụ VNPT. Nhập máy chủ IMAP công khai, cổng SSL và thông tin đăng nhập Webmail.</p></div><span className={`mono-label px-2 py-1 ${providerEnabled("webmail") ? "bg-[#e4ff3f] text-[#18211b]" : "bg-neutral-100 text-neutral-500"}`}>{providerEnabled("webmail") ? t("SẴN SÀNG") : t("CẦN CẤU HÌNH")}</span></div><div className="mt-5 grid gap-3"><label className="text-xs font-bold">Địa chỉ Webmail<input className="input-swiss mt-1 w-full" type="email" value={webmailForm.email} onChange={event => setWebmailForm(previous => ({ ...previous, email: event.target.value }))} autoComplete="email" /></label><label className="text-xs font-bold">Tên đăng nhập IMAP <span className="font-normal text-neutral-500">(nếu khác email)</span><input className="input-swiss mt-1 w-full" value={webmailForm.username} onChange={event => setWebmailForm(previous => ({ ...previous, username: event.target.value }))} autoComplete="username" /></label><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]"><label className="text-xs font-bold">Máy chủ IMAP SSL<input className="input-swiss mt-1 w-full" value={webmailForm.host} onChange={event => setWebmailForm(previous => ({ ...previous, host: event.target.value }))} placeholder="imap.example.com" autoComplete="off" /></label><label className="text-xs font-bold">Cổng<input className="input-swiss mt-1 w-full" type="number" min="1" max="65535" value={webmailForm.port} onChange={event => setWebmailForm(previous => ({ ...previous, port: event.target.value }))} /></label></div><label className="text-xs font-bold">Mật khẩu Webmail<input className="input-swiss mt-1 w-full" type="password" value={webmailForm.password} onChange={event => setWebmailForm(previous => ({ ...previous, password: event.target.value }))} autoComplete="new-password" /></label></div><button type="submit" className="swiss-button mt-5 w-full justify-center" disabled={connectingWebmail}>{connectingWebmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} {connectingWebmail ? "Đang kiểm tra IMAP SSL…" : "Kết nối Webmail / IMAP SSL"}</button>{(!providerEnabled("webmail") || connectionGuide === "webmail") && <div role="alert" className="mt-3 border-l-2 border-[#e23221] bg-[#fff2ef] p-3 text-xs leading-5 text-[#7f1d1d]"><p className="font-bold">{t("Hướng dẫn kết nối Webmail / IMAP SSL")}</p>{!providerEnabled("webmail") && <p className="mt-1">{t("Để bảo vệ mật khẩu Webmail, quản trị viên cần cấu hình khóa mã hóa email trước khi bạn có thể kết nối.")}</p>}<p className="mt-1">{t("Nhập máy chủ IMAP công khai do nhà cung cấp email cấp, chọn cổng SSL (thường là 993), rồi nhập thông tin đăng nhập Webmail của bạn.")}</p></div>}<p className="mt-3 text-xs leading-5 text-neutral-500">Máy chủ nội bộ và dải địa chỉ riêng sẽ bị chặn để bảo vệ hệ thống. Mật khẩu được mã hóa và không hiển thị lại sau khi lưu.</p></form>
     </div>
 
     <div className="overflow-hidden rounded-[20px] border border-[var(--line)] bg-[var(--surface)] shadow-[0_13px_34px_rgb(75_59_45/0.065)]">
@@ -525,7 +533,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
         <div><p className="mono-label text-neutral-500">CONNECTED ACCOUNTS</p><h3 className="mt-1 text-xl font-extrabold">Hộp thư đã kết nối</h3></div>
         <span className="text-sm text-neutral-500">Đồng bộ metadata thư; không hiển thị token hoặc mật khẩu ứng dụng.</span>
       </div>
-      {accounts.length === 0 ? <div className="p-8 text-center"><Mail className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-3 font-bold">Chưa có hộp thư nào được kết nối</p><p className="mt-1 text-sm text-neutral-500">Chọn Gmail hoặc Outlook ở trên để bắt đầu.</p></div> : <div className="divide-y divide-[#18211b]/15">
+      {accounts.length === 0 ? <div className="p-8 text-center"><Mail className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-3 font-bold">Chưa có hộp thư nào được kết nối</p><p className="mt-1 text-sm text-neutral-500">Chọn Gmail hoặc Webmail / IMAP SSL ở trên để bắt đầu.</p></div> : <div className="divide-y divide-[#18211b]/15">
         {accounts.map(account => <div key={account.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className="mono-label border border-[#18211b] px-2 py-1">IMAP · {account.authMethod === "oauth2" ? "OAUTH2" : "APP PASSWORD"}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
             <div className="mt-4 grid gap-2 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3 sm:grid-cols-[auto_minmax(160px,1fr)_auto] sm:items-center"><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={account.aiSyncEnabled} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => onConfigureAiSync(account.id, event.target.checked, intervalFor(account))} /> Bật quét AI tự động</label><select className="input-swiss h-9 text-xs" value={intervalFor(account)} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => setIntervals(previous => ({ ...previous, [account.id]: Number(event.target.value) }))}>{[[15, "Mỗi 15 phút"], [30, "Mỗi 30 phút"], [60, "Mỗi giờ"], [120, "Mỗi 2 giờ"], [240, "Mỗi 4 giờ"], [720, "Mỗi 12 giờ"], [1440, "Mỗi ngày"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="swiss-button-outline h-9 justify-center text-xs" onClick={() => onConfigureAiSync(account.id, account.aiSyncEnabled, intervalFor(account))} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id}>{configuringAccountId === account.id ? "Đang lưu…" : "Lưu chu kỳ"}</button></div>
@@ -690,6 +698,10 @@ export default function Home() {
     onSuccess: async () => { await refreshEmailData(); toast.success("Đã kết nối Gmail qua IMAP"); },
     onError: error => toast.error(error.message),
   });
+  const connectWebmailImap = trpc.email.connectWebmailImap.useMutation({
+    onSuccess: async () => { await refreshEmailData(); toast.success("Đã kết nối Webmail / IMAP SSL"); },
+    onError: error => toast.error(error.message),
+  });
   const disconnectEmailMailbox = trpc.email.disconnect.useMutation({
     onSuccess: async () => { await refreshEmailData(); setEmailAccountFilter("all"); toast.success("Đã ngắt kết nối hộp thư"); },
     onError: error => toast.error(error.message),
@@ -726,11 +738,6 @@ export default function Home() {
     },
     onError: error => toast.error(error.message),
   });
-  const connectMicrosoftImap = () => {
-    if (!emailConfiguration.data?.microsoft) { toast.error("Cần cấu hình OAuth Microsoft trước khi kết nối"); return; }
-    window.location.assign("/api/email/oauth/microsoft/start");
-  };
-
   const openCreateTask = () => { setEditingTask(null); setTaskDialogOpen(true); };
   const openCreateEvent = () => { setEditingEvent(null); setEventPrefill(null); setPendingEmailSuggestionId(null); setEventDialogOpen(true); };
   const openCreateEventFromTask = (task: TaskRecord) => { setEditingEvent(null); setEventPrefill(eventPrefillFromTask(task)); setEventDialogOpen(true); };
@@ -828,12 +835,13 @@ export default function Home() {
               dismissingSuggestionId={dismissEmailSuggestion.isPending ? dismissEmailSuggestion.variables?.id : null}
               summarizingMessageId={summarizeEmailWithGemini.isPending ? summarizeEmailWithGemini.variables?.messageId : null}
               connectingGmail={connectGmailImap.isPending}
+              connectingWebmail={connectWebmailImap.isPending}
               onAccountFilter={setEmailAccountFilter}
               onStatusFilter={setEmailStatusFilter}
               onSearchQuery={setEmailSearchQuery}
               onFocusFilter={setEmailFocusFilter}
               onConnectGmail={input => connectGmailImap.mutate(input)}
-              onConnectMicrosoft={connectMicrosoftImap}
+              onConnectWebmail={input => connectWebmailImap.mutate(input)}
               onSync={(id: number) => syncEmailMailbox.mutate({ id })}
               onDisconnect={(id: number) => { if (window.confirm("Ngắt kết nối hộp thư này?")) disconnectEmailMailbox.mutate({ id }); }}
               onSetMessageStatus={(id: number, status: EmailMessageStatus) => updateEmailMessageStatus.mutate({ id, status })}

@@ -2,6 +2,7 @@ import { ImapFlow } from "imapflow";
 import { ENV } from "./_core/env";
 import { decryptEmailToken, encryptEmailToken } from "./emailOAuth";
 import * as db from "./db";
+import { resolvePublicWebmailImapHost } from "./webmailImap";
 
 type TokenPayload = { access_token: string; refresh_token?: string; expires_in?: number };
 type MailboxMessage = { providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null };
@@ -53,7 +54,8 @@ async function getImapAuth(userId: number, accountId: number) {
 
 async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAccountWithCredentials>>, auth: { user: string; pass?: string; accessToken?: string }): Promise<MailboxMessage[]> {
   if (!account?.imapHost || !account.imapPort) throw new Error("Mailbox IMAP configuration is incomplete");
-  const client = new ImapFlow({ host: account.imapHost, port: account.imapPort, secure: account.imapSecure, auth, tls: { servername: account.imapHost }, logger: false });
+  const webmailTarget = account.provider === "webmail" ? await resolvePublicWebmailImapHost(account.imapHost) : null;
+  const client = new ImapFlow({ host: webmailTarget?.address ?? account.imapHost, port: account.imapPort, secure: account.imapSecure, auth, tls: { servername: webmailTarget?.hostname ?? account.imapHost }, logger: false });
   await client.connect();
   let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | undefined;
   try {
@@ -86,8 +88,8 @@ async function fetchImapInbox(account: Awaited<ReturnType<typeof db.getEmailAcco
   }
 }
 
-export async function verifyImapConnection(input: { host: string; port: number; secure: boolean; user: string; pass: string; mailbox?: string }) {
-  const client = new ImapFlow({ host: input.host, port: input.port, secure: input.secure, auth: { user: input.user, pass: input.pass }, tls: { servername: input.host }, logger: false });
+export async function verifyImapConnection(input: { host: string; port: number; secure: boolean; user: string; pass: string; mailbox?: string; tlsServername?: string }) {
+  const client = new ImapFlow({ host: input.host, port: input.port, secure: input.secure, auth: { user: input.user, pass: input.pass }, tls: { servername: input.tlsServername ?? input.host }, logger: false });
   await client.connect();
   try {
     const lock = await client.getMailboxLock(input.mailbox || "INBOX");
@@ -95,6 +97,11 @@ export async function verifyImapConnection(input: { host: string; port: number; 
   } finally {
     await client.logout().catch(() => client.close());
   }
+}
+
+export async function verifyWebmailImapConnection(input: { host: string; port: number; user: string; pass: string; mailbox?: string }) {
+  const target = await resolvePublicWebmailImapHost(input.host);
+  return verifyImapConnection({ host: target.address, tlsServername: target.hostname, port: input.port, secure: true, user: input.user, pass: input.pass, mailbox: input.mailbox });
 }
 
 export async function syncMailbox(userId: number, accountId: number) {

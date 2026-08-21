@@ -1,0 +1,1 @@
+ALTER TABLE `email_accounts` MODIFY COLUMN `provider` enum('google','microsoft','webmail') NOT NULL;

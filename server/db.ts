@@ -147,12 +147,13 @@ export async function getTelegramDeliveryHistory(userId: number, limit = 30) {
   return db.select().from(telegramDeliveryLogs).where(eq(telegramDeliveryLogs.userId, userId)).orderBy(desc(telegramDeliveryLogs.sentAt)).limit(limit);
 }
 
-export type EmailProvider = "google" | "microsoft";
+export type EmailProvider = "google" | "microsoft" | "webmail";
+export type EmailOAuthProvider = Exclude<EmailProvider, "webmail">;
 export type EmailAuthMethod = "app_password" | "oauth2";
 export type EmailMessageStatus = "new" | "in_progress" | "done" | "archived";
 export type EmailSuggestionStatus = "pending" | "accepted" | "dismissed" | "error";
 
-export async function createEmailOAuthSession(userId: number, provider: EmailProvider, stateHash: string, codeVerifier: string, expiresAt: Date) {
+export async function createEmailOAuthSession(userId: number, provider: EmailOAuthProvider, stateHash: string, codeVerifier: string, expiresAt: Date) {
   const db = await requireDb();
   await db.insert(emailOAuthSessions).values({ userId, provider, stateHash, codeVerifier, expiresAt });
 }
@@ -218,7 +219,7 @@ export async function upsertImapEmailAccount(userId: number, input: ImapAccountI
   await db.insert(emailAccounts).values(values).onDuplicateKeyUpdate({ set: { ...values, userId: undefined } });
 }
 
-export async function upsertEmailAccount(userId: number, input: { provider: EmailProvider; email: string; displayName?: string | null; accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null; scopes?: string | null }) {
+export async function upsertEmailAccount(userId: number, input: { provider: EmailOAuthProvider; email: string; displayName?: string | null; accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null; scopes?: string | null }) {
   const db = await requireDb();
   await db.insert(emailAccounts).values({ userId, provider: input.provider, email: input.email.toLowerCase(), displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null }).onDuplicateKeyUpdate({ set: { displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", imapPasswordCiphertext: null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null } });
 }
