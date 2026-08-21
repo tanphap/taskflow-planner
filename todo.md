@@ -125,3 +125,8 @@
 - [x] Hiển thị ngày âm với cỡ chữ phụ dưới ngày dương trên lịch tháng, tuần và ngày theo quy tắc responsive hiện có.
 - [x] Hiển thị ngày lễ Việt Nam phù hợp trên lịch, gồm nhãn VI/EN và phân biệt trực quan với lịch hẹn cá nhân.
 - [x] Bổ sung kiểm thử, kiểm chứng trực tiếp desktop, xác nhận build và chuẩn bị xuất bản phần lịch âm/ngày lễ.
+- [x] Rà soát dữ liệu tóm tắt Gemini hiện có để xác định chỉ số inbox, nội dung cần lưu ý và cách tránh hiển thị dữ liệu email chưa được người dùng chọn.
+- [x] Thiết kế bảng ghi chú email theo userId, gồm tạo/sửa/xóa và liên kết tùy chọn tới email nguồn đã đồng bộ.
+- [x] Tạo API tổng quan email AI với số lượng thư được tóm tắt, lượt tóm tắt còn lại, các mục cần lưu ý và truy cập thư nguồn.
+- [x] Tích hợp giao diện VI/EN dễ nhìn cho thẻ số liệu, khu vực lưu ý và ghi chú trong Quản trị email.
+- [x] Bổ sung kiểm thử, kiểm chứng responsive và xuất bản phần ghi chú/tổng quan email AI.

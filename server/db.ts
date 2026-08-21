@@ -6,6 +6,7 @@ import {
   emailEventSuggestions,
   emailGeminiSummaries,
   emailMessages,
+  emailNotes,
   emailOAuthSessions,
   InsertUser,
   notifications,
@@ -236,6 +237,7 @@ export async function removeEmailAccount(userId: number, accountId: number) {
   const db = await requireDb();
   await db.delete(emailEventSuggestions).where(and(eq(emailEventSuggestions.emailAccountId, accountId), eq(emailEventSuggestions.userId, userId)));
   await db.delete(emailGeminiSummaries).where(and(eq(emailGeminiSummaries.emailAccountId, accountId), eq(emailGeminiSummaries.userId, userId)));
+  await db.delete(emailNotes).where(and(eq(emailNotes.emailAccountId, accountId), eq(emailNotes.userId, userId)));
   await db.delete(emailMessages).where(and(eq(emailMessages.emailAccountId, accountId), eq(emailMessages.userId, userId)));
   await db.delete(emailAccounts).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
 }
@@ -321,6 +323,117 @@ export async function createEmailGeminiSummary(userId: number, input: { emailAcc
     status: "ready",
   });
   return getEmailGeminiSummary(userId, input.emailMessageId);
+}
+
+export type EmailNoteInput = {
+  title: string;
+  body?: string | null;
+  isPinned?: boolean;
+  emailAccountId?: number | null;
+  emailMessageId?: number | null;
+};
+
+async function getOwnedEmailNoteSource(userId: number, input: Pick<EmailNoteInput, "emailAccountId" | "emailMessageId">) {
+  const db = await requireDb();
+  if (input.emailMessageId) {
+    const message = (await db.select({ id: emailMessages.id, emailAccountId: emailMessages.emailAccountId }).from(emailMessages).where(and(
+      eq(emailMessages.id, input.emailMessageId),
+      eq(emailMessages.userId, userId),
+    )).limit(1))[0];
+    if (!message) throw new Error("Không tìm thấy email nguồn của ghi chú.");
+    return { emailAccountId: message.emailAccountId, emailMessageId: message.id };
+  }
+  if (input.emailAccountId) {
+    const account = (await db.select({ id: emailAccounts.id }).from(emailAccounts).where(and(
+      eq(emailAccounts.id, input.emailAccountId),
+      eq(emailAccounts.userId, userId),
+    )).limit(1))[0];
+    if (!account) throw new Error("Không tìm thấy hộp thư của ghi chú.");
+    return { emailAccountId: account.id, emailMessageId: null };
+  }
+  return { emailAccountId: null, emailMessageId: null };
+}
+
+export async function listEmailNotes(userId: number, limit = 50) {
+  const db = await requireDb();
+  return db.select({
+    id: emailNotes.id,
+    title: emailNotes.title,
+    body: emailNotes.body,
+    isPinned: emailNotes.isPinned,
+    emailAccountId: emailNotes.emailAccountId,
+    emailMessageId: emailNotes.emailMessageId,
+    createdAt: emailNotes.createdAt,
+    updatedAt: emailNotes.updatedAt,
+    emailSubject: emailMessages.subject,
+    senderName: emailMessages.senderName,
+  }).from(emailNotes).leftJoin(emailMessages, and(
+    eq(emailNotes.emailMessageId, emailMessages.id),
+    eq(emailMessages.userId, userId),
+  )).where(eq(emailNotes.userId, userId)).orderBy(desc(emailNotes.isPinned), desc(emailNotes.updatedAt)).limit(limit);
+}
+
+export async function createEmailNote(userId: number, input: EmailNoteInput) {
+  const db = await requireDb();
+  const source = await getOwnedEmailNoteSource(userId, input);
+  const result = await db.insert(emailNotes).values({
+    userId,
+    emailAccountId: source.emailAccountId,
+    emailMessageId: source.emailMessageId,
+    title: input.title.trim().slice(0, 240),
+    body: input.body?.trim().slice(0, 4000) || null,
+    isPinned: input.isPinned ?? false,
+  });
+  const id = Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
+  return (await listEmailNotes(userId, 100)).find(note => note.id === id);
+}
+
+export async function updateEmailNote(userId: number, noteId: number, input: EmailNoteInput) {
+  const db = await requireDb();
+  const source = await getOwnedEmailNoteSource(userId, input);
+  await db.update(emailNotes).set({
+    emailAccountId: source.emailAccountId,
+    emailMessageId: source.emailMessageId,
+    title: input.title.trim().slice(0, 240),
+    body: input.body?.trim().slice(0, 4000) || null,
+    isPinned: input.isPinned ?? false,
+  }).where(and(eq(emailNotes.id, noteId), eq(emailNotes.userId, userId)));
+  return (await listEmailNotes(userId, 100)).find(note => note.id === noteId);
+}
+
+export async function deleteEmailNote(userId: number, noteId: number) {
+  const db = await requireDb();
+  await db.delete(emailNotes).where(and(eq(emailNotes.id, noteId), eq(emailNotes.userId, userId)));
+}
+
+export async function getEmailAiOverview(userId: number) {
+  const db = await requireDb();
+  const now = new Date();
+  const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const [messagesRow, summariesRow, todayRow, notesRow, recentSummaries] = await Promise.all([
+    db.select({ value: count() }).from(emailMessages).where(eq(emailMessages.userId, userId)),
+    db.select({ value: count() }).from(emailGeminiSummaries).where(eq(emailGeminiSummaries.userId, userId)),
+    db.select({ value: count() }).from(emailGeminiSummaries).where(and(eq(emailGeminiSummaries.userId, userId), gt(emailGeminiSummaries.generatedAt, todayUtc))),
+    db.select({ value: count() }).from(emailNotes).where(eq(emailNotes.userId, userId)),
+    db.select({
+      id: emailGeminiSummaries.id,
+      emailMessageId: emailGeminiSummaries.emailMessageId,
+      summary: emailGeminiSummaries.summary,
+      generatedAt: emailGeminiSummaries.generatedAt,
+      emailSubject: emailMessages.subject,
+      senderName: emailMessages.senderName,
+    }).from(emailGeminiSummaries).innerJoin(emailMessages, and(
+      eq(emailGeminiSummaries.emailMessageId, emailMessages.id),
+      eq(emailMessages.userId, userId),
+    )).where(eq(emailGeminiSummaries.userId, userId)).orderBy(desc(emailGeminiSummaries.generatedAt)).limit(4),
+  ]);
+  return {
+    inboxCount: Number(messagesRow[0]?.value ?? 0),
+    summarizedCount: Number(summariesRow[0]?.value ?? 0),
+    summarizedToday: Number(todayRow[0]?.value ?? 0),
+    noteCount: Number(notesRow[0]?.value ?? 0),
+    recentSummaries,
+  };
 }
 
 export async function updateEmailAiSyncSettings(userId: number, accountId: number, input: { enabled: boolean; intervalMinutes: number; taskUid?: string | null }) {

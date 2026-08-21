@@ -35,6 +35,13 @@ const eventInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên sự kiện").max(240), description: z.string().max(2000).nullable().optional(),
   startAt: z.coerce.date(), endAt: z.coerce.date(), reminderAt: z.coerce.date().nullable().optional(), recurrenceRule: recurrenceRuleInput.nullable().optional(), telegramReminder: z.boolean().default(false),
 }).refine(value => value.endAt > value.startAt, { message: "Thời gian kết thúc phải sau thời gian bắt đầu", path: ["endAt"] });
+const emailNoteInput = z.object({
+  title: z.string().trim().min(1, "Hãy nhập tiêu đề ghi chú").max(240),
+  body: z.string().trim().max(4000).nullable().optional(),
+  isPinned: z.boolean().default(false),
+  emailAccountId: z.number().int().positive().nullable().optional(),
+  emailMessageId: z.number().int().positive().nullable().optional(),
+});
 
 function serializeEventInput(input: z.infer<typeof eventInput>): db.EventInput {
   const { recurrenceRule, ...event } = input;
@@ -90,6 +97,30 @@ export const appRouter = router({
     accounts: protectedProcedure.query(({ ctx }) => db.listEmailAccounts(ctx.user.id)),
     messages: protectedProcedure.input(z.object({ accountId: z.number().int().positive().optional(), status: z.enum(["new", "in_progress", "done", "archived"]).optional(), limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ ctx, input }) => db.listEmailMessages(ctx.user.id, input)),
     geminiSummaries: protectedProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ ctx, input }) => db.listEmailGeminiSummaries(ctx.user.id, input?.limit)),
+    aiOverview: protectedProcedure.query(({ ctx }) => db.getEmailAiOverview(ctx.user.id)),
+    notes: protectedProcedure.input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional()).query(({ ctx, input }) => db.listEmailNotes(ctx.user.id, input?.limit)),
+    createNote: protectedProcedure.input(emailNoteInput).mutation(async ({ ctx, input }) => {
+      try {
+        const note = await db.createEmailNote(ctx.user.id, input);
+        if (!note) throw new Error("Không thể lưu ghi chú email.");
+        return note;
+      } catch (error) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể lưu ghi chú email." });
+      }
+    }),
+    updateNote: protectedProcedure.input(z.object({ id: z.number().int().positive(), data: emailNoteInput })).mutation(async ({ ctx, input }) => {
+      try {
+        const note = await db.updateEmailNote(ctx.user.id, input.id, input.data);
+        if (!note) throw new Error("Không tìm thấy ghi chú email.");
+        return note;
+      } catch (error) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể cập nhật ghi chú email." });
+      }
+    }),
+    deleteNote: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      await db.deleteEmailNote(ctx.user.id, input.id);
+      return { success: true } as const;
+    }),
     summarizeWithGemini: protectedProcedure.input(z.object({
       messageId: z.number().int().positive(),
       locale: z.enum(["vi", "en"]).default("vi"),

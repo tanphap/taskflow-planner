@@ -215,6 +215,28 @@ export const emailGeminiSummaries = mysqlTable(
   ],
 );
 
+/** User-owned notes can optionally point back to a synced message or mailbox. */
+export const emailNotes = mysqlTable(
+  "email_notes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    emailAccountId: int("emailAccountId"),
+    emailMessageId: int("emailMessageId"),
+    title: varchar("title", { length: 240 }).notNull(),
+    body: text("body"),
+    isPinned: boolean("isPinned").default(false).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    index("email_notes_user_updated_idx").on(table.userId, table.updatedAt),
+    index("email_notes_user_pinned_idx").on(table.userId, table.isPinned),
+    index("email_notes_message_idx").on(table.emailMessageId),
+    index("email_notes_account_idx").on(table.emailAccountId),
+  ],
+);
+
 /** AI-extracted, user-reviewable event proposals. One proposal may exist for one synced message. */
 export const emailEventSuggestions = mysqlTable(
   "email_event_suggestions",
@@ -275,4 +297,5 @@ export type TelegramDeliveryLog = typeof telegramDeliveryLogs.$inferSelect;
 export type EmailAccount = typeof emailAccounts.$inferSelect;
 export type EmailMessage = typeof emailMessages.$inferSelect;
 export type EmailGeminiSummary = typeof emailGeminiSummaries.$inferSelect;
+export type EmailNote = typeof emailNotes.$inferSelect;
 export type EmailEventSuggestion = typeof emailEventSuggestions.$inferSelect;
