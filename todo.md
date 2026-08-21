@@ -137,3 +137,5 @@
 - [x] Bổ sung chuỗi VI/EN, kiểm thử, kiểm chứng responsive và xuất bản khối email AI mới nhất trên Overview.
 - [x] Bỏ giới hạn lượt tóm tắt Gemini theo ngày, vẫn giữ đồng ý rõ ràng trước mỗi email.
 - [x] Cập nhật giao diện, kiểm thử và xuất bản cơ chế tóm tắt email không giới hạn.
+- [x] Gỡ khu vực Ghi chú email khỏi màn hình Quản trị email, không xóa dữ liệu ghi chú đã lưu.
+- [x] Loại bỏ truy vấn giao diện không còn dùng, kiểm thử và xuất bản thay đổi gỡ Ghi chú email.

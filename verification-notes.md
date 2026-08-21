@@ -147,3 +147,9 @@ Khu vực **Ghi chú email** hỗ trợ tạo, sửa, xóa, ghim ghi chú và li
 Đã gỡ bỏ hạn mức **10 lượt tóm tắt mới mỗi ngày** của TaskFlow. Người dùng có thể chủ động tóm tắt không giới hạn các email Gmail đã chọn trong giao diện; thư vẫn không bị quét tự động và hộp xác nhận quyền riêng tư trước mỗi yêu cầu vẫn được giữ nguyên. API không còn truy vấn hoặc trả về chỉ số lượt tóm tắt còn lại theo ngày.
 
 Kiểm thử router mới xác nhận luồng tóm tắt không gọi truy vấn đếm theo ngày, lưu tóm tắt cho đúng `userId`/thư nguồn và không trả về trường `remainingToday`. Đã xác nhận `pnpm check`, production build và **48 kiểm thử Vitest** đều đạt. Ảnh ở 1280×720 và 375×812 xác nhận phần mô tả Gemini ghi rõ không có hạn mức theo ngày trong ứng dụng, không bị tràn hoặc chồng lấn. Gemini/Google vẫn có thể áp dụng giới hạn kỹ thuật hoặc điều khoản dịch vụ độc lập; TaskFlow sẽ hiển thị lỗi nhà cung cấp nếu phát sinh, thay vì áp hạn mức riêng của ứng dụng.
+
+## Gỡ Ghi chú email khỏi Quản trị email
+
+Theo yêu cầu, đã gỡ toàn bộ khu vực **Ghi chú email** khỏi giao diện Quản trị email, gồm biểu mẫu tạo/sửa, danh sách, thao tác ghim và xóa. Trang không còn tải truy vấn ghi chú hoặc khởi tạo mutation tạo, sửa, xóa ghi chú; thẻ Tổng quan AI cũng được tinh gọn còn ba số liệu là tổng email, email đã tóm tắt và đề xuất AI đang chờ.
+
+Thay đổi này chỉ loại bỏ phần hiển thị và các yêu cầu dữ liệu của frontend. Bảng `emailNotes`, API và các ghi chú đã lưu vẫn được giữ nguyên, nên không xảy ra mất dữ liệu và có thể khôi phục giao diện sau này nếu cần. Đã xác nhận `pnpm check`, production build và **48 kiểm thử Vitest** đều đạt. Ảnh kiểm chứng 1280×720 và 375×812 cho thấy Quản trị email liền mạch từ Tổng quan AI sang Đề xuất lịch hẹn AI, không còn thẻ Ghi chú email, không có thanh cuộn ngang hoặc chồng lấn thành phần.

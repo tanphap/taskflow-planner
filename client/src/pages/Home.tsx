@@ -19,7 +19,6 @@ import {
   Circle,
   ClipboardList,
   Clock3,
-  Edit3,
   ExternalLink,
   Inbox,
   LayoutDashboard,
@@ -37,7 +36,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -313,9 +312,7 @@ type EmailMessageStatus = "new" | "in_progress" | "done" | "archived";
 type EmailProviderConfiguration = { google: boolean; microsoft: boolean };
 type EmailEventSuggestionRecord = { id: number; emailAccountId: number; emailMessageId: number; title: string; description: string | null; startAt: Date; endAt: Date; reminderMinutes: number; planLink: string | null; sourceExcerpt: string | null; confidence: number; status: "pending" | "accepted" | "dismissed" | "error"; calendarEventId: number | null; analyzedAt: Date; emailSubject: string; senderName: string | null; senderEmail: string | null; webLink: string | null };
 type EmailGeminiSummaryRecord = { id: number; emailMessageId: number; emailAccountId: number; summary: string; locale: string; model: string; generatedAt: Date };
-type EmailNoteInput = { title: string; body: string | null; isPinned: boolean; emailAccountId: number | null; emailMessageId: number | null };
-type EmailNoteRecord = EmailNoteInput & { id: number; createdAt: Date; updatedAt: Date; emailSubject: string | null; senderName: string | null };
-type EmailAiOverviewData = { inboxCount: number; summarizedCount: number; summarizedToday: number; noteCount: number; recentSummaries: Array<{ id: number; emailMessageId: number; summary: string; generatedAt: Date; emailSubject: string; senderName: string | null }> };
+type EmailAiOverviewData = { inboxCount: number; summarizedCount: number; summarizedToday: number; recentSummaries: Array<{ id: number; emailMessageId: number; summary: string; generatedAt: Date; emailSubject: string; senderName: string | null }> };
 
 function NotificationBell({ open, onOpenChange, emails, dueNotifications, onOpenEmail, onOpenReminders, onMarkAllRead }: {
   open: boolean;
@@ -411,14 +408,13 @@ function formatTime(value: Date | string) {
   return new Intl.DateTimeFormat(getAppLocale(), { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, notes, loading, accountFilter, statusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, onAccountFilter, onStatusFilter, onConnectGmail, onConnectMicrosoft, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail, onCreateNote, onUpdateNote, onDeleteNote }: {
+function EmailManager({ configuration, accounts, messages, suggestions, geminiSummaries, aiOverview, loading, accountFilter, statusFilter, syncingAccountId, disconnectingAccountId, updatingMessageId, configuringAccountId, analyzingAccountId, dismissingSuggestionId, summarizingMessageId, connectingGmail, onAccountFilter, onStatusFilter, onConnectGmail, onConnectMicrosoft, onSync, onDisconnect, onSetMessageStatus, onConfigureAiSync, onAnalyze, onReviewSuggestion, onDismissSuggestion, onSummarizeGmail }: {
   configuration?: EmailProviderConfiguration;
   accounts: EmailAccountRecord[];
   messages: EmailMessageRecord[];
   suggestions: EmailEventSuggestionRecord[];
   geminiSummaries: EmailGeminiSummaryRecord[];
   aiOverview?: EmailAiOverviewData;
-  notes: EmailNoteRecord[];
   loading: boolean;
   accountFilter: number | "all";
   statusFilter: EmailMessageStatus | "all";
@@ -442,9 +438,6 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   onReviewSuggestion: (suggestion: EmailEventSuggestionRecord) => void;
   onDismissSuggestion: (id: number) => void;
   onSummarizeGmail: (id: number) => void;
-  onCreateNote: (input: EmailNoteInput) => Promise<unknown>;
-  onUpdateNote: (id: number, input: EmailNoteInput) => Promise<unknown>;
-  onDeleteNote: (id: number) => Promise<unknown>;
 }) {
   const { language } = useLanguage();
   const t = (value: string) => translateAppText(language, value);
@@ -453,25 +446,12 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const providerEnabled = (provider: "google" | "microsoft") => Boolean(configuration?.[provider]);
   const [intervals, setIntervals] = useState<Record<number, number>>({});
   const [gmailForm, setGmailForm] = useState({ email: "", username: "", appPassword: "" });
-  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
-  const [noteDraft, setNoteDraft] = useState<EmailNoteInput>({ title: "", body: "", isPinned: false, emailAccountId: null, emailMessageId: null });
   const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
-  const sourceMessages = messages.filter(message => !noteDraft.emailAccountId || message.emailAccountId === noteDraft.emailAccountId);
-  const resetNoteEditor = () => { setEditingNoteId(null); setNoteDraft({ title: "", body: "", isPinned: false, emailAccountId: null, emailMessageId: null }); };
-  const beginEditNote = (note: EmailNoteRecord) => { setEditingNoteId(note.id); setNoteDraft({ title: note.title, body: note.body, isPinned: note.isPinned, emailAccountId: note.emailAccountId, emailMessageId: note.emailMessageId }); };
-  const saveNote = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const input = { ...noteDraft, title: noteDraft.title.trim(), body: noteDraft.body?.trim() || null };
-    if (!input.title) return;
-    if (editingNoteId) await onUpdateNote(editingNoteId, input); else await onCreateNote(input);
-    resetNoteEditor();
-  };
   const overviewStats = [
     { label: t("Tổng email"), value: aiOverview?.inboxCount ?? messages.length, className: "bg-black text-white", icon: Inbox },
     { label: t("Đã tóm tắt"), value: aiOverview?.summarizedCount ?? geminiSummaries.length, className: "bg-[#e4ff3f] text-[#18211b]", icon: Sparkles },
     { label: t("Đề xuất đang chờ"), value: suggestions.length, className: "bg-[#fff2ef] text-[#e23221]", icon: CalendarDays },
-    { label: t("Ghi chú"), value: aiOverview?.noteCount ?? notes.length, className: "bg-white text-[#18211b]", icon: ClipboardList },
   ];
 
   return <section className="mx-auto max-w-7xl space-y-7 px-4 py-6 md:px-8 md:py-9">
@@ -511,15 +491,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
 
     <div className="border-2 border-[#18211b] bg-white">
       <div className="flex flex-col gap-4 border-b border-[#18211b] p-5 md:flex-row md:items-end md:justify-between"><div><p className="mono-label text-neutral-500">AI OVERVIEW</p><h3 className="mt-1 text-xl font-extrabold">{t("Tổng quan AI")}</h3><p className="mt-1 text-sm leading-5 text-neutral-600">{t("Số liệu tổng hợp chỉ hiển thị dữ liệu email thuộc tài khoản Manus hiện tại.")}</p></div><span className="mono-label border border-[#18211b] px-2 py-1">{aiOverview?.summarizedToday ?? 0} {t("Tóm tắt hôm nay")}</span></div>
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4">{overviewStats.map(stat => { const Icon = stat.icon; return <div key={stat.label} className={`min-h-36 border-b border-[#18211b] p-5 last:border-b-0 sm:border-r sm:last:border-r-0 xl:border-b-0 ${stat.className}`}><Icon className="h-5 w-5" /><p className="mt-7 text-4xl font-black leading-none tracking-[-0.075em]">{stat.value.toString().padStart(2, "0")}</p><p className="mono-label mt-3">{stat.label}</p></div>; })}</div>
-    </div>
-
-    <div className="border-2 border-[#18211b] bg-white">
-      <div className="flex flex-col gap-3 border-b border-[#18211b] p-5 md:flex-row md:items-end md:justify-between"><div><p className="mono-label text-[#e23221]">NOTES / EMAIL</p><h3 className="mt-1 text-xl font-extrabold">{t("Ghi chú email")}</h3><p className="mt-1 text-sm text-neutral-600">{t("Ghi chú được ghim sẽ luôn hiển thị trước.")}</p></div><span className="mono-label border border-[#18211b] px-2 py-1">{notes.length.toString().padStart(2, "0")} {t("GHI CHÚ")}</span></div>
-      <div className="grid xl:grid-cols-[minmax(280px,0.72fr)_minmax(0,1.28fr)]">
-        <form onSubmit={saveNote} className="border-b border-[#18211b] bg-[#f1f1ed] p-5 xl:border-b-0 xl:border-r"><p className="mono-label text-neutral-500">{t(editingNoteId ? "Cập nhật ghi chú" : "Thêm ghi chú")}</p><div className="mt-4 grid gap-3"><label className="text-xs font-bold">{t("Tiêu đề ghi chú")}<input className="input-swiss mt-1 w-full bg-white" value={noteDraft.title} onChange={event => setNoteDraft(previous => ({ ...previous, title: event.target.value }))} maxLength={240} required /></label><label className="text-xs font-bold">{t("Nội dung lưu ý")}<textarea className="input-swiss mt-1 min-h-28 w-full resize-y bg-white" value={noteDraft.body ?? ""} onChange={event => setNoteDraft(previous => ({ ...previous, body: event.target.value }))} maxLength={4000} /></label><label className="text-xs font-bold">{t("Hộp thư nguồn (tùy chọn)")}<select className="input-swiss mt-1 w-full bg-white" value={noteDraft.emailAccountId ?? ""} onChange={event => { const emailAccountId = event.target.value ? Number(event.target.value) : null; setNoteDraft(previous => ({ ...previous, emailAccountId, emailMessageId: emailAccountId === previous.emailAccountId ? previous.emailMessageId : null })); }}><option value="">{t("Không liên kết hộp thư")}</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.email}</option>)}</select></label><label className="text-xs font-bold">{t("Thư nguồn (tùy chọn)")}<select className="input-swiss mt-1 w-full bg-white" value={noteDraft.emailMessageId ?? ""} onChange={event => { const message = messages.find(item => item.id === Number(event.target.value)); setNoteDraft(previous => ({ ...previous, emailMessageId: event.target.value ? Number(event.target.value) : null, emailAccountId: message?.emailAccountId ?? previous.emailAccountId })); }}><option value="">{t("Không liên kết thư nguồn")}</option>{sourceMessages.map(message => <option key={message.id} value={message.id}>{message.subject || t("(Không có tiêu đề)")}</option>)}</select></label><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={noteDraft.isPinned} onChange={event => setNoteDraft(previous => ({ ...previous, isPinned: event.target.checked }))} /> {t("Ghim ghi chú")}</label></div><div className="mt-5 flex flex-wrap gap-2"><button type="submit" className="swiss-button">{editingNoteId ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {t(editingNoteId ? "Cập nhật ghi chú" : "Lưu ghi chú")}</button>{editingNoteId && <button type="button" onClick={resetNoteEditor} className="swiss-button-outline">{t("Hủy chỉnh sửa")}</button>}</div></form>
-        <div>{notes.length === 0 ? <div className="grid min-h-80 place-items-center p-8 text-center"><div><ClipboardList className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-4 font-bold">{t("Chưa có ghi chú nào.")}</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-neutral-500">{t("Tạo ghi chú để lưu ý một email quan trọng hoặc việc cần theo dõi.")}</p></div></div> : <div className="divide-y divide-[#18211b]/15">{notes.map(note => <article key={note.id} className="group p-5"><div className="flex flex-col gap-4 sm:flex-row sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2">{note.isPinned && <span className="mono-label bg-[#e23221] px-2 py-1 text-white">{t("ĐÃ GHIM")}</span>}<span className="mono-label border border-[#18211b] px-2 py-1">{formatDate(note.updatedAt)} · {formatTime(note.updatedAt)}</span></div><h4 className="mt-3 text-lg font-bold tracking-[-0.035em]">{note.title}</h4>{note.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-600">{note.body}</p>}{note.emailSubject && <p className="mt-3 border-l-2 border-[#e23221] pl-3 text-xs font-bold text-neutral-600">{note.emailSubject}{note.senderName ? ` · ${note.senderName}` : ""}</p>}</div><div className="flex shrink-0 gap-2 sm:opacity-70 sm:transition sm:group-hover:opacity-100"><button className="swiss-button-outline h-9 px-3" onClick={() => beginEditNote(note)} aria-label={t("Chỉnh sửa")}><Edit3 className="h-4 w-4" /></button><button className="swiss-button-outline h-9 px-3 text-[#e23221]" onClick={() => { if (window.confirm(t("Xóa ghi chú này?"))) void onDeleteNote(note.id); }} aria-label={t("Xóa ghi chú")}><Trash2 className="h-4 w-4" /></button></div></div></article>)}</div>}</div>
-      </div>
+      <div className="grid sm:grid-cols-3">{overviewStats.map(stat => { const Icon = stat.icon; return <div key={stat.label} className={`min-h-36 border-b border-[#18211b] p-5 last:border-b-0 sm:border-r sm:last:border-r-0 sm:border-b-0 ${stat.className}`}><Icon className="h-5 w-5" /><p className="mt-7 text-4xl font-black leading-none tracking-[-0.075em]">{stat.value.toString().padStart(2, "0")}</p><p className="mono-label mt-3">{stat.label}</p></div>; })}</div>
     </div>
 
     <div className="border-2 border-[#18211b] bg-white">
@@ -647,7 +619,6 @@ export default function Home() {
   const emailSuggestions = trpc.email.suggestions.useQuery({ status: "pending" }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
   const emailGeminiSummaries = trpc.email.geminiSummaries.useQuery({ limit: 100 }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
   const emailAiOverview = trpc.email.aiOverview.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
-  const emailNotes = trpc.email.notes.useQuery({ limit: 50 }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
   const beginTelegramLink = trpc.telegram.beginLink.useMutation({
     onSuccess: async data => { setTelegramLinkCode(data.code); await telegramStatus.refetch(); toast.success("Đã tạo mã liên kết Telegram"); },
     onError: error => toast.error(error.message),
@@ -660,7 +631,7 @@ export default function Home() {
     onError: error => toast.error(error.message),
   });
   const refreshEmailData = async () => {
-    await Promise.all([utils.email.accounts.invalidate(), utils.email.messages.invalidate(), utils.email.suggestions.invalidate(), utils.email.geminiSummaries.invalidate(), utils.email.aiOverview.invalidate(), utils.email.notes.invalidate()]);
+    await Promise.all([utils.email.accounts.invalidate(), utils.email.messages.invalidate(), utils.email.suggestions.invalidate(), utils.email.geminiSummaries.invalidate(), utils.email.aiOverview.invalidate()]);
   };
   const syncEmailMailbox = trpc.email.sync.useMutation({
     onSuccess: async data => { await refreshEmailData(); toast.success(`Đã đồng bộ ${data.count} email`); },
@@ -688,18 +659,6 @@ export default function Home() {
   });
   const summarizeEmailWithGemini = trpc.email.summarizeWithGemini.useMutation({
     onSuccess: async () => { await refreshEmailData(); toast.success("Tóm tắt Gemini đã sẵn sàng"); },
-    onError: error => toast.error(error.message),
-  });
-  const createEmailNote = trpc.email.createNote.useMutation({
-    onSuccess: async () => { await Promise.all([utils.email.notes.invalidate(), utils.email.aiOverview.invalidate()]); toast.success(language === "en" ? "Note saved" : "Đã lưu ghi chú"); },
-    onError: error => toast.error(error.message),
-  });
-  const updateEmailNote = trpc.email.updateNote.useMutation({
-    onSuccess: async () => { await utils.email.notes.invalidate(); toast.success(language === "en" ? "Note updated" : "Đã cập nhật ghi chú"); },
-    onError: error => toast.error(error.message),
-  });
-  const deleteEmailNote = trpc.email.deleteNote.useMutation({
-    onSuccess: async () => { await Promise.all([utils.email.notes.invalidate(), utils.email.aiOverview.invalidate()]); toast.success(language === "en" ? "Note deleted" : "Đã xóa ghi chú"); },
     onError: error => toast.error(error.message),
   });
   const dismissEmailSuggestion = trpc.email.dismissSuggestion.useMutation({
@@ -807,7 +766,6 @@ export default function Home() {
               suggestions={(emailSuggestions.data ?? []) as EmailEventSuggestionRecord[]}
               geminiSummaries={(emailGeminiSummaries.data ?? []) as EmailGeminiSummaryRecord[]}
               aiOverview={emailAiOverview.data as EmailAiOverviewData | undefined}
-              notes={(emailNotes.data ?? []) as EmailNoteRecord[]}
               loading={emailAccounts.isLoading || emailMessages.isLoading}
               accountFilter={emailAccountFilter}
               statusFilter={emailStatusFilter}
@@ -834,9 +792,6 @@ export default function Home() {
                 if (!window.confirm("Đồng ý gửi tiêu đề, người gửi và phần xem trước của thư này tới Gemini miễn phí? Google có thể xử lý dữ liệu theo điều khoản của dịch vụ miễn phí. Không gửi email nhạy cảm.")) return;
                 summarizeEmailWithGemini.mutate({ messageId, locale: language, acknowledgeUnpaidDataUse: true });
               }}
-              onCreateNote={(input: EmailNoteInput) => createEmailNote.mutateAsync(input)}
-              onUpdateNote={(id: number, data: EmailNoteInput) => updateEmailNote.mutateAsync({ id, data })}
-              onDeleteNote={(id: number) => deleteEmailNote.mutateAsync({ id })}
             />}
             {view === "profile" && <ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} />}
           </div>
