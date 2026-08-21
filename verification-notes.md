@@ -209,3 +209,9 @@ Hai thẻ Gmail và Webmail / IMAP SSL nay được thu gọn mặc định. M�
 Khi người dùng chủ động bấm **Tóm tắt bằng Gemini** ở bất kỳ thư đã đồng bộ nào, TaskFlow giữ hộp xác nhận quyền riêng tư, tạo hoặc dùng lại bản tóm tắt và chỉ sau khi thành công mới cập nhật thư đó thành **Đã đọc** trong phạm vi `userId`. Trạng thái này đồng thời đặt `isRead` và trạng thái nghiệp vụ `done`, vì vậy thư không còn được tính là email Mới trong chuông thông báo. Mỗi email có tóm tắt hiển thị khối nội dung Gemini ngay trong dòng thư; AI không tự quét Inbox và chỉ gửi tiêu đề, người gửi cùng phần xem trước của thư người dùng chọn.
 
 Ảnh xem trước ở 1280×720 và 375×812 xác nhận vùng Inbox, thanh lọc và các dòng thư vẫn xếp dọc rõ ràng, không bị tràn ngang. Bộ lọc nhanh bổ sung mục **Đã đọc** để xem lại các thư đã chuyển trạng thái. Do phiên kiểm chứng không tạo yêu cầu Gemini hay thay đổi dữ liệu email thực, luồng kết quả được xác nhận bằng router/unit test: cả tóm tắt mới và tóm tắt đã lưu đều gọi cập nhật Đã đọc đúng `userId`/`messageId`. `pnpm check`, production build và **63 kiểm thử Vitest** đều đạt.
+
+## Hộp thoại chi tiết tóm tắt AI
+
+Danh sách Inbox nay không còn mở rộng nội dung Gemini ngay bên trong từng dòng email. Với thư đã có bản tóm tắt, người dùng bấm **Xem tóm tắt AI** để mở hộp thoại chi tiết; hộp thoại hiển thị tiêu đề, người gửi, thời điểm nhận, nội dung tóm tắt và lưu ý về giới hạn dữ liệu đã xử lý. Dialog dùng thành phần truy cập được có sẵn của ứng dụng, vì vậy hỗ trợ nút đóng, phím Escape, focus trap và cuộn nội dung khi bản tóm tắt dài.
+
+Ảnh xem trước Overview desktop 1280×720 và Email manager desktop xác nhận shell ứng dụng cùng danh sách Inbox tiếp tục ổn định sau thay đổi, không có khối tóm tắt dài chen vào các hàng thư. Do môi trường kiểm chứng không gửi thư thật tới Gemini, thao tác mở dialog được xác nhận qua state cục bộ có điều kiện và build/typecheck; `pnpm check`, production build và **63 kiểm thử Vitest** đều đạt.

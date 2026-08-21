@@ -172,3 +172,6 @@
 - [x] Khi người dùng chủ động tóm tắt thành công, tự chuyển thư từ Mới sang Đã đọc trong phạm vi userId.
 - [x] Hiển thị tóm tắt AI rõ ràng ngay tại email đã chọn, giữ xác nhận quyền riêng tư và hỗ trợ VI/EN.
 - [x] Kiểm thử, kiểm chứng responsive và xuất bản luồng tóm tắt AI kèm trạng thái đã đọc.
+- [x] Rà soát phần hiển thị tóm tắt trong Inbox và các thành phần Dialog sẵn có.
+- [x] Chuyển tóm tắt AI của từng email sang hộp thoại chi tiết, có thao tác mở rõ ràng từ danh sách.
+- [x] Kiểm thử keyboard, responsive và xuất bản trải nghiệm popup tóm tắt AI.
