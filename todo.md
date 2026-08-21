@@ -120,3 +120,8 @@
 - [x] Bổ sung kiểm thử, xác minh desktop và production build; đã chuẩn bị xuất bản tính năng tóm tắt email Gemini.
 - [x] Chỉ cho phép Gemini miễn phí tóm tắt thư theo thao tác chủ động sau khi người dùng đồng ý về xử lý dữ liệu; không tự động quét toàn bộ inbox.
 - [x] Thêm hạn mức sử dụng theo tài khoản và thông báo rõ khi Gemini API miễn phí hết quota hoặc trả lỗi.
+- [x] Xác minh thuật toán/thư viện lịch âm Việt Nam và danh mục ngày lễ; ghi rõ ngày nghỉ bù phải theo quyết định công bố từng năm.
+- [x] Tích hợp chuyển đổi ngày dương sang âm lịch Việt Nam có múi giờ phù hợp và kiểm thử các ngày mốc.
+- [x] Hiển thị ngày âm với cỡ chữ phụ dưới ngày dương trên lịch tháng, tuần và ngày theo quy tắc responsive hiện có.
+- [x] Hiển thị ngày lễ Việt Nam phù hợp trên lịch, gồm nhãn VI/EN và phân biệt trực quan với lịch hẹn cá nhân.
+- [x] Bổ sung kiểm thử, kiểm chứng trực tiếp desktop, xác nhận build và chuẩn bị xuất bản phần lịch âm/ngày lễ.
