@@ -315,7 +315,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .app-header > div:last-child > div[aria-label="Chọn ngôn ngữ"] { padding: 2px; }
   .app-header > div:last-child > div[aria-label="Chọn ngôn ngữ"] button { padding: 5px 7px; }
   .app-header .swiss-button { min-width: 40px; padding-inline: 9px; }
-  .app-header h1 { max-width: 5rem; font-size: 1.2rem; }
+  .app-header h1 { max-width: 8.25rem; font-size: 1.05rem; line-height: 1.15; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

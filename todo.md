@@ -139,3 +139,7 @@
 - [x] Cập nhật giao diện, kiểm thử và xuất bản cơ chế tóm tắt email không giới hạn.
 - [x] Gỡ khu vực Ghi chú email khỏi màn hình Quản trị email, không xóa dữ liệu ghi chú đã lưu.
 - [x] Loại bỏ truy vấn giao diện không còn dùng, kiểm thử và xuất bản thay đổi gỡ Ghi chú email.
+- [x] Kiểm tra remote, nhánh và commit GitHub để xác định giao diện mới cần đồng bộ vào TaskFlow.
+- [x] Đồng bộ hoặc ghi rõ trạng thái xử lý sau khi đối chiếu repository GitHub.
+- [x] Khắc phục cảnh báo Fast Refresh của Dialog và tối ưu tiêu đề header trên màn hình điện thoại sau khi đồng bộ UI GitHub.
+- [x] Kiểm chứng, cập nhật ghi chú và xuất bản giao diện GitHub mới đã tương thích với TaskFlow.
