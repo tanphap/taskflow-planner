@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GEMINI_EMAIL_SUMMARY_MODEL, buildGeminiEmailSummaryPrompt, normalizeGeminiSummary, parseGeminiEmailSummaryResponse, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { GEMINI_EMAIL_SUMMARY_MODEL, buildGeminiEmailSummaryPrompt, isGeminiTemporaryError, normalizeGeminiSummary, parseGeminiEmailSummaryResponse, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
 
 describe("Gemini email summary safeguards", () => {
   const source = {
@@ -63,6 +63,23 @@ describe("Gemini email summary safeguards", () => {
     expect(request.contents[0].parts[1].inlineData).toMatchObject({ mimeType: "text/plain", data: Buffer.from("Nội dung tệp đính kèm").toString("base64") });
     expect(request.contents[0].parts[0].text).not.toContain("password");
     expect(request.generationConfig.responseMimeType).toBe("application/json");
+  });
+
+  it("adds extracted spreadsheet text to the requested Gemini context without uploading the workbook bytes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ summary: "- Báo cáo do Lan phụ trách.", eventStartAt: null, eventEndAt: null }) }] } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await summarizeGmailEmailWithGemini({ ...source, attachments: [{ filename: "ke-hoach.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: 250, content: null, tableText: "Bảng đính kèm 1 — Kế hoạch:\nViệc | Người phụ trách\nBáo cáo | Lan" }] }, "vi");
+
+    const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(request.contents[0].parts[0].text).toContain("Báo cáo | Lan");
+    expect(request.contents[0].parts).toHaveLength(1);
+  });
+
+  it("classifies rate-limit and service failures as temporary so the interface can offer retry", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("temporarily unavailable", { status: 503 })));
+
+    await expect(summarizeGmailEmailWithGemini({ ...source }, "vi")).rejects.toSatisfy(error => isGeminiTemporaryError(error) && error.status === 503);
   });
 });
 

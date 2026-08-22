@@ -45,7 +45,7 @@ vi.mock("./emailSync", () => ({
   verifyImapConnection: vi.fn(),
   verifyWebmailImapConnection: vi.fn(),
 }));
-vi.mock("./geminiEmailSummary", () => ({ summarizeGmailEmailWithGemini: vi.fn() }));
+vi.mock("./geminiEmailSummary", () => ({ summarizeGmailEmailWithGemini: vi.fn(), isGeminiTemporaryError: (error: unknown) => Boolean(error && typeof error === "object" && "retryable" in error && (error as { retryable?: unknown }).retryable) }));
 
 import { appRouter } from "./routers";
 import * as db from "./db";
@@ -316,6 +316,19 @@ describe("productivity router data isolation", () => {
     await caller.email.summarizeWithGemini({ messageId: 17, locale: "vi", acknowledgeUnpaidDataUse: true });
 
     expect(db.createEmailGeminiSummary).toHaveBeenCalledWith(73, expect.objectContaining({ eventStartAt: null, eventEndAt: null, summary: expect.stringContaining("Kiểm tra lịch") }));
+  });
+
+  it("returns a retryable tRPC status when Gemini is temporarily unavailable", async () => {
+    vi.mocked(db.getEmailGeminiSummary).mockResolvedValue(null);
+    vi.mocked(db.getEmailMessageForGeminiSummary).mockResolvedValue({ id: 17, emailAccountId: 9, subject: "Kế hoạch", senderName: "Lan", senderEmail: "lan@example.com", snippet: "Nội dung", receivedAt: new Date() } as never);
+    vi.mocked(fetchMailboxMessageForGeminiSummary).mockResolvedValue({ text: "Nội dung email đầy đủ.", truncated: false, attachments: [] });
+    vi.mocked(db.listEmailMessages).mockResolvedValue([]);
+    vi.mocked(db.listEvents).mockResolvedValue([]);
+    vi.mocked(summarizeGmailEmailWithGemini).mockRejectedValue(Object.assign(new Error("Gemini đang tạm thời không sẵn sàng."), { name: "GeminiTemporaryError", retryable: true, status: 503 }));
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    await expect(caller.email.summarizeWithGemini({ messageId: 17, locale: "vi", acknowledgeUnpaidDataUse: true })).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(db.createEmailGeminiSummary).not.toHaveBeenCalled();
   });
 
   it("marks a message as read when returning a previously generated summary", async () => {

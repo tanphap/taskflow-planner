@@ -15,7 +15,7 @@ import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
 import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, fetchOriginalMailboxMessage, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
-import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { isGeminiTemporaryError, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -172,6 +172,9 @@ export const appRouter = router({
         await db.markEmailMessageRead(ctx.user.id, input.messageId);
         return { ...summary, cached: false as const };
       } catch (error) {
+        if (isGeminiTemporaryError(error)) {
+          throw new TRPCError({ code: error.status === 429 ? "TOO_MANY_REQUESTS" : "SERVICE_UNAVAILABLE", message: error.message });
+        }
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể tóm tắt email bằng Gemini." });
       }
     }),

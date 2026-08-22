@@ -223,3 +223,7 @@
 - [x] Cập nhật chỉ dẫn Gemini để tạo tóm tắt cô đọng nhưng đủ ý, chỉ rõ hành động, luồng trao đổi và tệp đính kèm khi nội dung khả dụng.
 - [x] Bổ sung đề xuất lịch hẹn/công việc có kiểm tra xung đột với lịch hiện có, luôn yêu cầu người dùng xác nhận trước khi lưu.
 - [x] Thêm kiểm thử cho chỉ dẫn mới, kiểm tra xung đột lịch và xuất bản cải tiến trợ lý email AI.
+- [x] Rà soát phân loại lỗi Gemini để hiển thị thao tác thử lại chỉ khi lỗi tạm thời hoặc có thể phục hồi.
+- [x] Bổ sung nút Thử lại song ngữ cho email tóm tắt thất bại, giữ xác nhận chủ động và trạng thái tải rõ ràng.
+- [x] Trích xuất an toàn nội dung bảng từ CSV và Excel đính kèm để Gemini tóm tắt theo thao tác người dùng.
+- [x] Bổ sung kiểm thử cho retry, lỗi không thể thử lại và dữ liệu bảng Excel/CSV; kiểm chứng responsive rồi xuất bản.

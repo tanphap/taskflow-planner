@@ -4,6 +4,7 @@ import { ENV } from "./_core/env";
 import { decryptEmailToken, encryptEmailToken } from "./emailOAuth";
 import * as db from "./db";
 import { resolvePublicWebmailImapHost } from "./webmailImap";
+import { extractHtmlTablesForGemini, extractTabularAttachmentForGemini, isTabularAttachment } from "./spreadsheetAttachment";
 
 type TokenPayload = { access_token: string; refresh_token?: string; expires_in?: number };
 type MailboxMessage = { providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null };
@@ -19,7 +20,6 @@ const GEMINI_SUPPORTED_ATTACHMENT_TYPES = new Set([
   "image/png",
   "image/webp",
   "text/plain",
-  "text/csv",
   "text/markdown",
 ]);
 
@@ -271,16 +271,21 @@ export async function fetchMailboxMessageForGeminiSummary(userId: number, messag
       for await (const chunk of download.content) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       const raw = Buffer.concat(chunks);
       const parsed = await simpleParser(raw);
+      const tableTextFromEmail = extractHtmlTablesForGemini(typeof parsed.html === "string" ? parsed.html : null);
+      const emailText = parsed.text?.replace(/\u0000/g, "").trim() || null;
       return {
-        text: parsed.text?.replace(/\u0000/g, "").trim() || null,
+        text: [emailText, tableTextFromEmail].filter(Boolean).join("\n\n") || null,
         truncated: download.meta.expectedSize > raw.length,
         attachments: parsed.attachments.map((attachment, index) => {
           const contentType = attachment.contentType?.toLowerCase() || "application/octet-stream";
+          const filename = attachment.filename || `attachment-${index + 1}`;
+          const tableText = isTabularAttachment(filename, contentType) ? extractTabularAttachmentForGemini({ filename, contentType, content: attachment.content }) : null;
           return {
-            filename: attachment.filename || `attachment-${index + 1}`,
+            filename,
             contentType,
             size: attachment.size,
-            content: GEMINI_SUPPORTED_ATTACHMENT_TYPES.has(contentType) ? attachment.content : null,
+            content: tableText ? null : GEMINI_SUPPORTED_ATTACHMENT_TYPES.has(contentType) ? attachment.content : null,
+            tableText,
           };
         }),
       };
