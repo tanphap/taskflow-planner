@@ -25,6 +25,6 @@ describe("TaskFlow help assistant", () => {
   it("returns only the model answer after sending the bounded conversation", async () => {
     invokeLLM.mockResolvedValueOnce({ model: "gpt-5-nano", choices: [{ message: { content: "Mở **Công việc**, sau đó chọn Thêm công việc." } }] });
     await expect(getTaskFlowHelpResponse({ locale: "en", messages: [{ role: "user", content: "How do I add a task?" }] })).resolves.toEqual({ answer: "Mở **Công việc**, sau đó chọn Thêm công việc.", model: "gpt-5-nano" });
-    expect(invokeLLM).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-5-nano", max_tokens: 480 }));
+    expect(invokeLLM).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-5-nano", max_completion_tokens: 480 }));
   });
 });

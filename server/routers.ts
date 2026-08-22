@@ -95,7 +95,9 @@ export const appRouter = router({
     })).mutation(async ({ input }) => {
       try {
         return await getTaskFlowHelpResponse(input);
-      } catch {
+      } catch (error) {
+        const reason = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
+        console.error("[HelpAssistant] request failed", { reason });
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: input.locale === "en" ? "The help assistant is temporarily unavailable. Please try again shortly." : "Trợ lý hướng dẫn đang tạm thời không khả dụng. Vui lòng thử lại sau." });
       }
     }),

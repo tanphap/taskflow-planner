@@ -55,7 +55,9 @@ export async function getTaskFlowHelpResponse(input: { locale: HelpLocale; messa
   if (messages.length < 2) throw new Error("Help assistant requires a question");
   const response = await invokeLLM({
     model: HELP_CHAT_MODEL,
-    max_tokens: 480,
+    // GPT-5 uses max_completion_tokens; max_tokens can cause incompatible
+    // reasoning/token handling at the proxy and previously made chat fail.
+    max_completion_tokens: 480,
     messages,
   });
   return {

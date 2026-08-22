@@ -241,3 +241,6 @@
 - [x] Xây dựng API chatbot được xác thực, chỉ dẫn về TaskFlow, có chống prompt injection và không nhận dữ liệu email/công việc riêng tư.
 - [x] Thêm giao diện chatbot song ngữ, responsive, có trạng thái tải/lỗi và gợi ý câu hỏi sử dụng ứng dụng.
 - [x] Bổ sung kiểm thử quyền truy cập, nội dung hướng dẫn và UI; kiểm chứng responsive rồi xuất bản chatbot.
+- [x] Thu thập lỗi runtime và rà soát cấu hình gọi mô hình của chatbot hướng dẫn.
+- [x] Khắc phục nguyên nhân chatbot không khả dụng và hiển thị lỗi có hướng dẫn thử lại khi phù hợp.
+- [x] Bổ sung kiểm thử hồi quy phản hồi chatbot, kiểm chứng giao diện và xuất bản bản sửa.
