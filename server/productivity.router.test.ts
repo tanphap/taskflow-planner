@@ -41,6 +41,7 @@ vi.mock("./db", () => ({
 vi.mock("./emailSync", () => ({
   syncMailbox: vi.fn(),
   fetchOlderMailboxMessages: vi.fn(),
+  fetchMailboxMessageForGeminiSummary: vi.fn(),
   verifyImapConnection: vi.fn(),
   verifyWebmailImapConnection: vi.fn(),
 }));
@@ -49,7 +50,7 @@ vi.mock("./geminiEmailSummary", () => ({ summarizeGmailEmailWithGemini: vi.fn() 
 import { appRouter } from "./routers";
 import * as db from "./db";
 import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
-import { fetchOlderMailboxMessages } from "./emailSync";
+import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary } from "./emailSync";
 
 function createUserContext(userId = 42): TrpcContext {
   return {
@@ -283,16 +284,38 @@ describe("productivity router data isolation", () => {
       snippet: "Họp cập nhật vào thứ Năm.",
       receivedAt: new Date("2026-08-21T08:00:00.000Z"),
     } as never);
-    vi.mocked(summarizeGmailEmailWithGemini).mockResolvedValue({ summary: "- Họp cập nhật vào thứ Năm.", model: "gemini-2.5-flash-lite" });
+    vi.mocked(fetchMailboxMessageForGeminiSummary).mockResolvedValue({ text: "Nội dung email đầy đủ.", truncated: false, attachments: [] });
+    vi.mocked(db.listEmailMessages).mockResolvedValue([]);
+    vi.mocked(db.listEvents).mockResolvedValue([]);
+    vi.mocked(summarizeGmailEmailWithGemini).mockResolvedValue({ summary: "- Họp cập nhật vào thứ Năm.", model: "gemini-3.5-flash-lite", eventStartAt: null, eventEndAt: null });
     vi.mocked(db.createEmailGeminiSummary).mockResolvedValue({ id: 61, summary: "- Họp cập nhật vào thứ Năm." } as never);
     const caller = appRouter.createCaller(createUserContext(73));
 
     const result = await caller.email.summarizeWithGemini({ messageId: 17, locale: "vi", acknowledgeUnpaidDataUse: true });
 
     expect(db.countEmailGeminiSummariesSince).not.toHaveBeenCalled();
+    expect(fetchMailboxMessageForGeminiSummary).toHaveBeenCalledWith(73, 17);
+    expect(summarizeGmailEmailWithGemini).toHaveBeenCalledWith(expect.objectContaining({ body: "Nội dung email đầy đủ.", attachments: [], busySlots: [] }), "vi");
     expect(db.createEmailGeminiSummary).toHaveBeenCalledWith(73, expect.objectContaining({ emailAccountId: 9, emailMessageId: 17 }));
     expect(db.markEmailMessageRead).toHaveBeenCalledWith(73, 17);
     expect(result).not.toHaveProperty("remainingToday");
+  });
+
+  it("removes a Gemini appointment proposal when it overlaps an existing calendar event", async () => {
+    vi.mocked(db.getEmailGeminiSummary).mockResolvedValue(null);
+    vi.mocked(db.getEmailMessageForGeminiSummary).mockResolvedValue({
+      id: 17, emailAccountId: 9, subject: "Họp khách hàng", senderName: "Lan", senderEmail: "lan@example.com", snippet: "Họp lúc 10:30.", receivedAt: new Date("2026-08-21T08:00:00.000Z"),
+    } as never);
+    vi.mocked(fetchMailboxMessageForGeminiSummary).mockResolvedValue({ text: "Xác nhận cuộc họp khách hàng lúc 10:30.", truncated: false, attachments: [] });
+    vi.mocked(db.listEmailMessages).mockResolvedValue([]);
+    vi.mocked(db.listEvents).mockResolvedValue([{ startAt: new Date("2026-08-24T03:00:00.000Z"), endAt: new Date("2026-08-24T04:00:00.000Z") }] as never);
+    vi.mocked(summarizeGmailEmailWithGemini).mockResolvedValue({ summary: "- Họp khách hàng lúc 10:30.", model: "gemini-3.5-flash-lite", eventStartAt: new Date("2026-08-24T03:30:00.000Z"), eventEndAt: new Date("2026-08-24T04:00:00.000Z") });
+    vi.mocked(db.createEmailGeminiSummary).mockResolvedValue({ id: 62, summary: "Tóm tắt đã lưu." } as never);
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    await caller.email.summarizeWithGemini({ messageId: 17, locale: "vi", acknowledgeUnpaidDataUse: true });
+
+    expect(db.createEmailGeminiSummary).toHaveBeenCalledWith(73, expect.objectContaining({ eventStartAt: null, eventEndAt: null, summary: expect.stringContaining("Kiểm tra lịch") }));
   });
 
   it("marks a message as read when returning a previously generated summary", async () => {

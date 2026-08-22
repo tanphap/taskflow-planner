@@ -13,6 +13,15 @@ export const EMAIL_SYNC_BATCH_SIZE = 50;
 export const IMAP_CONNECTION_TIMEOUT_MS = 15_000;
 export const IMAP_SOCKET_TIMEOUT_MS = 30_000;
 export const ORIGINAL_EMAIL_MAX_BYTES = 2_000_000;
+const GEMINI_SUPPORTED_ATTACHMENT_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/plain",
+  "text/csv",
+  "text/markdown",
+]);
 
 /** Extracts the IMAP UID from TaskFlow's `<uidValidity>:<uid>` provider identifier. */
 export function getImapUidFromProviderMessageId(providerMessageId: string) {
@@ -237,6 +246,50 @@ export async function fetchOriginalMailboxMessage(userId: number, messageId: num
     }
   } catch (error) {
     console.error("[Email original] IMAP original-message fetch failed", { messageId, message: error instanceof Error ? error.message : String(error) });
+    throw new Error(getMailboxSyncErrorMessage(error));
+  }
+}
+
+/** Loads a selected email body and Gemini-readable attachments on demand without persisting MIME content. */
+export async function fetchMailboxMessageForGeminiSummary(userId: number, messageId: number) {
+  const source = await db.getEmailMessageForOriginalContent(userId, messageId);
+  if (!source) throw new Error("Chỉ có thể tóm tắt email đã kết nối của bạn.");
+  const uid = getImapUidFromProviderMessageId(source.providerMessageId);
+  if (!uid) throw new Error("Không thể xác định thư gốc trên máy chủ IMAP.");
+
+  try {
+    const { account, auth } = await getImapAuth(userId, source.emailAccountId);
+    if (!account?.imapHost || !account.imapPort) throw new Error("Mailbox IMAP configuration is incomplete");
+    const webmailTarget = account.provider === "webmail" ? await resolvePublicWebmailImapHost(account.imapHost) : null;
+    const client = new ImapFlow({ host: webmailTarget?.address ?? account.imapHost, port: account.imapPort, secure: account.imapSecure, auth, tls: { servername: webmailTarget?.hostname ?? account.imapHost }, connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS, greetingTimeout: IMAP_CONNECTION_TIMEOUT_MS, socketTimeout: IMAP_SOCKET_TIMEOUT_MS, logger: false });
+    await client.connect();
+    let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | undefined;
+    try {
+      lock = await client.getMailboxLock(account.imapMailbox || "INBOX");
+      const download = await client.download(String(uid), undefined, { uid: true, maxBytes: ORIGINAL_EMAIL_MAX_BYTES });
+      const chunks: Buffer[] = [];
+      for await (const chunk of download.content) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const raw = Buffer.concat(chunks);
+      const parsed = await simpleParser(raw);
+      return {
+        text: parsed.text?.replace(/\u0000/g, "").trim() || null,
+        truncated: download.meta.expectedSize > raw.length,
+        attachments: parsed.attachments.map((attachment, index) => {
+          const contentType = attachment.contentType?.toLowerCase() || "application/octet-stream";
+          return {
+            filename: attachment.filename || `attachment-${index + 1}`,
+            contentType,
+            size: attachment.size,
+            content: GEMINI_SUPPORTED_ATTACHMENT_TYPES.has(contentType) ? attachment.content : null,
+          };
+        }),
+      };
+    } finally {
+      lock?.release();
+      await client.logout().catch(() => client.close());
+    }
+  } catch (error) {
+    console.error("[Email Gemini] IMAP source fetch failed", { messageId, message: error instanceof Error ? error.message : String(error) });
     throw new Error(getMailboxSyncErrorMessage(error));
   }
 }

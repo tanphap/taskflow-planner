@@ -12,7 +12,7 @@ import * as db from "./db";
 import { findPrivateChatForLinkCode } from "./telegram";
 import { parseRecurrenceRule } from "../shared/recurrence";
 import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
-import { fetchOlderMailboxMessages, fetchOriginalMailboxMessage, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, fetchOriginalMailboxMessage, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
@@ -46,6 +46,21 @@ const emailNoteInput = z.object({
 function serializeEventInput(input: z.infer<typeof eventInput>): db.EventInput {
   const { recurrenceRule, ...event } = input;
   return { ...event, recurrenceRule: recurrenceRule ? JSON.stringify(recurrenceRule) : null };
+}
+
+function normalizeConversationSubject(subject: string) {
+  return subject.replace(/^\s*(?:(?:re|fw|fwd)\s*:\s*)+/i, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+function guardGeminiProposalAgainstCalendar<T extends { summary: string; eventStartAt: Date | null; eventEndAt: Date | null }>(result: T, busySlots: Array<{ startAt: Date; endAt: Date }>, locale: "vi" | "en") {
+  if (!result.eventStartAt) return result;
+  const proposedEndAt = result.eventEndAt ?? new Date(result.eventStartAt.getTime() + 60 * 60_000);
+  const overlaps = busySlots.some(slot => slot.startAt < proposedEndAt && slot.endAt > result.eventStartAt!);
+  if (!overlaps) return result;
+  const note = locale === "en"
+    ? "Calendar check: the requested time overlaps an existing appointment. No time was prefilled; please choose a free slot before confirming."
+    : "Kiểm tra lịch: thời điểm được nêu đang trùng một lịch hẹn hiện có. Hệ thống không tiền điền giờ; hãy chọn khung giờ trống trước khi xác nhận.";
+  return { ...result, summary: `${result.summary}\n\n- ${note}`.slice(0, 8000), eventStartAt: null, eventEndAt: null };
 }
 export function cronFor(date: Date, recurrenceRule?: string | null) {
   const rule = parseRecurrenceRule(recurrenceRule);
@@ -134,7 +149,24 @@ export const appRouter = router({
       const source = await db.getEmailMessageForGeminiSummary(ctx.user.id, input.messageId);
       if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Chỉ có thể tóm tắt email đã kết nối của bạn." });
       try {
-        const result = await summarizeGmailEmailWithGemini(source, input.locale);
+        const [rawMessage, accountMessages, calendarEvents] = await Promise.all([
+          fetchMailboxMessageForGeminiSummary(ctx.user.id, input.messageId),
+          db.listEmailMessages(ctx.user.id, { accountId: source.emailAccountId, limit: 100 }),
+          db.listEvents(ctx.user.id),
+        ]);
+        const conversationSubject = normalizeConversationSubject(source.subject);
+        const conversation = (accountMessages ?? []).filter(message => message.id !== source.id && normalizeConversationSubject(message.subject) === conversationSubject).slice(-6);
+        const now = Date.now();
+        const busySlots = (calendarEvents ?? []).filter(event => event.endAt.getTime() > now).slice(0, 80).map(event => ({ startAt: event.startAt, endAt: event.endAt }));
+        const proposedResult = await summarizeGmailEmailWithGemini({
+          ...source,
+          body: rawMessage.text,
+          bodyTruncated: rawMessage.truncated,
+          conversation,
+          attachments: rawMessage.attachments,
+          busySlots,
+        }, input.locale);
+        const result = guardGeminiProposalAgainstCalendar(proposedResult, busySlots, input.locale);
         const summary = await db.createEmailGeminiSummary(ctx.user.id, { emailAccountId: source.emailAccountId, emailMessageId: source.id, summary: result.summary, eventStartAt: result.eventStartAt, eventEndAt: result.eventEndAt, locale: input.locale, model: result.model });
         if (!summary) throw new Error("Không thể lưu tóm tắt Gemini.");
         await db.markEmailMessageRead(ctx.user.id, input.messageId);

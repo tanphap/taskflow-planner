@@ -219,3 +219,7 @@
 - [x] Kiểm thử giao diện tóm tắt AI và xuất bản điều chỉnh.
 - [x] Sửa tiêu đề email dài trong popup tóm tắt AI để tự xuống hàng, không cuộn ngang và vẫn dễ đọc trên điện thoại.
 - [x] Kiểm thử popup tóm tắt AI trên desktop/mobile và xuất bản bản sửa responsive.
+- [x] Rà soát dữ liệu email hiện có để xác định phạm vi tóm tắt luồng thư và tệp đính kèm có thể xử lý an toàn.
+- [x] Cập nhật chỉ dẫn Gemini để tạo tóm tắt cô đọng nhưng đủ ý, chỉ rõ hành động, luồng trao đổi và tệp đính kèm khi nội dung khả dụng.
+- [x] Bổ sung đề xuất lịch hẹn/công việc có kiểm tra xung đột với lịch hiện có, luôn yêu cầu người dùng xác nhận trước khi lưu.
+- [x] Thêm kiểm thử cho chỉ dẫn mới, kiểm tra xung đột lịch và xuất bản cải tiến trợ lý email AI.
