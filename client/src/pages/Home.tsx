@@ -12,6 +12,7 @@ import { getNotificationBellData } from "../../../shared/notificationBell";
 import { isEmailGeminiSummarizing } from "../../../shared/emailInboxProcessing";
 import { eventPrefillFromEmailSummary, eventPrefillFromTask, type EventPrefill } from "../../../shared/taskEvent";
 import { getVietnameseCalendarDay } from "../../../shared/vietnameseCalendar";
+import { HELP_ASSISTANT_VIEWS, isHelpAssistantView, normalizeHelpAssistantStoredMessages, parseHelpAssistantHistory, serializeHelpAssistantHistory, type HelpAssistantStoredMessage, type HelpAssistantView } from "../../../shared/helpAssistantHistory";
 import {
   AlarmClock,
   ArrowLeft,
@@ -59,15 +60,22 @@ type View = "dashboard" | "tasks" | "calendar" | "notifications" | "profile" | "
 type TaskStatus = "todo" | "in_progress" | "done";
 type Priority = "low" | "medium" | "high";
 type DailyQuoteMode = "auto" | "fixed";
+type HelpAssistantAttempt = { locale: Language; question: string; messages: HelpAssistantStoredMessage[]; errorMessage?: string };
 
 const DAILY_QUOTE_MODE_STORAGE_KEY = "taskflow-daily-quote-mode";
+const HELP_ASSISTANT_HISTORY_STORAGE_KEY = "taskflow-help-assistant-history-v1";
 function getInitialDailyQuoteMode(): DailyQuoteMode {
   return window.localStorage.getItem(DAILY_QUOTE_MODE_STORAGE_KEY) === "fixed" ? "fixed" : "auto";
+}
+function getHelpAssistantHistoryKey(locale: Language) { return `${HELP_ASSISTANT_HISTORY_STORAGE_KEY}:${locale}`; }
+function getInitialHelpAssistantMessages(locale: Language) {
+  try { return parseHelpAssistantHistory(window.localStorage.getItem(getHelpAssistantHistoryKey(locale)), locale); }
+  catch { return []; }
 }
 
 const englishCopy: Record<string, string> = {
   "Tổng quan": "Overview", "Công việc": "Tasks", "Lịch hẹn": "Calendar", "Nhắc việc": "Reminders", "Hồ sơ": "Profile",
-  "Trợ lý hướng dẫn": "Help guide", "Bạn cần hỗ trợ sử dụng TaskFlow?": "Need help using TaskFlow?", "Hỏi cách sử dụng TaskFlow…": "Ask how to use TaskFlow…", "Bạn có thể hỏi về công việc, lịch hẹn, Telegram, email hoặc Gemini.": "Ask about tasks, appointments, Telegram, email, or Gemini.", "Làm sao tạo lịch hẹn lặp lại?": "How do I create a recurring appointment?", "Làm sao kết nối Gmail qua IMAP?": "How do I connect Gmail with IMAP?", "Làm sao nhận nhắc việc qua Telegram?": "How do I get reminders on Telegram?", "Làm sao dùng Gemini tóm tắt email?": "How do I use Gemini to summarize email?",
+  "Trợ lý hướng dẫn": "Help guide", "Bạn cần hỗ trợ sử dụng TaskFlow?": "Need help using TaskFlow?", "Hỏi cách sử dụng TaskFlow…": "Ask how to use TaskFlow…", "Bạn có thể hỏi về công việc, lịch hẹn, Telegram, email hoặc Gemini.": "Ask about tasks, appointments, Telegram, email, or Gemini.", "Làm sao tạo lịch hẹn lặp lại?": "How do I create a recurring appointment?", "Làm sao kết nối Gmail qua IMAP?": "How do I connect Gmail with IMAP?", "Làm sao nhận nhắc việc qua Telegram?": "How do I get reminders on Telegram?", "Làm sao dùng Gemini tóm tắt email?": "How do I use Gemini to summarize email?", "Thử lại": "Retry", "Xóa lịch sử": "Clear history", "Đã xóa lịch sử trò chuyện trên trình duyệt này.": "Conversation history was cleared from this browser.", "Mở": "Open",
   "Chuẩn bị dữ liệu bảng tính": "Preparing spreadsheet data", "Đang tải tệp Excel và đọc danh sách sheet…": "Loading the Excel file and reading sheet names…", "Chọn sheet để Gemini tập trung tóm tắt": "Choose sheets for Gemini to focus its summary", "Không tìm thấy tệp Excel/CSV có thể đọc. Gemini vẫn chỉ tóm tắt nội dung thư và luồng trao đổi.": "No readable Excel/CSV file was found. Gemini will summarize the email and conversation context only.", "Đang trích xuất dữ liệu từ sheet đã chọn…": "Extracting data from the selected sheets…", "Xác nhận tóm tắt": "Confirm summary", "Đóng": "Close", "Tệp Excel": "Excel file", "Không có sheet được chọn. Hãy chọn ít nhất một sheet Excel.": "No sheet is selected. Choose at least one Excel sheet.", "Dữ liệu chỉ được đọc theo sheet bạn chọn, giới hạn để bảo vệ an toàn và không được lưu trong TaskFlow.": "Only the sheets you select are read, bounded for safety, and never stored in TaskFlow.", "Đồng ý tải danh sách sheet của tệp Excel từ email này để bạn chọn nội dung cần gửi Gemini? TaskFlow chỉ đọc metadata sheet, không gửi dữ liệu đó tới Gemini ở bước này.": "Allow TaskFlow to load the sheet list from this email's Excel file so you can choose what Gemini receives? TaskFlow only reads sheet metadata and does not send that data to Gemini at this step.", "Đồng ý gửi nội dung thư, luồng trao đổi, các tệp có thể đọc và dữ liệu từ sheet Excel đã chọn tới Gemini miễn phí để tóm tắt? Gemini chỉ tạo đề xuất; bạn luôn kiểm tra và xác nhận trước khi tạo lịch. Không gửi email nhạy cảm.": "Allow sending the email content, conversation context, readable attachments, and data from your selected Excel sheets to free Gemini for summarization? Gemini only makes proposals; you always review and confirm before creating an event. Do not send sensitive email.",
   "Bảng điều khiển": "Workspace", "Không gian cá nhân / 2026": "Personal workspace / 2026", "Tài khoản của bạn": "Your account", "Chưa có email": "No email",
   "Đóng menu": "Close menu", "Mở menu": "Open menu", "Tổng quan hôm nay": "Today overview", "Trung tâm nhắc việc": "Reminder center", "Hồ sơ cá nhân": "Personal profile",
@@ -715,15 +723,46 @@ export default function Home() {
   const [notificationBellOpen, setNotificationBellOpen] = useState(false);
   const [dailyQuoteMode, setDailyQuoteMode] = useState<DailyQuoteMode>(getInitialDailyQuoteMode);
   const [helpAssistantOpen, setHelpAssistantOpen] = useState(false);
-  const [helpAssistantMessages, setHelpAssistantMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [helpAssistantMessages, setHelpAssistantMessages] = useState<HelpAssistantStoredMessage[]>(() => getInitialHelpAssistantMessages(language));
+  const [helpAssistantHistoryLocale, setHelpAssistantHistoryLocale] = useState<Language>(language);
+  const [pendingHelpAssistantAttempt, setPendingHelpAssistantAttempt] = useState<HelpAssistantAttempt | null>(null);
+  const [failedHelpAssistantAttempt, setFailedHelpAssistantAttempt] = useState<HelpAssistantAttempt | null>(null);
   const utils = trpc.useUtils();
 
   useEffect(() => { window.localStorage.setItem(DAILY_QUOTE_MODE_STORAGE_KEY, dailyQuoteMode); }, [dailyQuoteMode]);
+  useEffect(() => {
+    setHelpAssistantMessages(getInitialHelpAssistantMessages(language));
+    setHelpAssistantHistoryLocale(language);
+    setPendingHelpAssistantAttempt(null);
+    setFailedHelpAssistantAttempt(null);
+  }, [language]);
+  useEffect(() => {
+    if (helpAssistantHistoryLocale !== language) return;
+    const key = getHelpAssistantHistoryKey(language);
+    try {
+      if (helpAssistantMessages.length) window.localStorage.setItem(key, serializeHelpAssistantHistory(language, helpAssistantMessages));
+      else window.localStorage.removeItem(key);
+    } catch {
+      // Browser storage may be unavailable or full; the current session remains usable.
+    }
+  }, [helpAssistantHistoryLocale, helpAssistantMessages, language]);
 
   const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
   const helpAssistant = trpc.helpAssistant.chat.useMutation({
-    onSuccess: data => setHelpAssistantMessages(current => [...current, { role: "assistant", content: data.answer }]),
-    onError: error => toast.error(error.message),
+    onSuccess: (data, variables) => {
+      const locale = variables.locale ?? "vi";
+      const committed = normalizeHelpAssistantStoredMessages([...variables.messages, { role: "assistant", content: data.answer, suggestedViews: data.suggestedViews }]);
+      setHelpAssistantMessages(committed);
+      setPendingHelpAssistantAttempt(current => current?.locale === locale ? null : current);
+      setFailedHelpAssistantAttempt(null);
+    },
+    onError: (error, variables) => {
+      const locale = variables.locale ?? "vi";
+      const question = variables.messages.at(-1)?.content ?? "";
+      setPendingHelpAssistantAttempt(current => current?.locale === locale ? null : current);
+      setFailedHelpAssistantAttempt(question ? { locale, question, messages: normalizeHelpAssistantStoredMessages(variables.messages), errorMessage: error.message } : null);
+      toast.error(error.message);
+    },
   });
   const taskQuery = trpc.tasks.list.useQuery(undefined, { enabled: isAuthenticated });
   const eventQuery = trpc.calendar.list.useQuery(undefined, { enabled: isAuthenticated });
@@ -908,9 +947,36 @@ export default function Home() {
     toast.success(translateAppText(language, summary.eventStartAt ? "Đã trích xuất ngày giờ để tiền điền lịch hẹn. Hãy kiểm tra và xác nhận để lưu." : "Bản nháp lịch hẹn đã được tiền điền. Hãy xác nhận để lưu."));
   };
   const sendHelpAssistantMessage = (content: string) => {
-    const nextMessages = [...helpAssistantMessages, { role: "user" as const, content }];
-    setHelpAssistantMessages(nextMessages);
-    helpAssistant.mutate({ locale: language, messages: nextMessages });
+    if (helpAssistant.isPending) return;
+    const question = content.trim().slice(0, 1200);
+    if (!question) return;
+    const nextMessages = normalizeHelpAssistantStoredMessages([...helpAssistantMessages, { role: "user", content: question }]);
+    setPendingHelpAssistantAttempt({ locale: language, question, messages: nextMessages });
+    setFailedHelpAssistantAttempt(null);
+    helpAssistant.mutate({ locale: language, messages: nextMessages.map(({ role, content: messageContent }) => ({ role, content: messageContent })) });
+  };
+  const retryHelpAssistantMessage = () => {
+    if (!failedHelpAssistantAttempt || helpAssistant.isPending || failedHelpAssistantAttempt.locale !== language) return;
+    const attempt = failedHelpAssistantAttempt;
+    setPendingHelpAssistantAttempt(attempt);
+    setFailedHelpAssistantAttempt(null);
+    helpAssistant.mutate({ locale: attempt.locale, messages: attempt.messages.map(({ role, content }) => ({ role, content })) });
+  };
+  const clearHelpAssistantHistory = () => {
+    setHelpAssistantMessages([]);
+    setFailedHelpAssistantAttempt(null);
+    try { window.localStorage.removeItem(getHelpAssistantHistoryKey(language)); } catch { /* no-op */ }
+    toast.success(translateAppText(language, "Đã xóa lịch sử trò chuyện trên trình duyệt này."));
+  };
+  const openHelpAssistantView = (candidate: string) => {
+    if (!isHelpAssistantView(candidate) || !(HELP_ASSISTANT_VIEWS as readonly string[]).includes(candidate)) return;
+    const target = candidate as View;
+    setView(target);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", target);
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    setSidebarOpen(false);
+    setHelpAssistantOpen(false);
   };
 
   if (loading) {
@@ -1038,10 +1104,19 @@ export default function Home() {
       <Dialog open={helpAssistantOpen} onOpenChange={setHelpAssistantOpen}>
         <DialogContent className="flex max-h-[min(760px,calc(100vh-2rem))] max-w-2xl flex-col overflow-hidden p-0 sm:rounded-[20px]">
           <DialogHeader className="border-b border-[var(--line)] bg-[var(--surface-soft)] px-5 py-4 pr-12">
-            <DialogTitle className="flex items-center gap-2 text-lg"><span className="grid h-8 w-8 place-items-center bg-[#e23221] text-white"><CircleHelp className="h-4 w-4" /></span>{translateAppText(language, "Trợ lý hướng dẫn")}</DialogTitle>
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle className="flex items-center gap-2 text-lg"><span className="grid h-8 w-8 place-items-center bg-[#e23221] text-white"><CircleHelp className="h-4 w-4" /></span>{translateAppText(language, "Trợ lý hướng dẫn")}</DialogTitle>
+              <button type="button" onClick={clearHelpAssistantHistory} disabled={helpAssistant.isPending || helpAssistantMessages.length === 0} className="shrink-0 text-xs font-semibold text-[var(--ink-muted)] underline-offset-4 hover:text-[#e23221] hover:underline disabled:cursor-not-allowed disabled:opacity-40">{translateAppText(language, "Xóa lịch sử")}</button>
+            </div>
             <p className="mt-2 text-sm leading-5 text-[var(--ink-muted)]">{translateAppText(language, "Bạn có thể hỏi về công việc, lịch hẹn, Telegram, email hoặc Gemini.")}</p>
           </DialogHeader>
-          <AIChatBox className="min-h-0 flex-1 rounded-none border-0 shadow-none" height="min(600px, calc(100vh - 12rem))" messages={helpAssistantMessages} onSendMessage={sendHelpAssistantMessage} isLoading={helpAssistant.isPending} placeholder={translateAppText(language, "Hỏi cách sử dụng TaskFlow…")} emptyStateMessage={translateAppText(language, "Bạn cần hỗ trợ sử dụng TaskFlow?")} suggestedPrompts={[translateAppText(language, "Làm sao tạo lịch hẹn lặp lại?"), translateAppText(language, "Làm sao kết nối Gmail qua IMAP?"), translateAppText(language, "Làm sao nhận nhắc việc qua Telegram?"), translateAppText(language, "Làm sao dùng Gemini tóm tắt email?")]} />
+          <AIChatBox className="min-h-0 flex-1 rounded-none border-0 shadow-none" height="min(600px, calc(100vh - 12rem))" messages={[
+            ...helpAssistantMessages,
+            ...(pendingHelpAssistantAttempt?.locale === language ? [{ role: "user" as const, content: pendingHelpAssistantAttempt.question }] : failedHelpAssistantAttempt?.locale === language ? [{ role: "user" as const, content: failedHelpAssistantAttempt.question }] : []),
+          ].map(message => ({
+            ...message,
+            quickActions: message.role === "assistant" ? (message.suggestedViews ?? []).map((view: HelpAssistantView) => ({ id: view, label: translateAppText(language, pageTitle(view as View)) })) : undefined,
+          }))} onSendMessage={sendHelpAssistantMessage} isLoading={helpAssistant.isPending} errorMessage={failedHelpAssistantAttempt?.locale === language ? failedHelpAssistantAttempt.errorMessage ?? null : null} onRetry={failedHelpAssistantAttempt?.locale === language ? retryHelpAssistantMessage : undefined} retryLabel={translateAppText(language, "Thử lại")} onQuickAction={openHelpAssistantView} openActionLabel={translateAppText(language, "Mở")} placeholder={translateAppText(language, "Hỏi cách sử dụng TaskFlow…")} emptyStateMessage={translateAppText(language, "Bạn cần hỗ trợ sử dụng TaskFlow?")} suggestedPrompts={[translateAppText(language, "Làm sao tạo lịch hẹn lặp lại?"), translateAppText(language, "Làm sao kết nối Gmail qua IMAP?"), translateAppText(language, "Làm sao nhận nhắc việc qua Telegram?"), translateAppText(language, "Làm sao dùng Gemini tóm tắt email?")]} />
         </DialogContent>
       </Dialog>
     </div>

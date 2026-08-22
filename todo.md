@@ -247,3 +247,8 @@
 - [x] Tái hiện lỗi chatbot trên production trong phiên đăng nhập và ghi nhận phản hồi tRPC/runtime thực tế.
 - [x] Sửa nguyên nhân gốc khiến chatbot vẫn báo tạm thời không khả dụng sau bản cập nhật token.
 - [x] Xác minh bằng câu hỏi thực tế trên production, kiểm thử hồi quy và xuất bản bản sửa đã được kiểm chứng.
+- [x] Rà soát thành phần chat, trạng thái lỗi, cơ chế localStorage và điều hướng để xác định phạm vi nâng cấp chatbot.
+- [x] Thêm nút Thử lại trong hộp chat, chỉ gửi lại câu hỏi thất bại và hiển thị trạng thái xử lý rõ ràng.
+- [x] Lưu lịch sử trò chuyện chatbot trên trình duyệt, phân tách theo thiết bị/ngôn ngữ và cung cấp thao tác xóa lịch sử.
+- [x] Cho chatbot trả về liên kết mở nhanh các màn hình TaskFlow phù hợp, có kiểm soát danh sách đích an toàn.
+- [x] Bổ sung kiểm thử retry, lịch sử, liên kết điều hướng; kiểm chứng responsive và xuất bản chatbot cải tiến.

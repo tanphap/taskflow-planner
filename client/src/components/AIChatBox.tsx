@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, User, Sparkles } from "lucide-react";
+import { AlertCircle, ExternalLink, Loader2, RotateCcw, Send, User, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Streamdown } from "streamdown";
 
@@ -12,6 +12,7 @@ import { Streamdown } from "streamdown";
 export type Message = {
   role: "system" | "user" | "assistant";
   content: string;
+  quickActions?: Array<{ id: string; label: string }>;
 };
 
 export type AIChatBoxProps = {
@@ -57,6 +58,15 @@ export type AIChatBoxProps = {
    * Click to send directly
    */
   suggestedPrompts?: string[];
+
+  /** An inline failure state paired with a direct retry action. */
+  errorMessage?: string | null;
+  onRetry?: () => void;
+  retryLabel?: string;
+
+  /** Optional, safe in-app actions attached to assistant messages. */
+  onQuickAction?: (id: string) => void;
+  openActionLabel?: string;
 };
 
 /**
@@ -119,6 +129,11 @@ export function AIChatBox({
   height = "600px",
   emptyStateMessage = "Start a conversation with AI",
   suggestedPrompts,
+  errorMessage,
+  onRetry,
+  retryLabel = "Retry",
+  onQuickAction,
+  openActionLabel = "Open",
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -229,7 +244,10 @@ export function AIChatBox({
                 // Apply min-height to last message only if NOT loading (when loading, the loading indicator gets it)
                 const isLastMessage = index === displayMessages.length - 1;
                 const shouldApplyMinHeight =
-                  isLastMessage && !isLoading && minHeightForLastMessage > 0;
+                  isLastMessage &&
+                  !isLoading &&
+                  minHeightForLastMessage > 0 &&
+                  !(message.role === "assistant" && message.quickActions && message.quickActions.length > 0);
 
                 return (
                   <div
@@ -261,8 +279,20 @@ export function AIChatBox({
                       )}
                     >
                       {message.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          <Streamdown>{message.content}</Streamdown>
+                        <div className="space-y-3">
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <Streamdown>{message.content}</Streamdown>
+                          </div>
+                          {message.quickActions && message.quickActions.length > 0 && onQuickAction && (
+                            <div className="flex flex-wrap gap-2 border-t border-border/70 pt-3">
+                              {message.quickActions.map(action => (
+                                <Button key={action.id} type="button" variant="outline" size="sm" className="h-8 max-w-full gap-1.5 bg-card text-xs" onClick={() => onQuickAction(action.id)}>
+                                  <ExternalLink className="size-3.5 shrink-0" />
+                                  <span className="truncate">{openActionLabel}: {action.label}</span>
+                                </Button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <p className="whitespace-pre-wrap text-sm">
@@ -294,6 +324,21 @@ export function AIChatBox({
                   </div>
                   <div className="rounded-lg bg-muted px-4 py-2.5">
                     <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div role="alert" className="flex items-start gap-3 border-l-2 border-[#e23221] bg-[#fff2ef] p-3 text-sm text-[#7f1d1d] dark:bg-[#3a1715] dark:text-[#fecaca]">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="leading-5">{errorMessage}</p>
+                    {onRetry && (
+                      <Button type="button" variant="outline" size="sm" className="mt-3 h-8 gap-1.5 border-[#e23221]/40 bg-transparent text-[#b42318] hover:bg-[#e23221]/10 dark:text-[#fecaca]" onClick={onRetry} disabled={isLoading}>
+                        <RotateCcw className="size-3.5" />
+                        {retryLabel}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
