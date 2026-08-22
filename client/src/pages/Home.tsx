@@ -4,6 +4,7 @@ import { type Language } from "@/contexts/languageStore";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
 import { useTheme } from "@/contexts/ThemeContext";
+import { AIChatBox } from "@/components/AIChatBox";
 import { filterEmailInbox, type EmailInboxFocus } from "../../../shared/emailInboxFilters";
 import { getEmailConnectionFeedback } from "../../../shared/emailConnectionFeedback";
 import { quickReminderAt } from "../../../shared/recurrence";
@@ -21,6 +22,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  CircleHelp,
   ClipboardList,
   Copy,
   ExternalLink,
@@ -65,6 +67,7 @@ function getInitialDailyQuoteMode(): DailyQuoteMode {
 
 const englishCopy: Record<string, string> = {
   "Tổng quan": "Overview", "Công việc": "Tasks", "Lịch hẹn": "Calendar", "Nhắc việc": "Reminders", "Hồ sơ": "Profile",
+  "Trợ lý hướng dẫn": "Help guide", "Bạn cần hỗ trợ sử dụng TaskFlow?": "Need help using TaskFlow?", "Hỏi cách sử dụng TaskFlow…": "Ask how to use TaskFlow…", "Bạn có thể hỏi về công việc, lịch hẹn, Telegram, email hoặc Gemini.": "Ask about tasks, appointments, Telegram, email, or Gemini.", "Làm sao tạo lịch hẹn lặp lại?": "How do I create a recurring appointment?", "Làm sao kết nối Gmail qua IMAP?": "How do I connect Gmail with IMAP?", "Làm sao nhận nhắc việc qua Telegram?": "How do I get reminders on Telegram?", "Làm sao dùng Gemini tóm tắt email?": "How do I use Gemini to summarize email?",
   "Chuẩn bị dữ liệu bảng tính": "Preparing spreadsheet data", "Đang tải tệp Excel và đọc danh sách sheet…": "Loading the Excel file and reading sheet names…", "Chọn sheet để Gemini tập trung tóm tắt": "Choose sheets for Gemini to focus its summary", "Không tìm thấy tệp Excel/CSV có thể đọc. Gemini vẫn chỉ tóm tắt nội dung thư và luồng trao đổi.": "No readable Excel/CSV file was found. Gemini will summarize the email and conversation context only.", "Đang trích xuất dữ liệu từ sheet đã chọn…": "Extracting data from the selected sheets…", "Xác nhận tóm tắt": "Confirm summary", "Đóng": "Close", "Tệp Excel": "Excel file", "Không có sheet được chọn. Hãy chọn ít nhất một sheet Excel.": "No sheet is selected. Choose at least one Excel sheet.", "Dữ liệu chỉ được đọc theo sheet bạn chọn, giới hạn để bảo vệ an toàn và không được lưu trong TaskFlow.": "Only the sheets you select are read, bounded for safety, and never stored in TaskFlow.", "Đồng ý tải danh sách sheet của tệp Excel từ email này để bạn chọn nội dung cần gửi Gemini? TaskFlow chỉ đọc metadata sheet, không gửi dữ liệu đó tới Gemini ở bước này.": "Allow TaskFlow to load the sheet list from this email's Excel file so you can choose what Gemini receives? TaskFlow only reads sheet metadata and does not send that data to Gemini at this step.", "Đồng ý gửi nội dung thư, luồng trao đổi, các tệp có thể đọc và dữ liệu từ sheet Excel đã chọn tới Gemini miễn phí để tóm tắt? Gemini chỉ tạo đề xuất; bạn luôn kiểm tra và xác nhận trước khi tạo lịch. Không gửi email nhạy cảm.": "Allow sending the email content, conversation context, readable attachments, and data from your selected Excel sheets to free Gemini for summarization? Gemini only makes proposals; you always review and confirm before creating an event. Do not send sensitive email.",
   "Bảng điều khiển": "Workspace", "Không gian cá nhân / 2026": "Personal workspace / 2026", "Tài khoản của bạn": "Your account", "Chưa có email": "No email",
   "Đóng menu": "Close menu", "Mở menu": "Open menu", "Tổng quan hôm nay": "Today overview", "Trung tâm nhắc việc": "Reminder center", "Hồ sơ cá nhân": "Personal profile",
@@ -711,11 +714,17 @@ export default function Home() {
   const [retryableGeminiMessageIds, setRetryableGeminiMessageIds] = useState<number[]>([]);
   const [notificationBellOpen, setNotificationBellOpen] = useState(false);
   const [dailyQuoteMode, setDailyQuoteMode] = useState<DailyQuoteMode>(getInitialDailyQuoteMode);
+  const [helpAssistantOpen, setHelpAssistantOpen] = useState(false);
+  const [helpAssistantMessages, setHelpAssistantMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const utils = trpc.useUtils();
 
   useEffect(() => { window.localStorage.setItem(DAILY_QUOTE_MODE_STORAGE_KEY, dailyQuoteMode); }, [dailyQuoteMode]);
 
   const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
+  const helpAssistant = trpc.helpAssistant.chat.useMutation({
+    onSuccess: data => setHelpAssistantMessages(current => [...current, { role: "assistant", content: data.answer }]),
+    onError: error => toast.error(error.message),
+  });
   const taskQuery = trpc.tasks.list.useQuery(undefined, { enabled: isAuthenticated });
   const eventQuery = trpc.calendar.list.useQuery(undefined, { enabled: isAuthenticated });
   const notifications = trpc.notifications.due.useQuery(undefined, {
@@ -898,6 +907,11 @@ export default function Home() {
     setEventDialogOpen(true);
     toast.success(translateAppText(language, summary.eventStartAt ? "Đã trích xuất ngày giờ để tiền điền lịch hẹn. Hãy kiểm tra và xác nhận để lưu." : "Bản nháp lịch hẹn đã được tiền điền. Hãy xác nhận để lưu."));
   };
+  const sendHelpAssistantMessage = (content: string) => {
+    const nextMessages = [...helpAssistantMessages, { role: "user" as const, content }];
+    setHelpAssistantMessages(nextMessages);
+    helpAssistant.mutate({ locale: language, messages: nextMessages });
+  };
 
   if (loading) {
     return <div className="min-h-screen swiss-grid grid place-items-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -960,7 +974,7 @@ export default function Home() {
         <main className="min-w-0 flex-1">
           <header className="app-header flex min-h-20 items-center justify-between gap-3 px-4 md:px-8">
             <div className="flex min-w-0 items-center gap-3 md:gap-4"><button type="button" onClick={() => setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] shadow-sm lg:hidden" aria-label="Mở menu"><Menu className="h-5 w-5" /></button><div className="min-w-0"><p className="mono-label hidden text-[var(--ink-muted)] sm:block">Không gian cá nhân / 2026</p><h1 className="truncate font-display text-2xl tracking-[-0.035em] text-[var(--ink)] md:text-[28px]">{pageTitle(view)}</h1></div></div>
-            <div className="flex items-center gap-2 sm:gap-3"><div className="flex rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 shadow-sm" aria-label="Chọn ngôn ngữ"><button type="button" onClick={() => setLanguage("vi")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "vi" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>VI</button><button type="button" onClick={() => setLanguage("en")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "en" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>EN</button></div><button type="button" onClick={toggleTheme} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] shadow-sm transition hover:bg-[var(--surface-soft)]" aria-label={translateAppText(language, theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối")} title={translateAppText(language, theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối")}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button><NotificationBell open={notificationBellOpen} onOpenChange={setNotificationBellOpen} emails={notificationBellData.newEmails} dueNotifications={notificationBellData.dueNotifications} onOpenEmail={() => setView("email")} onOpenReminders={() => setView("notifications")} onMarkAllRead={() => markAllRead.mutate()} /><p className="hidden max-w-44 text-right text-xs font-medium capitalize leading-5 text-[var(--ink-muted)] xl:block">{new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date())}</p><button type="button" onClick={view === "calendar" ? openCreateEvent : openCreateTask} className="swiss-button"><Plus className="h-4 w-4" /> <span className="hidden md:inline">{view === "calendar" ? "Lịch hẹn" : "Công việc"}</span></button></div>
+            <div className="flex items-center gap-2 sm:gap-3"><div className="flex rounded-xl border border-[var(--line)] bg-[var(--surface)] p-1 shadow-sm" aria-label="Chọn ngôn ngữ"><button type="button" onClick={() => setLanguage("vi")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "vi" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>VI</button><button type="button" onClick={() => setLanguage("en")} className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${language === "en" ? "bg-[var(--ink)] text-white" : "text-[var(--ink-muted)] hover:bg-[var(--surface-soft)]"}`}>EN</button></div><button type="button" onClick={() => setHelpAssistantOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--ink-muted)] shadow-sm transition hover:bg-[var(--surface-soft)] hover:text-[var(--ink)]" aria-label={translateAppText(language, "Trợ lý hướng dẫn")} title={translateAppText(language, "Trợ lý hướng dẫn")}><CircleHelp className="h-4 w-4" /><span className="hidden lg:inline">{translateAppText(language, "Trợ lý hướng dẫn")}</span></button><button type="button" onClick={toggleTheme} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--ink-muted)] shadow-sm transition hover:bg-[var(--surface-soft)]" aria-label={translateAppText(language, theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối")} title={translateAppText(language, theme === "dark" ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối")}>{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button><NotificationBell open={notificationBellOpen} onOpenChange={setNotificationBellOpen} emails={notificationBellData.newEmails} dueNotifications={notificationBellData.dueNotifications} onOpenEmail={() => setView("email")} onOpenReminders={() => setView("notifications")} onMarkAllRead={() => markAllRead.mutate()} /><p className="hidden max-w-44 text-right text-xs font-medium capitalize leading-5 text-[var(--ink-muted)] xl:block">{new Intl.DateTimeFormat(language === "en" ? "en-US" : "vi-VN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date())}</p><button type="button" onClick={view === "calendar" ? openCreateEvent : openCreateTask} className="swiss-button"><Plus className="h-4 w-4" /> <span className="hidden md:inline">{view === "calendar" ? "Lịch hẹn" : "Công việc"}</span></button></div>
           </header>
 
           <div className="mx-auto w-full max-w-[1440px] p-4 pb-10 md:p-8 lg:p-10">
@@ -1021,6 +1035,15 @@ export default function Home() {
 
       <TaskDialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen} task={editingTask} saving={createTask.isPending || updateTask.isPending} onSave={data => editingTask ? updateTask.mutate({ id: editingTask.id, data }) : createTask.mutate(data)} />
       <EventDialog open={eventDialogOpen} onOpenChange={open => { setEventDialogOpen(open); if (!open) { setEventPrefill(null); setPendingEmailSuggestionId(null); } }} event={editingEvent} prefill={eventPrefill} saving={createEvent.isPending || updateEvent.isPending} onSave={data => editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data)} />
+      <Dialog open={helpAssistantOpen} onOpenChange={setHelpAssistantOpen}>
+        <DialogContent className="flex max-h-[min(760px,calc(100vh-2rem))] max-w-2xl flex-col overflow-hidden p-0 sm:rounded-[20px]">
+          <DialogHeader className="border-b border-[var(--line)] bg-[var(--surface-soft)] px-5 py-4 pr-12">
+            <DialogTitle className="flex items-center gap-2 text-lg"><span className="grid h-8 w-8 place-items-center bg-[#e23221] text-white"><CircleHelp className="h-4 w-4" /></span>{translateAppText(language, "Trợ lý hướng dẫn")}</DialogTitle>
+            <p className="mt-2 text-sm leading-5 text-[var(--ink-muted)]">{translateAppText(language, "Bạn có thể hỏi về công việc, lịch hẹn, Telegram, email hoặc Gemini.")}</p>
+          </DialogHeader>
+          <AIChatBox className="min-h-0 flex-1 rounded-none border-0 shadow-none" height="min(600px, calc(100vh - 12rem))" messages={helpAssistantMessages} onSendMessage={sendHelpAssistantMessage} isLoading={helpAssistant.isPending} placeholder={translateAppText(language, "Hỏi cách sử dụng TaskFlow…")} emptyStateMessage={translateAppText(language, "Bạn cần hỗ trợ sử dụng TaskFlow?")} suggestedPrompts={[translateAppText(language, "Làm sao tạo lịch hẹn lặp lại?"), translateAppText(language, "Làm sao kết nối Gmail qua IMAP?"), translateAppText(language, "Làm sao nhận nhắc việc qua Telegram?"), translateAppText(language, "Làm sao dùng Gemini tóm tắt email?")]} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

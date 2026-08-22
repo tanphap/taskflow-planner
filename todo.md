@@ -237,3 +237,7 @@
 - [x] Rà soát trạng thái mutation Gemini hiện có để xác định chính xác email đang được tóm tắt trong Inbox.
 - [x] Làm nổi bật dòng email đang tóm tắt bằng chỉ báo trạng thái song ngữ, dễ nhận biết và truy cập được.
 - [x] Bổ sung kiểm thử trạng thái đang tóm tắt, kiểm chứng responsive và xuất bản cải tiến Inbox.
+- [x] Rà soát giao diện, xác thực và nội dung hướng dẫn để xác định phạm vi chatbot chỉ đọc, không thao tác dữ liệu.
+- [x] Xây dựng API chatbot được xác thực, chỉ dẫn về TaskFlow, có chống prompt injection và không nhận dữ liệu email/công việc riêng tư.
+- [x] Thêm giao diện chatbot song ngữ, responsive, có trạng thái tải/lỗi và gợi ý câu hỏi sử dụng ứng dụng.
+- [x] Bổ sung kiểm thử quyền truy cập, nội dung hướng dẫn và UI; kiểm chứng responsive rồi xuất bản chatbot.

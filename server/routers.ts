@@ -16,6 +16,7 @@ import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, fetchOr
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 import { isGeminiTemporaryError, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { getTaskFlowHelpResponse } from "./helpAssistant";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -87,6 +88,18 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => db.getDashboardData(ctx.user.id)) }),
+  helpAssistant: router({
+    chat: protectedProcedure.input(z.object({
+      locale: z.enum(["vi", "en"]).default("vi"),
+      messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(1200) })).min(1).max(10),
+    })).mutation(async ({ input }) => {
+      try {
+        return await getTaskFlowHelpResponse(input);
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: input.locale === "en" ? "The help assistant is temporarily unavailable. Please try again shortly." : "Trợ lý hướng dẫn đang tạm thời không khả dụng. Vui lòng thử lại sau." });
+      }
+    }),
+  }),
   tasks: router({
     list: protectedProcedure.query(({ ctx }) => db.listTasks(ctx.user.id)),
     create: protectedProcedure.input(taskInput).mutation(async ({ ctx, input }) => { await db.createTask(ctx.user.id, input); return { success: true } as const; }),
