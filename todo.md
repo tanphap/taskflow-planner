@@ -231,3 +231,6 @@
 - [x] Thêm lựa chọn sheet Excel song ngữ trước khi người dùng xác nhận gửi nội dung bảng sang Gemini.
 - [x] Hiển thị thanh tiến trình trực quan, có trạng thái truy cập được, trong khi tải và trích xuất bảng Excel lớn.
 - [x] Bổ sung kiểm thử chọn sheet, trích xuất có chọn lọc và trạng thái tiến trình; kiểm chứng responsive rồi xuất bản.
+- [x] Gỡ popup chuẩn bị bảng tính và lựa chọn sheet khỏi luồng tóm tắt Gemini theo yêu cầu người dùng.
+- [x] Giữ luồng tóm tắt Excel/CSV trực tiếp sau xác nhận quyền riêng tư, cùng giới hạn trích xuất dữ liệu an toàn.
+- [x] Cập nhật kiểm thử, kiểm chứng responsive và xuất bản luồng tóm tắt không còn popup bảng tính.
