@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { formatHelpAssistantMarkdown } from "../../../shared/helpAssistantFormatting";
 import { AlertCircle, ExternalLink, Loader2, RotateCcw, Send, User, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Streamdown } from "streamdown";
@@ -206,13 +207,13 @@ export function AIChatBox({
     <div
       ref={containerRef}
       className={cn(
-        "flex flex-col bg-card text-card-foreground rounded-lg border shadow-sm",
+        "flex h-full min-h-0 flex-col bg-card text-card-foreground rounded-lg border shadow-sm",
         className
       )}
       style={{ height }}
     >
       {/* Messages Area */}
-      <div ref={scrollAreaRef} className="flex-1 overflow-hidden">
+      <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-hidden" aria-label="Conversation history">
         {displayMessages.length === 0 ? (
           <div className="flex h-full flex-col p-4">
             <div className="flex flex-1 flex-col items-center justify-center gap-6 text-muted-foreground">
@@ -238,7 +239,7 @@ export function AIChatBox({
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-full">
+          <ScrollArea className="h-full min-h-0">
             <div className="flex flex-col space-y-4 p-4">
               {displayMessages.map((message, index) => {
                 // Apply min-height to last message only if NOT loading (when loading, the loading indicator gets it)
@@ -280,8 +281,8 @@ export function AIChatBox({
                     >
                       {message.role === "assistant" ? (
                         <div className="space-y-3">
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <Streamdown>{message.content}</Streamdown>
+                          <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-6 prose-p:my-0 prose-p:mb-3 prose-p:last:mb-0 prose-ol:my-3 prose-ol:pl-5 prose-ol:marker:font-semibold prose-ul:my-3 prose-ul:pl-5 prose-li:my-1.5">
+                            <Streamdown>{formatHelpAssistantMarkdown(message.content)}</Streamdown>
                           </div>
                           {message.quickActions && message.quickActions.length > 0 && onQuickAction && (
                             <div className="flex flex-wrap gap-2 border-t border-border/70 pt-3">

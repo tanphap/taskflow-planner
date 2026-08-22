@@ -1102,15 +1102,15 @@ export default function Home() {
       <TaskDialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen} task={editingTask} saving={createTask.isPending || updateTask.isPending} onSave={data => editingTask ? updateTask.mutate({ id: editingTask.id, data }) : createTask.mutate(data)} />
       <EventDialog open={eventDialogOpen} onOpenChange={open => { setEventDialogOpen(open); if (!open) { setEventPrefill(null); setPendingEmailSuggestionId(null); } }} event={editingEvent} prefill={eventPrefill} saving={createEvent.isPending || updateEvent.isPending} onSave={data => editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data)} />
       <Dialog open={helpAssistantOpen} onOpenChange={setHelpAssistantOpen}>
-        <DialogContent className="flex max-h-[min(760px,calc(100vh-2rem))] max-w-2xl flex-col overflow-hidden p-0 sm:rounded-[20px]">
-          <DialogHeader className="border-b border-[var(--line)] bg-[var(--surface-soft)] px-5 py-4 pr-12">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] max-h-[760px] min-h-0 max-w-2xl flex-col overflow-hidden p-0 sm:h-[calc(100dvh-2rem)] sm:rounded-[20px]">
+          <DialogHeader className="shrink-0 border-b border-[var(--line)] bg-[var(--surface-soft)] px-5 py-4 pr-12">
             <div className="flex items-center justify-between gap-3">
               <DialogTitle className="flex items-center gap-2 text-lg"><span className="grid h-8 w-8 place-items-center bg-[#e23221] text-white"><CircleHelp className="h-4 w-4" /></span>{translateAppText(language, "Trợ lý hướng dẫn")}</DialogTitle>
               <button type="button" onClick={clearHelpAssistantHistory} disabled={helpAssistant.isPending || helpAssistantMessages.length === 0} className="shrink-0 text-xs font-semibold text-[var(--ink-muted)] underline-offset-4 hover:text-[#e23221] hover:underline disabled:cursor-not-allowed disabled:opacity-40">{translateAppText(language, "Xóa lịch sử")}</button>
             </div>
             <p className="mt-2 text-sm leading-5 text-[var(--ink-muted)]">{translateAppText(language, "Bạn có thể hỏi về công việc, lịch hẹn, Telegram, email hoặc Gemini.")}</p>
           </DialogHeader>
-          <AIChatBox className="min-h-0 flex-1 rounded-none border-0 shadow-none" height="min(600px, calc(100vh - 12rem))" messages={[
+          <AIChatBox className="min-h-0 flex-1 rounded-none border-0 shadow-none" height="100%" messages={[
             ...helpAssistantMessages,
             ...(pendingHelpAssistantAttempt?.locale === language ? [{ role: "user" as const, content: pendingHelpAssistantAttempt.question }] : failedHelpAssistantAttempt?.locale === language ? [{ role: "user" as const, content: failedHelpAssistantAttempt.question }] : []),
           ].map(message => ({

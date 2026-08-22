@@ -252,3 +252,4 @@
 - [x] Lưu lịch sử trò chuyện chatbot trên trình duyệt, phân tách theo thiết bị/ngôn ngữ và cung cấp thao tác xóa lịch sử.
 - [x] Cho chatbot trả về liên kết mở nhanh các màn hình TaskFlow phù hợp, có kiểm soát danh sách đích an toàn.
 - [x] Bổ sung kiểm thử retry, lịch sử, liên kết điều hướng; kiểm chứng responsive và xuất bản chatbot cải tiến.
+- [x] Điều chỉnh popup Trợ lý để vùng nội dung cuộn độc lập và câu trả lời xuống dòng, phân đoạn đúng chuẩn.
