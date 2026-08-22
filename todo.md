@@ -234,3 +234,6 @@
 - [x] Gỡ popup chuẩn bị bảng tính và lựa chọn sheet khỏi luồng tóm tắt Gemini theo yêu cầu người dùng.
 - [x] Giữ luồng tóm tắt Excel/CSV trực tiếp sau xác nhận quyền riêng tư, cùng giới hạn trích xuất dữ liệu an toàn.
 - [x] Cập nhật kiểm thử, kiểm chứng responsive và xuất bản luồng tóm tắt không còn popup bảng tính.
+- [x] Rà soát trạng thái mutation Gemini hiện có để xác định chính xác email đang được tóm tắt trong Inbox.
+- [x] Làm nổi bật dòng email đang tóm tắt bằng chỉ báo trạng thái song ngữ, dễ nhận biết và truy cập được.
+- [x] Bổ sung kiểm thử trạng thái đang tóm tắt, kiểm chứng responsive và xuất bản cải tiến Inbox.
