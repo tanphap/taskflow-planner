@@ -217,3 +217,5 @@
 - [x] Kiểm thử responsive và xuất bản điều chỉnh giao diện thao tác lịch hẹn.
 - [x] Gỡ nút “Mở email gốc” khỏi hộp thoại Chi tiết tóm tắt AI, giữ các thao tác còn lại.
 - [x] Kiểm thử giao diện tóm tắt AI và xuất bản điều chỉnh.
+- [x] Sửa tiêu đề email dài trong popup tóm tắt AI để tự xuống hàng, không cuộn ngang và vẫn dễ đọc trên điện thoại.
+- [x] Kiểm thử popup tóm tắt AI trên desktop/mobile và xuất bản bản sửa responsive.
