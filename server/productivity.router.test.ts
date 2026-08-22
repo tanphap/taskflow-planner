@@ -46,7 +46,12 @@ vi.mock("./emailSync", () => ({
   verifyImapConnection: vi.fn(),
   verifyWebmailImapConnection: vi.fn(),
 }));
-vi.mock("./geminiEmailSummary", () => ({ summarizeGmailEmailWithGemini: vi.fn(), isGeminiTemporaryError: (error: unknown) => Boolean(error && typeof error === "object" && "retryable" in error && (error as { retryable?: unknown }).retryable) }));
+vi.mock("./geminiEmailSummary", () => ({
+  GEMINI_EMAIL_SUMMARY_MODEL: "gemini-3.5-flash-lite",
+  GeminiTemporaryError: class GeminiTemporaryError extends Error { readonly retryable = true; },
+  summarizeGmailEmailWithGemini: vi.fn(),
+  isGeminiTemporaryError: (error: unknown) => Boolean(error && typeof error === "object" && "retryable" in error && (error as { retryable?: unknown }).retryable),
+}));
 
 import { appRouter } from "./routers";
 import * as db from "./db";

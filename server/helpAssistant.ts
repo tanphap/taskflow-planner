@@ -1,7 +1,8 @@
-import { invokeLLM } from "./_core/llm";
+import { ENV } from "./_core/env";
+import { GEMINI_EMAIL_SUMMARY_MODEL, GeminiTemporaryError } from "./geminiEmailSummary";
 import { normalizeSuggestedHelpViews, type HelpAssistantLocale, type HelpAssistantView } from "../shared/helpAssistantHistory";
 
-const HELP_CHAT_MODEL = "gpt-5-nano";
+const HELP_CHAT_MODEL = GEMINI_EMAIL_SUMMARY_MODEL;
 const MAX_HELP_MESSAGES = 10;
 const MAX_HELP_MESSAGE_CHARACTERS = 1_200;
 
@@ -66,36 +67,51 @@ export function parseTaskFlowHelpResponse(content: unknown): { answer: string; s
   };
 }
 
+function toGeminiContents(messages: ReturnType<typeof buildTaskFlowHelpMessages>) {
+  return messages.slice(1).map(message => ({
+    role: message.role === "assistant" ? "model" : "user",
+    parts: [{ text: message.content }],
+  }));
+}
+
+function getGeminiText(payload: unknown) {
+  if (typeof payload !== "object" || payload === null) return "";
+  const candidates = (payload as { candidates?: unknown }).candidates;
+  if (!Array.isArray(candidates)) return "";
+  return candidates[0] && typeof candidates[0] === "object"
+    ? ((candidates[0] as { content?: { parts?: Array<{ text?: unknown }> } }).content?.parts ?? [])
+      .map(part => typeof part.text === "string" ? part.text : "")
+      .join("\n")
+    : "";
+}
+
 export async function getTaskFlowHelpResponse(input: { locale: HelpLocale; messages: HelpChatMessage[] }) {
   const messages = buildTaskFlowHelpMessages(input.locale, input.messages);
   if (messages.length < 2) throw new Error("Help assistant requires a question");
-  const response = await invokeLLM({
-    model: HELP_CHAT_MODEL,
-    // GPT-5 uses max_completion_tokens; max_tokens can cause incompatible
-    // reasoning/token handling at the proxy and previously made chat fail.
-    max_completion_tokens: 480,
-    messages,
-    outputSchema: {
-      name: "taskflow_help_response",
-      strict: true,
-      schema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          answer: { type: "string" },
-          suggestedViews: {
-            type: "array",
-            maxItems: 2,
-            items: { type: "string", enum: ["dashboard", "tasks", "calendar", "notifications", "profile", "email"] },
-          },
-        },
-        required: ["answer", "suggestedViews"],
-      },
-    },
-  });
-  const parsed = parseTaskFlowHelpResponse(response.choices[0]?.message.content);
+  if (!ENV.geminiApiKey) throw new Error("Gemini API key chưa được cấu hình.");
+  let response: Response;
+  try {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${HELP_CHAT_MODEL}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": ENV.geminiApiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: messages[0].content }] },
+        contents: toGeminiContents(messages),
+        generationConfig: { temperature: 0.2, maxOutputTokens: 480, responseMimeType: "application/json" },
+      }),
+    });
+  } catch {
+    throw new GeminiTemporaryError("Không thể kết nối Gemini lúc này. Bạn có thể thử lại sau ít phút.");
+  }
+  if (!response.ok) {
+    if (response.status === 429) throw new GeminiTemporaryError("Gemini miễn phí đang đạt giới hạn hiện tại. Bạn có thể thử lại sau.", response.status);
+    if (response.status === 408 || response.status === 425 || response.status >= 500) throw new GeminiTemporaryError("Gemini đang tạm thời không sẵn sàng. Bạn có thể thử lại sau ít phút.", response.status);
+    if (response.status === 401 || response.status === 403) throw new Error("Không thể xác thực với Gemini API. Hãy kiểm tra khóa API.");
+    throw new Error(`Gemini không thể trả lời hướng dẫn lúc này (HTTP ${response.status}).`);
+  }
+  const parsed = parseTaskFlowHelpResponse(getGeminiText(await response.json()));
   return {
     ...parsed,
-    model: response.model || HELP_CHAT_MODEL,
+    model: HELP_CHAT_MODEL,
   };
 }

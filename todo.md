@@ -253,3 +253,4 @@
 - [x] Cho chatbot trả về liên kết mở nhanh các màn hình TaskFlow phù hợp, có kiểm soát danh sách đích an toàn.
 - [x] Bổ sung kiểm thử retry, lịch sử, liên kết điều hướng; kiểm chứng responsive và xuất bản chatbot cải tiến.
 - [x] Điều chỉnh popup Trợ lý để vùng nội dung cuộn độc lập và câu trả lời xuống dòng, phân đoạn đúng chuẩn.
+- [x] Chuyển Bot hướng dẫn sang cùng API Gemini và mô hình đang dùng cho tóm tắt email, giữ kiểm soát dữ liệu và kiểm thử/xuất bản.
