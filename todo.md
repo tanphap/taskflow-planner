@@ -244,3 +244,6 @@
 - [x] Thu thập lỗi runtime và rà soát cấu hình gọi mô hình của chatbot hướng dẫn.
 - [x] Khắc phục nguyên nhân chatbot không khả dụng và hiển thị lỗi có hướng dẫn thử lại khi phù hợp.
 - [x] Bổ sung kiểm thử hồi quy phản hồi chatbot, kiểm chứng giao diện và xuất bản bản sửa.
+- [x] Tái hiện lỗi chatbot trên production trong phiên đăng nhập và ghi nhận phản hồi tRPC/runtime thực tế.
+- [x] Sửa nguyên nhân gốc khiến chatbot vẫn báo tạm thời không khả dụng sau bản cập nhật token.
+- [x] Xác minh bằng câu hỏi thực tế trên production, kiểm thử hồi quy và xuất bản bản sửa đã được kiểm chứng.
