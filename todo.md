@@ -227,3 +227,7 @@
 - [x] Bổ sung nút Thử lại song ngữ cho email tóm tắt thất bại, giữ xác nhận chủ động và trạng thái tải rõ ràng.
 - [x] Trích xuất an toàn nội dung bảng từ CSV và Excel đính kèm để Gemini tóm tắt theo thao tác người dùng.
 - [x] Bổ sung kiểm thử cho retry, lỗi không thể thử lại và dữ liệu bảng Excel/CSV; kiểm chứng responsive rồi xuất bản.
+- [x] Rà soát cấu trúc tệp Excel và luồng tóm tắt hiện có để xác định metadata sheet có thể hiển thị an toàn.
+- [x] Thêm lựa chọn sheet Excel song ngữ trước khi người dùng xác nhận gửi nội dung bảng sang Gemini.
+- [x] Hiển thị thanh tiến trình trực quan, có trạng thái truy cập được, trong khi tải và trích xuất bảng Excel lớn.
+- [x] Bổ sung kiểm thử chọn sheet, trích xuất có chọn lọc và trạng thái tiến trình; kiểm chứng responsive rồi xuất bản.

@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { describe, expect, it } from "vitest";
-import { extractHtmlTablesForGemini, extractTabularAttachmentForGemini, isTabularAttachment } from "./spreadsheetAttachment";
+import { extractHtmlTablesForGemini, extractTabularAttachmentForGemini, inspectTabularAttachmentForGemini, isTabularAttachment } from "./spreadsheetAttachment";
 
 describe("spreadsheet attachment extraction", () => {
   it("converts a CSV attachment into bounded readable table text", () => {
@@ -21,6 +21,20 @@ describe("spreadsheet attachment extraction", () => {
     expect(table).toContain("Kế hoạch");
     expect(table).toContain("Hạng mục | Người phụ trách");
     expect(table).toContain("Báo cáo | Minh");
+  });
+
+  it("lists safe sheet metadata and extracts only sheets selected by the user", () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Tên", "Giá trị"], ["Kế hoạch", "Giữ lại"]]), "Tổng quan");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["Tên", "Giá trị"], ["Ngân sách", "Chỉ sheet này"]]), "Ngân sách");
+    const content = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    const input = { filename: "bao-cao.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", content };
+
+    expect(inspectTabularAttachmentForGemini(input)).toEqual({ kind: "excel", sheetNames: ["Tổng quan", "Ngân sách"] });
+    const selected = extractTabularAttachmentForGemini({ ...input, selectedSheetNames: ["Ngân sách"] });
+    expect(selected).toContain("Ngân sách");
+    expect(selected).toContain("Chỉ sheet này");
+    expect(selected).not.toContain("Giữ lại");
   });
 
   it("extracts readable rows from an HTML email table and recognizes spreadsheet extensions", () => {

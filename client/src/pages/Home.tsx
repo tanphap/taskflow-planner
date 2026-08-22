@@ -51,11 +51,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 
 type View = "dashboard" | "tasks" | "calendar" | "notifications" | "profile" | "email";
 type TaskStatus = "todo" | "in_progress" | "done";
 type Priority = "low" | "medium" | "high";
 type DailyQuoteMode = "auto" | "fixed";
+type GeminiSpreadsheetPreview = { attachmentIndex: number; filename: string; kind: "excel" | "csv"; sheetNames: string[] };
+type GeminiSheetPickerState = { messageId: number; stage: "loading" | "ready"; spreadsheets: GeminiSpreadsheetPreview[]; selectedSheets: Record<number, string[]> };
 
 const DAILY_QUOTE_MODE_STORAGE_KEY = "taskflow-daily-quote-mode";
 function getInitialDailyQuoteMode(): DailyQuoteMode {
@@ -64,6 +67,7 @@ function getInitialDailyQuoteMode(): DailyQuoteMode {
 
 const englishCopy: Record<string, string> = {
   "Tổng quan": "Overview", "Công việc": "Tasks", "Lịch hẹn": "Calendar", "Nhắc việc": "Reminders", "Hồ sơ": "Profile",
+  "Chuẩn bị dữ liệu bảng tính": "Preparing spreadsheet data", "Đang tải tệp Excel và đọc danh sách sheet…": "Loading the Excel file and reading sheet names…", "Chọn sheet để Gemini tập trung tóm tắt": "Choose sheets for Gemini to focus its summary", "Không tìm thấy tệp Excel/CSV có thể đọc. Gemini vẫn chỉ tóm tắt nội dung thư và luồng trao đổi.": "No readable Excel/CSV file was found. Gemini will summarize the email and conversation context only.", "Đang trích xuất dữ liệu từ sheet đã chọn…": "Extracting data from the selected sheets…", "Xác nhận tóm tắt": "Confirm summary", "Đóng": "Close", "Tệp Excel": "Excel file", "Không có sheet được chọn. Hãy chọn ít nhất một sheet Excel.": "No sheet is selected. Choose at least one Excel sheet.", "Dữ liệu chỉ được đọc theo sheet bạn chọn, giới hạn để bảo vệ an toàn và không được lưu trong TaskFlow.": "Only the sheets you select are read, bounded for safety, and never stored in TaskFlow.", "Đồng ý tải danh sách sheet của tệp Excel từ email này để bạn chọn nội dung cần gửi Gemini? TaskFlow chỉ đọc metadata sheet, không gửi dữ liệu đó tới Gemini ở bước này.": "Allow TaskFlow to load the sheet list from this email's Excel file so you can choose what Gemini receives? TaskFlow only reads sheet metadata and does not send that data to Gemini at this step.", "Đồng ý gửi nội dung thư, luồng trao đổi, các tệp có thể đọc và dữ liệu từ sheet Excel đã chọn tới Gemini miễn phí để tóm tắt? Gemini chỉ tạo đề xuất; bạn luôn kiểm tra và xác nhận trước khi tạo lịch. Không gửi email nhạy cảm.": "Allow sending the email content, conversation context, readable attachments, and data from your selected Excel sheets to free Gemini for summarization? Gemini only makes proposals; you always review and confirm before creating an event. Do not send sensitive email.",
   "Bảng điều khiển": "Workspace", "Không gian cá nhân / 2026": "Personal workspace / 2026", "Tài khoản của bạn": "Your account", "Chưa có email": "No email",
   "Đóng menu": "Close menu", "Mở menu": "Open menu", "Tổng quan hôm nay": "Today overview", "Trung tâm nhắc việc": "Reminder center", "Hồ sơ cá nhân": "Personal profile",
   "Thứ Hai": "Monday", "T2": "Mon", "T3": "Tue", "T4": "Wed", "T5": "Thu", "T6": "Fri", "T7": "Sat", "CN": "Sun", "Chưa làm": "To do", "Đang làm": "In progress", "Hoàn thành": "Completed",
@@ -681,6 +685,7 @@ export default function Home() {
   const [olderEmailMessages, setOlderEmailMessages] = useState<EmailMessageRecord[]>([]);
   const [olderEmailHasMore, setOlderEmailHasMore] = useState<Record<number, boolean>>({});
   const [retryableGeminiMessageIds, setRetryableGeminiMessageIds] = useState<number[]>([]);
+  const [geminiSheetPicker, setGeminiSheetPicker] = useState<GeminiSheetPickerState | null>(null);
   const [notificationBellOpen, setNotificationBellOpen] = useState(false);
   const [dailyQuoteMode, setDailyQuoteMode] = useState<DailyQuoteMode>(getInitialDailyQuoteMode);
   const utils = trpc.useUtils();
@@ -817,8 +822,20 @@ export default function Home() {
     onSuccess: async data => { await refreshEmailData(); toast.success(`AI đã phân tích ${data.analyzed} email mới`); },
     onError: error => toast.error(error.message),
   });
+  const inspectGeminiSpreadsheets = trpc.email.inspectGeminiSpreadsheets.useMutation({
+    onSuccess: data => {
+      const spreadsheets = data.spreadsheets as GeminiSpreadsheetPreview[];
+      setGeminiSheetPicker(current => current ? {
+        ...current,
+        stage: "ready",
+        spreadsheets,
+        selectedSheets: Object.fromEntries(spreadsheets.filter(item => item.kind === "excel").map(item => [item.attachmentIndex, item.sheetNames])),
+      } : null);
+    },
+    onError: error => { setGeminiSheetPicker(null); toast.error(error.message); },
+  });
   const summarizeEmailWithGemini = trpc.email.summarizeWithGemini.useMutation({
-    onSuccess: async (_data, variables) => { setRetryableGeminiMessageIds(current => current.filter(messageId => messageId !== variables.messageId)); await refreshEmailData(); toast.success(translateAppText(language, "Tóm tắt Gemini đã sẵn sàng")); },
+    onSuccess: async (_data, variables) => { setGeminiSheetPicker(current => current?.messageId === variables.messageId ? null : current); setRetryableGeminiMessageIds(current => current.filter(messageId => messageId !== variables.messageId)); await refreshEmailData(); toast.success(translateAppText(language, "Tóm tắt Gemini đã sẵn sàng")); },
     onError: (error, variables) => {
       const retryable = error.data?.code === "TOO_MANY_REQUESTS" || error.data?.code === "SERVICE_UNAVAILABLE" || error.data?.code === "GATEWAY_TIMEOUT" || error.data?.code === "TIMEOUT";
       setRetryableGeminiMessageIds(current => retryable ? Array.from(new Set([...current, variables.messageId])) : current.filter(messageId => messageId !== variables.messageId));
@@ -897,6 +914,8 @@ export default function Home() {
     loadOlderEmailMessages.mutate({ id: accountId, beforeUid });
   };
   const notificationBellData = getNotificationBellData(emailMessageData, notificationData);
+  const geminiPickerRequiresSheet = Boolean(geminiSheetPicker?.spreadsheets.some(item => item.kind === "excel"));
+  const geminiPickerSelectedSheetCount = Object.values(geminiSheetPicker?.selectedSheets ?? {}).flat().length;
 
   return (
     <div className="app-shell min-h-screen text-[#18211b]">
@@ -980,8 +999,9 @@ export default function Home() {
               onReviewSuggestion={openCreateEventFromSuggestion}
               onDismissSuggestion={(id: number) => dismissEmailSuggestion.mutate({ id })}
               onSummarizeGmail={(messageId: number) => {
-                if (!window.confirm(translateAppText(language, "Đồng ý tải và gửi nội dung thư, tối đa 3 tệp đính kèm có thể đọc (bao gồm CSV/Excel và bảng biểu) cùng phần xem trước luồng thư liên quan tới Gemini miễn phí? Gemini chỉ tạo tóm tắt và đề xuất; bạn luôn kiểm tra, xác nhận trước khi tạo lịch. Google có thể xử lý dữ liệu theo điều khoản của dịch vụ miễn phí. Không gửi email nhạy cảm."))) return;
-                summarizeEmailWithGemini.mutate({ messageId, locale: language, acknowledgeUnpaidDataUse: true });
+                if (!window.confirm(translateAppText(language, "Đồng ý tải danh sách sheet của tệp Excel từ email này để bạn chọn nội dung cần gửi Gemini? TaskFlow chỉ đọc metadata sheet, không gửi dữ liệu đó tới Gemini ở bước này."))) return;
+                setGeminiSheetPicker({ messageId, stage: "loading", spreadsheets: [], selectedSheets: {} });
+                inspectGeminiSpreadsheets.mutate({ messageId });
               }}
               onOpenOriginalContent={(messageId: number) => originalEmailContent.mutateAsync({ messageId })}
               onCreateEventFromSummary={openCreateEventFromEmailSummary}
@@ -993,6 +1013,16 @@ export default function Home() {
 
       <TaskDialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen} task={editingTask} saving={createTask.isPending || updateTask.isPending} onSave={data => editingTask ? updateTask.mutate({ id: editingTask.id, data }) : createTask.mutate(data)} />
       <EventDialog open={eventDialogOpen} onOpenChange={open => { setEventDialogOpen(open); if (!open) { setEventPrefill(null); setPendingEmailSuggestionId(null); } }} event={editingEvent} prefill={eventPrefill} saving={createEvent.isPending || updateEvent.isPending} onSave={data => editingEvent ? updateEvent.mutate({ id: editingEvent.id, data }) : createEvent.mutate(data)} />
+      <Dialog open={Boolean(geminiSheetPicker)} onOpenChange={open => { if (!open && !summarizeEmailWithGemini.isPending) setGeminiSheetPicker(null); }}>
+        <DialogContent className="max-h-[min(82vh,44rem)] overflow-y-auto border-[var(--line)] bg-[var(--surface)] sm:max-w-xl">
+          <DialogHeader>
+            <p className="mono-label text-[var(--terracotta)]">GEMINI / EXCEL</p>
+            <DialogTitle className="mt-2 font-display text-2xl tracking-[-0.04em] text-[var(--ink)]">{translateAppText(language, "Chuẩn bị dữ liệu bảng tính")}</DialogTitle>
+          </DialogHeader>
+          {geminiSheetPicker?.stage === "loading" ? <div className="space-y-4 py-4" aria-live="polite"><div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-[#e23221]" /><p className="text-sm font-semibold text-[var(--ink)]">{translateAppText(language, "Đang tải tệp Excel và đọc danh sách sheet…")}</p></div><Progress value={42} aria-label={translateAppText(language, "Đang tải tệp Excel và đọc danh sách sheet…")} /><p className="text-xs leading-5 text-[var(--ink-muted)]">{translateAppText(language, "Dữ liệu chỉ được đọc theo sheet bạn chọn, giới hạn để bảo vệ an toàn và không được lưu trong TaskFlow.")}</p></div> : geminiSheetPicker ? <div className="space-y-5"><div className="border-l-2 border-[#e23221] bg-[var(--surface-soft)] p-4"><p className="font-semibold text-[var(--ink)]">{translateAppText(language, "Chọn sheet để Gemini tập trung tóm tắt")}</p><p className="mt-1 text-xs leading-5 text-[var(--ink-muted)]">{translateAppText(language, "Dữ liệu chỉ được đọc theo sheet bạn chọn, giới hạn để bảo vệ an toàn và không được lưu trong TaskFlow.")}</p></div>{geminiSheetPicker.spreadsheets.filter(item => item.kind === "excel").length ? <div className="space-y-3">{geminiSheetPicker.spreadsheets.filter(item => item.kind === "excel").map(attachment => <fieldset key={attachment.attachmentIndex} className="rounded-xl border border-[var(--line)] p-4"><legend className="px-1 text-sm font-bold text-[var(--ink)]">{translateAppText(language, "Tệp Excel")}: <span className="break-all">{attachment.filename}</span></legend><div className="mt-3 grid gap-2">{attachment.sheetNames.map(sheetName => { const checked = geminiSheetPicker.selectedSheets[attachment.attachmentIndex]?.includes(sheetName) ?? false; return <label key={sheetName} className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-2 py-2 text-sm transition hover:bg-[var(--surface-soft)]"><input type="checkbox" checked={checked} onChange={event => setGeminiSheetPicker(current => { if (!current) return null; const selected = new Set(current.selectedSheets[attachment.attachmentIndex] ?? []); event.target.checked ? selected.add(sheetName) : selected.delete(sheetName); return { ...current, selectedSheets: { ...current.selectedSheets, [attachment.attachmentIndex]: Array.from(selected) } }; })} className="h-4 w-4 accent-[#e23221]" /><span className="min-w-0 break-words">{sheetName}</span></label>; })}</div></fieldset>)}</div> : <p className="rounded-xl border border-dashed border-[var(--line)] p-4 text-sm leading-6 text-[var(--ink-muted)]">{translateAppText(language, "Không tìm thấy tệp Excel/CSV có thể đọc. Gemini vẫn chỉ tóm tắt nội dung thư và luồng trao đổi.")}</p>}{summarizeEmailWithGemini.isPending && <div className="space-y-3 border-t border-[var(--line)] pt-5" aria-live="polite"><div className="flex items-center gap-3"><Loader2 className="h-5 w-5 animate-spin text-[#e23221]" /><p className="text-sm font-semibold text-[var(--ink)]">{translateAppText(language, "Đang trích xuất dữ liệu từ sheet đã chọn…")}</p></div><Progress value={76} aria-label={translateAppText(language, "Đang trích xuất dữ liệu từ sheet đã chọn…")} /></div>}</div> : null}
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button type="button" className="swiss-button-outline" disabled={summarizeEmailWithGemini.isPending} onClick={() => setGeminiSheetPicker(null)}>{translateAppText(language, "Đóng")}</button><button type="button" className="swiss-button bg-black text-white hover:bg-[#e23221]" disabled={geminiSheetPicker?.stage !== "ready" || summarizeEmailWithGemini.isPending} onClick={() => { if (!geminiSheetPicker) return; if (geminiPickerRequiresSheet && geminiPickerSelectedSheetCount === 0) { toast.error(translateAppText(language, "Không có sheet được chọn. Hãy chọn ít nhất một sheet Excel.")); return; } if (!window.confirm(translateAppText(language, "Đồng ý gửi nội dung thư, luồng trao đổi, các tệp có thể đọc và dữ liệu từ sheet Excel đã chọn tới Gemini miễn phí để tóm tắt? Gemini chỉ tạo đề xuất; bạn luôn kiểm tra và xác nhận trước khi tạo lịch. Không gửi email nhạy cảm."))) return; summarizeEmailWithGemini.mutate({ messageId: geminiSheetPicker.messageId, locale: language, acknowledgeUnpaidDataUse: true, spreadsheetSelections: Object.entries(geminiSheetPicker.selectedSheets).filter(([, sheetNames]) => sheetNames.length).map(([attachmentIndex, sheetNames]) => ({ attachmentIndex: Number(attachmentIndex), sheetNames })) }); }}>{summarizeEmailWithGemini.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{translateAppText(language, "Xác nhận tóm tắt")}</button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

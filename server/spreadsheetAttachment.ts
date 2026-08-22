@@ -12,6 +12,16 @@ const MAX_ROWS_PER_SHEET = 120;
 const MAX_COLUMNS_PER_ROW = 20;
 const MAX_TABLE_CHARS = 12_000;
 
+export type SpreadsheetSheetSelection = {
+  attachmentIndex: number;
+  sheetNames: string[];
+};
+
+export type SpreadsheetAttachmentPreview = {
+  kind: "excel" | "csv";
+  sheetNames: string[];
+};
+
 function cleanCell(value: unknown) {
   return String(value ?? "").replace(/\u0000/g, "").replace(/\s+/g, " ").trim();
 }
@@ -50,12 +60,34 @@ export function isTabularAttachment(filename: string | null | undefined, content
   return TABULAR_CONTENT_TYPES.has(normalizedType) || TABULAR_EXTENSIONS.has(extension);
 }
 
+function isExcelAttachment(filename: string, contentType: string) {
+  const normalizedType = contentType.toLowerCase().split(";")[0].trim();
+  const extension = filename.trim().toLowerCase().split(".").pop() || "";
+  return extension === "xls" || extension === "xlsx" || normalizedType === "application/vnd.ms-excel" || normalizedType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+}
+
+/** Lists safe, bounded sheet names for an Excel attachment without retaining its bytes. */
+export function inspectTabularAttachmentForGemini(input: { filename: string; contentType: string; content: Buffer | null | undefined }): SpreadsheetAttachmentPreview | null {
+  if (!input.content?.length || !isTabularAttachment(input.filename, input.contentType)) return null;
+  try {
+    const workbook = XLSX.read(input.content, { type: "buffer", raw: false, dense: true, sheetRows: 1 });
+    const sheetNames = workbook.SheetNames.slice(0, MAX_SHEETS).map(name => cleanCell(name).slice(0, 120)).filter(Boolean);
+    if (!sheetNames.length) return null;
+    return { kind: isExcelAttachment(input.filename, input.contentType) ? "excel" : "csv", sheetNames };
+  } catch {
+    return null;
+  }
+}
+
 /** Parses a bounded CSV/XLS/XLSX attachment into plain text for Gemini; file bytes are never stored. */
-export function extractTabularAttachmentForGemini(input: { filename: string; contentType: string; content: Buffer | null | undefined }) {
+export function extractTabularAttachmentForGemini(input: { filename: string; contentType: string; content: Buffer | null | undefined; selectedSheetNames?: string[] }) {
   if (!input.content?.length || !isTabularAttachment(input.filename, input.contentType)) return null;
   try {
     const workbook = XLSX.read(input.content, { type: "buffer", raw: false, dense: true, sheetRows: MAX_ROWS_PER_SHEET + 1 });
-    const sheets = workbook.SheetNames.slice(0, MAX_SHEETS).flatMap((sheetName, sheetIndex) => {
+    const availableNames = workbook.SheetNames.slice(0, MAX_SHEETS);
+    const requestedNames = input.selectedSheetNames?.map(name => cleanCell(name)).filter(Boolean);
+    const selectedNames = requestedNames ? availableNames.filter(sheetName => requestedNames.includes(sheetName)) : availableNames;
+    const sheets = selectedNames.flatMap((sheetName, sheetIndex) => {
       const sheet = workbook.Sheets[sheetName];
       if (!sheet) return [];
       const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: "", raw: false }).slice(0, MAX_ROWS_PER_SHEET).map(row => (Array.isArray(row) ? row : []).slice(0, MAX_COLUMNS_PER_ROW).map(cleanCell).join(" | ")).filter(row => row.replace(/\|/g, "").trim());

@@ -12,7 +12,7 @@ import * as db from "./db";
 import { findPrivateChatForLinkCode } from "./telegram";
 import { parseRecurrenceRule } from "../shared/recurrence";
 import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
-import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, fetchOriginalMailboxMessage, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
+import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, fetchOriginalMailboxMessage, inspectMailboxSpreadsheetsForGemini, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 import { isGeminiTemporaryError, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
@@ -136,9 +136,18 @@ export const appRouter = router({
       await db.deleteEmailNote(ctx.user.id, input.id);
       return { success: true } as const;
     }),
+    inspectGeminiSpreadsheets: protectedProcedure.input(z.object({ messageId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      try {
+        const spreadsheets = await inspectMailboxSpreadsheetsForGemini(ctx.user.id, input.messageId);
+        return { spreadsheets };
+      } catch (error) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Không thể đọc danh sách sheet Excel." });
+      }
+    }),
     summarizeWithGemini: protectedProcedure.input(z.object({
       messageId: z.number().int().positive(),
       locale: z.enum(["vi", "en"]).default("vi"),
+      spreadsheetSelections: z.array(z.object({ attachmentIndex: z.number().int().min(0).max(20), sheetNames: z.array(z.string().trim().min(1).max(120)).min(1).max(4) })).max(3).optional(),
       acknowledgeUnpaidDataUse: z.literal(true, { message: "Cần xác nhận về xử lý dữ liệu Gemini miễn phí trước khi tóm tắt." }),
     })).mutation(async ({ ctx, input }) => {
       const cached = await db.getEmailGeminiSummary(ctx.user.id, input.messageId);
@@ -150,7 +159,7 @@ export const appRouter = router({
       if (!source) throw new TRPCError({ code: "NOT_FOUND", message: "Chỉ có thể tóm tắt email đã kết nối của bạn." });
       try {
         const [rawMessage, accountMessages, calendarEvents] = await Promise.all([
-          fetchMailboxMessageForGeminiSummary(ctx.user.id, input.messageId),
+          fetchMailboxMessageForGeminiSummary(ctx.user.id, input.messageId, { spreadsheetSelections: input.spreadsheetSelections }),
           db.listEmailMessages(ctx.user.id, { accountId: source.emailAccountId, limit: 100 }),
           db.listEvents(ctx.user.id),
         ]);

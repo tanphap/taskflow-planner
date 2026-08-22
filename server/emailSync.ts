@@ -4,7 +4,7 @@ import { ENV } from "./_core/env";
 import { decryptEmailToken, encryptEmailToken } from "./emailOAuth";
 import * as db from "./db";
 import { resolvePublicWebmailImapHost } from "./webmailImap";
-import { extractHtmlTablesForGemini, extractTabularAttachmentForGemini, isTabularAttachment } from "./spreadsheetAttachment";
+import { extractHtmlTablesForGemini, extractTabularAttachmentForGemini, inspectTabularAttachmentForGemini, isTabularAttachment, type SpreadsheetSheetSelection } from "./spreadsheetAttachment";
 
 type TokenPayload = { access_token: string; refresh_token?: string; expires_in?: number };
 type MailboxMessage = { providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null };
@@ -14,6 +14,7 @@ export const EMAIL_SYNC_BATCH_SIZE = 50;
 export const IMAP_CONNECTION_TIMEOUT_MS = 15_000;
 export const IMAP_SOCKET_TIMEOUT_MS = 30_000;
 export const ORIGINAL_EMAIL_MAX_BYTES = 2_000_000;
+export type GeminiSpreadsheetAttachmentPreview = { attachmentIndex: number; filename: string; kind: "excel" | "csv"; sheetNames: string[] };
 const GEMINI_SUPPORTED_ATTACHMENT_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -251,7 +252,7 @@ export async function fetchOriginalMailboxMessage(userId: number, messageId: num
 }
 
 /** Loads a selected email body and Gemini-readable attachments on demand without persisting MIME content. */
-export async function fetchMailboxMessageForGeminiSummary(userId: number, messageId: number) {
+export async function fetchMailboxMessageForGeminiSummary(userId: number, messageId: number, options?: { spreadsheetSelections?: SpreadsheetSheetSelection[]; includeTabularText?: boolean }) {
   const source = await db.getEmailMessageForOriginalContent(userId, messageId);
   if (!source) throw new Error("Chỉ có thể tóm tắt email đã kết nối của bạn.");
   const uid = getImapUidFromProviderMessageId(source.providerMessageId);
@@ -273,21 +274,26 @@ export async function fetchMailboxMessageForGeminiSummary(userId: number, messag
       const parsed = await simpleParser(raw);
       const tableTextFromEmail = extractHtmlTablesForGemini(typeof parsed.html === "string" ? parsed.html : null);
       const emailText = parsed.text?.replace(/\u0000/g, "").trim() || null;
+      const attachments = parsed.attachments.map((attachment, index) => {
+        const contentType = attachment.contentType?.toLowerCase() || "application/octet-stream";
+        const filename = attachment.filename || `attachment-${index + 1}`;
+        const spreadsheet = isTabularAttachment(filename, contentType) ? inspectTabularAttachmentForGemini({ filename, contentType, content: attachment.content }) : null;
+        const selectedSheetNames = options?.spreadsheetSelections?.find(selection => selection.attachmentIndex === index)?.sheetNames;
+        const tableText = spreadsheet && options?.includeTabularText !== false ? extractTabularAttachmentForGemini({ filename, contentType, content: attachment.content, selectedSheetNames }) : null;
+        return {
+          filename,
+          contentType,
+          size: attachment.size,
+          content: tableText ? null : GEMINI_SUPPORTED_ATTACHMENT_TYPES.has(contentType) ? attachment.content : null,
+          tableText,
+          spreadsheet: spreadsheet ? { attachmentIndex: index, filename, ...spreadsheet } satisfies GeminiSpreadsheetAttachmentPreview : null,
+        };
+      });
       return {
         text: [emailText, tableTextFromEmail].filter(Boolean).join("\n\n") || null,
         truncated: download.meta.expectedSize > raw.length,
-        attachments: parsed.attachments.map((attachment, index) => {
-          const contentType = attachment.contentType?.toLowerCase() || "application/octet-stream";
-          const filename = attachment.filename || `attachment-${index + 1}`;
-          const tableText = isTabularAttachment(filename, contentType) ? extractTabularAttachmentForGemini({ filename, contentType, content: attachment.content }) : null;
-          return {
-            filename,
-            contentType,
-            size: attachment.size,
-            content: tableText ? null : GEMINI_SUPPORTED_ATTACHMENT_TYPES.has(contentType) ? attachment.content : null,
-            tableText,
-          };
-        }),
+        attachments,
+        spreadsheets: attachments.flatMap(attachment => attachment.spreadsheet ? [attachment.spreadsheet] : []),
       };
     } finally {
       lock?.release();
@@ -297,4 +303,10 @@ export async function fetchMailboxMessageForGeminiSummary(userId: number, messag
     console.error("[Email Gemini] IMAP source fetch failed", { messageId, message: error instanceof Error ? error.message : String(error) });
     throw new Error(getMailboxSyncErrorMessage(error));
   }
+}
+
+/** Loads only bounded sheet metadata so the user can choose Excel sheets before Gemini receives table data. */
+export async function inspectMailboxSpreadsheetsForGemini(userId: number, messageId: number) {
+  const message = await fetchMailboxMessageForGeminiSummary(userId, messageId, { includeTabularText: false });
+  return message.spreadsheets;
 }
