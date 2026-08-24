@@ -15,7 +15,7 @@ import { encryptEmailToken, getEmailProviderConfiguration } from "./emailOAuth";
 import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, fetchOriginalMailboxMessage, inspectMailboxSpreadsheetsForGemini, syncMailbox, verifyImapConnection, verifyWebmailImapConnection } from "./emailSync";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
-import { isGeminiTemporaryError, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { isGeminiTemporaryError, summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
 import { getTaskFlowHelpResponse } from "./helpAssistant";
 import { GEMINI_MODELS } from "../shared/geminiModels";
 
@@ -120,6 +120,7 @@ export const appRouter = router({
     update: protectedProcedure.input(z.object({ name: z.string().trim().max(120), email: z.string().trim().email("Địa chỉ email không hợp lệ").max(320) })).mutation(async ({ ctx, input }) => { await db.updateUserProfile(ctx.user.id, input); return { success: true } as const; }),
     geminiModel: protectedProcedure.query(({ ctx }) => db.getUserGeminiModel(ctx.user.id)),
     updateGeminiModel: protectedProcedure.input(z.object({ model: z.enum(GEMINI_MODELS) })).mutation(async ({ ctx, input }) => { await db.updateUserGeminiModel(ctx.user.id, input.model); return { success: true as const, model: input.model }; }),
+    testGeminiConnection: protectedProcedure.mutation(async ({ ctx }) => verifyGeminiConnection(await db.getUserGeminiModel(ctx.user.id))),
   }),
   telegram: router({
     status: protectedProcedure.query(async ({ ctx }) => { const connection = await db.getTelegramConnection(ctx.user.id); return { connected: Boolean(connection?.chatId), pending: Boolean(connection?.linkToken), expiresAt: connection?.linkTokenExpiresAt ?? null }; }),

@@ -255,3 +255,4 @@
 - [x] Điều chỉnh popup Trợ lý để vùng nội dung cuộn độc lập và câu trả lời xuống dòng, phân đoạn đúng chuẩn.
 - [x] Chuyển Bot hướng dẫn sang cùng API Gemini và mô hình đang dùng cho tóm tắt email, giữ kiểm soát dữ liệu và kiểm thử/xuất bản.
 - [x] Thêm lựa chọn mô hình Gemini trong Hồ sơ, lưu theo tài khoản và áp dụng an toàn cho Bot hướng dẫn cùng tóm tắt email; migration, kiểm thử và responsive đã xác minh.
+- [x] Thêm nút kiểm tra kết nối Gemini trong Hồ sơ, xác minh API key và mô hình đã chọn mà không gửi dữ liệu người dùng.

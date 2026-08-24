@@ -47,6 +47,37 @@ export function isGeminiTemporaryError(error: unknown): error is GeminiTemporary
   return error instanceof GeminiTemporaryError;
 }
 
+function throwGeminiConnectionError(response: Response) {
+  if (response.status === 429) throw new GeminiTemporaryError("Gemini miễn phí đang đạt giới hạn hiện tại. Bạn có thể thử lại sau.", response.status);
+  if (response.status === 408 || response.status === 425 || response.status >= 500) throw new GeminiTemporaryError("Gemini đang tạm thời không sẵn sàng. Bạn có thể thử lại sau ít phút.", response.status);
+  if (response.status === 401 || response.status === 403) throw new Error("Không thể xác thực với Gemini API. Hãy kiểm tra khóa API.");
+  throw new Error(`Không thể kiểm tra Gemini lúc này (HTTP ${response.status}).`);
+}
+
+/** Makes a minimal Gemini request and never includes email, task, calendar, or profile content. */
+export async function verifyGeminiConnection(model?: GeminiModel): Promise<{ model: GeminiModel }> {
+  if (!ENV.geminiApiKey) throw new Error("Gemini API key chưa được cấu hình.");
+  const selectedModel = resolveGeminiModel(model);
+  let response: Response;
+  try {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": ENV.geminiApiKey },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: "Reply with the single word OK." }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 8 },
+      }),
+    });
+  } catch {
+    throw new GeminiTemporaryError("Không thể kết nối Gemini lúc này. Bạn có thể thử lại sau ít phút.");
+  }
+  if (!response.ok) throwGeminiConnectionError(response);
+  const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  const text = payload.candidates?.[0]?.content?.parts?.map(part => part.text ?? "").join("").trim();
+  if (!text) throw new Error("Gemini không trả về phản hồi kiểm tra.");
+  return { model: selectedModel };
+}
+
 function formatConversation(source: GeminiSummarySource) {
   const messages = (source.conversation ?? []).slice(-MAX_CONVERSATION_MESSAGES);
   if (!messages.length) return "(No related synchronized messages available)";
@@ -134,12 +165,7 @@ export async function summarizeGmailEmailWithGemini(source: GeminiSummarySource,
   } catch {
     throw new GeminiTemporaryError("Không thể kết nối Gemini lúc này. Bạn có thể thử lại sau ít phút.");
   }
-  if (!response.ok) {
-    if (response.status === 429) throw new GeminiTemporaryError("Gemini miễn phí đang đạt giới hạn hiện tại. Bạn có thể thử lại sau.", response.status);
-    if (response.status === 408 || response.status === 425 || response.status >= 500) throw new GeminiTemporaryError("Gemini đang tạm thời không sẵn sàng. Bạn có thể thử lại sau ít phút.", response.status);
-    if (response.status === 401 || response.status === 403) throw new Error("Không thể xác thực với Gemini API. Hãy kiểm tra khóa API.");
-    throw new Error(`Gemini không thể tạo tóm tắt lúc này (HTTP ${response.status}).`);
-  }
+  if (!response.ok) throwGeminiConnectionError(response);
   const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
   const parsed = parseGeminiEmailSummaryResponse(payload.candidates?.[0]?.content?.parts?.map(part => part.text ?? "").join("\n") ?? "");
   if (!parsed.summary) throw new Error("Gemini không trả về nội dung tóm tắt.");

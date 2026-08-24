@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GEMINI_EMAIL_SUMMARY_MODEL, buildGeminiEmailSummaryPrompt, isGeminiTemporaryError, normalizeGeminiSummary, parseGeminiEmailSummaryResponse, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { GEMINI_EMAIL_SUMMARY_MODEL, buildGeminiEmailSummaryPrompt, isGeminiTemporaryError, normalizeGeminiSummary, parseGeminiEmailSummaryResponse, summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
 
 describe("Gemini email summary safeguards", () => {
   const source = {
@@ -80,6 +80,19 @@ describe("Gemini email summary safeguards", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("temporarily unavailable", { status: 503 })));
 
     await expect(summarizeGmailEmailWithGemini({ ...source }, "vi")).rejects.toSatisfy(error => isGeminiTemporaryError(error) && error.status === 503);
+  });
+
+  it("checks the selected Gemini model with a minimal prompt and no user content", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "OK" }] } }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(verifyGeminiConnection("gemini-3.5-flash")).resolves.toEqual({ model: "gemini-3.5-flash" });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("models/gemini-3.5-flash:generateContent");
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      contents: [{ role: "user", parts: [{ text: "Reply with the single word OK." }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 8 },
+    });
   });
 });
 

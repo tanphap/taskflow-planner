@@ -52,12 +52,13 @@ vi.mock("./geminiEmailSummary", () => ({
   GEMINI_EMAIL_SUMMARY_MODEL: "gemini-3.5-flash-lite",
   GeminiTemporaryError: class GeminiTemporaryError extends Error { readonly retryable = true; },
   summarizeGmailEmailWithGemini: vi.fn(),
+  verifyGeminiConnection: vi.fn(),
   isGeminiTemporaryError: (error: unknown) => Boolean(error && typeof error === "object" && "retryable" in error && (error as { retryable?: unknown }).retryable),
 }));
 
 import { appRouter } from "./routers";
 import * as db from "./db";
-import { summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
+import { summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
 import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, inspectMailboxSpreadsheetsForGemini } from "./emailSync";
 
 function createUserContext(userId = 42): TrpcContext {
@@ -147,6 +148,17 @@ describe("productivity router data isolation", () => {
     await expect(caller.profile.updateGeminiModel({ model: "gemini-3.5-flash" })).resolves.toEqual({ success: true, model: "gemini-3.5-flash" });
 
     expect(db.updateUserGeminiModel).toHaveBeenCalledWith(73, "gemini-3.5-flash");
+  });
+
+  it("tests Gemini only with the authenticated account's selected model", async () => {
+    vi.mocked(db.getUserGeminiModel).mockResolvedValue("gemini-3.5-flash");
+    vi.mocked(verifyGeminiConnection).mockResolvedValue({ model: "gemini-3.5-flash" });
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    await expect(caller.profile.testGeminiConnection()).resolves.toEqual({ model: "gemini-3.5-flash" });
+
+    expect(db.getUserGeminiModel).toHaveBeenCalledWith(73);
+    expect(verifyGeminiConnection).toHaveBeenCalledWith("gemini-3.5-flash");
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {

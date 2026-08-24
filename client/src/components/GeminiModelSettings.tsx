@@ -1,4 +1,4 @@
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Check, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GEMINI_MODEL_OPTIONS, type GeminiModel } from "../../../shared/geminiModels";
@@ -15,6 +15,17 @@ export function GeminiModelSettings() {
       toast.success(language === "en" ? "Gemini model saved" : "Đã lưu mô hình Gemini");
     },
     onError: error => toast.error(error.message),
+  });
+  const [connectionModel, setConnectionModel] = useState<GeminiModel | null>(null);
+  const testConnection = trpc.profile.testGeminiConnection.useMutation({
+    onSuccess: result => {
+      setConnectionModel(result.model);
+      toast.success(language === "en" ? "Gemini connection is working" : "Kết nối Gemini đang hoạt động");
+    },
+    onError: error => {
+      setConnectionModel(null);
+      toast.error(error.message);
+    },
   });
 
   useEffect(() => {
@@ -35,7 +46,7 @@ export function GeminiModelSettings() {
       <p className="mt-3 text-sm leading-6 text-[var(--ink-muted)]">{isEnglish ? "Used for Help guide and new email summaries." : "Dùng cho Trợ lý hướng dẫn và các bản tóm tắt email mới."}</p>
       <label className="mt-4 block">
         <span className="sr-only">{isEnglish ? "Gemini model" : "Mô hình Gemini"}</span>
-        <select value={selectedModel} onChange={event => setSelectedModel(event.target.value as GeminiModel)} disabled={settings.isLoading || updateModel.isPending} className="swiss-input">
+        <select value={selectedModel} onChange={event => { setSelectedModel(event.target.value as GeminiModel); setConnectionModel(null); }} disabled={settings.isLoading || updateModel.isPending || testConnection.isPending} className="swiss-input">
           {GEMINI_MODEL_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </label>
@@ -44,6 +55,11 @@ export function GeminiModelSettings() {
         {updateModel.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
         {isEnglish ? "Save Gemini model" : "Lưu mô hình Gemini"}
       </button>
+      <button type="button" disabled={testConnection.isPending || settings.isLoading || updateModel.isPending} onClick={() => testConnection.mutate()} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[var(--line-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:border-[var(--terracotta)] hover:text-[var(--terracotta)] disabled:cursor-not-allowed disabled:opacity-60">
+        {testConnection.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        {isEnglish ? "Test Gemini connection" : "Kiểm tra kết nối Gemini"}
+      </button>
+      {connectionModel && <p role="status" className="mt-3 text-xs font-semibold text-[var(--sage)]">{isEnglish ? `Connected successfully with ${connectionModel}.` : `Kết nối thành công với ${connectionModel}.`}</p>}
       <p className="mt-3 text-xs leading-5 text-[var(--ink-muted)]">{isEnglish ? "The choice is saved only for the current account. Existing summaries remain unchanged." : "Lựa chọn được lưu riêng cho tài khoản hiện tại. Các bản tóm tắt đã tạo vẫn giữ nguyên."}</p>
     </section>
   );
