@@ -321,6 +321,7 @@ export const timesheetAccess = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     userId: int("userId").notNull(),
     grantedByUserId: int("grantedByUserId").notNull(),
+    accessRole: mysqlEnum("accessRole", ["viewer", "admin"]).default("viewer").notNull(),
     grantedAt: timestamp("grantedAt").defaultNow().notNull(),
   },
   table => [

@@ -54,14 +54,27 @@ function serializeEventInput(input: z.infer<typeof eventInput>): db.EventInput {
 function normalizeConversationSubject(subject: string) {
   return subject.replace(/^\s*(?:(?:re|fw|fwd)\s*:\s*)+/i, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
 }
-function isTimesheetOwner(user: { openId: string; role?: string }) {
+function isTimesheetRoot(user: { openId: string; role?: string }) {
   return ENV.ownerOpenId ? user.openId === ENV.ownerOpenId : user.role === "admin";
 }
-function requireTimesheetOwner(user: { openId: string; role?: string }) {
-  if (!isTimesheetOwner(user)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập." });
+async function getTimesheetPermission(user: { id: number; openId: string; role?: string }) {
+  if (isTimesheetRoot(user)) return { canView: true, canManage: true, canGrantAdmin: true, isRoot: true, accessRole: "admin" as const };
+  const accessRole = await db.getTimesheetAccessRole(user.id);
+  return {
+    canView: Boolean(accessRole),
+    canManage: accessRole === "admin",
+    canGrantAdmin: false,
+    isRoot: false,
+    accessRole,
+  };
+}
+async function requireTimesheetManager(user: { id: number; openId: string; role?: string }) {
+  const permission = await getTimesheetPermission(user);
+  if (!permission.canManage) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập." });
+  return permission;
 }
 async function requireTimesheetViewer(user: { id: number; openId: string; role?: string }) {
-  if (isTimesheetOwner(user) || await db.hasTimesheetAccess(user.id)) return;
+  if ((await getTimesheetPermission(user)).canView) return;
   throw new TRPCError({ code: "FORBIDDEN", message: "Bạn chưa được quản trị viên cấp quyền xem chấm công." });
 }
 
@@ -101,18 +114,20 @@ export const appRouter = router({
   auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => db.getDashboardData(ctx.user.id)) }),
   timesheet: router({
-    access: protectedProcedure.query(async ({ ctx }) => ({
-      canManage: isTimesheetOwner(ctx.user),
-      canView: isTimesheetOwner(ctx.user) || await db.hasTimesheetAccess(ctx.user.id),
-    })),
+    access: protectedProcedure.query(async ({ ctx }) => getTimesheetPermission(ctx.user)),
     accounts: protectedProcedure.query(async ({ ctx }) => {
-      requireTimesheetOwner(ctx.user);
-      return db.listTimesheetViewerAccounts(ENV.ownerOpenId);
+      await requireTimesheetManager(ctx.user);
+      return db.listTimesheetAccessAccounts(ENV.ownerOpenId);
     }),
-    setAccess: protectedProcedure.input(z.object({ userId: z.number().int().positive(), allowed: z.boolean() })).mutation(async ({ ctx, input }) => {
-      requireTimesheetOwner(ctx.user);
-      if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Tài khoản quản trị luôn có quyền xem chấm công." });
-      if (!await db.setTimesheetAccess(ctx.user.id, input.userId, input.allowed)) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản cần cấp quyền." });
+    setAccess: protectedProcedure.input(z.object({ userId: z.number().int().positive(), accessRole: z.enum(["viewer", "admin"]).nullable() })).mutation(async ({ ctx, input }) => {
+      const actorPermission = await requireTimesheetManager(ctx.user);
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Bạn không thể tự thay đổi quyền Timesheet của mình." });
+      const account = await db.getTimesheetAccessAccount(input.userId, ENV.ownerOpenId);
+      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản cần cấp quyền." });
+      if (account.isRoot) throw new TRPCError({ code: "BAD_REQUEST", message: "Không thể thay đổi quyền của chủ sở hữu Timesheet." });
+      if (!actorPermission.isRoot && input.accessRole === "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ chủ sở hữu Timesheet mới có thể cấp quyền Admin Timesheet." });
+      if (!actorPermission.isRoot && account.accessRole === "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin Timesheet được ủy quyền không thể thay đổi quyền của Admin Timesheet khác." });
+      if (!await db.setTimesheetAccess(ctx.user.id, input.userId, input.accessRole)) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản cần cấp quyền." });
       return { success: true as const, ...input };
     }),
     people: protectedProcedure.query(async ({ ctx }) => {

@@ -66,35 +66,57 @@ export async function updateUserGeminiModel(userId: number, geminiModel: GeminiM
   const db = await requireDb();
   await db.update(users).set({ geminiModel }).where(eq(users.id, userId));
 }
-export async function hasTimesheetAccess(userId: number) {
+export type TimesheetAccessRole = "viewer" | "admin";
+export async function getTimesheetAccessRole(userId: number): Promise<TimesheetAccessRole | null> {
   const db = await requireDb();
-  return Boolean((await db.select({ id: timesheetAccess.id }).from(timesheetAccess).where(eq(timesheetAccess.userId, userId)).limit(1))[0]);
+  return (await db.select({ accessRole: timesheetAccess.accessRole }).from(timesheetAccess).where(eq(timesheetAccess.userId, userId)).limit(1))[0]?.accessRole ?? null;
 }
-export async function listTimesheetViewerAccounts(ownerOpenId: string) {
+export async function hasTimesheetAccess(userId: number) {
+  return Boolean(await getTimesheetAccessRole(userId));
+}
+export async function listTimesheetAccessAccounts(ownerOpenId: string) {
   const db = await requireDb();
   const rows = await db.select({
     id: users.id,
     openId: users.openId,
+    role: users.role,
     name: users.name,
     email: users.email,
     accessId: timesheetAccess.id,
+    accessRole: timesheetAccess.accessRole,
     grantedAt: timesheetAccess.grantedAt,
   }).from(users).leftJoin(timesheetAccess, eq(users.id, timesheetAccess.userId)).orderBy(asc(users.name), asc(users.email));
   return rows.map(row => ({
     id: row.id,
     name: row.name,
     email: row.email,
-    isOwner: row.openId === ownerOpenId,
+    isRoot: ownerOpenId ? row.openId === ownerOpenId : row.role === "admin",
     granted: Boolean(row.accessId),
+    accessRole: row.accessRole,
     grantedAt: row.grantedAt,
   }));
 }
-export async function setTimesheetAccess(ownerUserId: number, userId: number, allowed: boolean) {
+export async function getTimesheetAccessAccount(userId: number, ownerOpenId: string) {
+  const db = await requireDb();
+  const row = (await db.select({
+    id: users.id,
+    openId: users.openId,
+    role: users.role,
+    accessRole: timesheetAccess.accessRole,
+  }).from(users).leftJoin(timesheetAccess, eq(users.id, timesheetAccess.userId)).where(eq(users.id, userId)).limit(1))[0];
+  if (!row) return undefined;
+  return {
+    id: row.id,
+    isRoot: ownerOpenId ? row.openId === ownerOpenId : row.role === "admin",
+    accessRole: row.accessRole,
+  };
+}
+export async function setTimesheetAccess(grantedByUserId: number, userId: number, accessRole: TimesheetAccessRole | null) {
   const db = await requireDb();
   const exists = (await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1))[0];
   if (!exists) return false;
-  if (allowed) {
-    await db.insert(timesheetAccess).values({ userId, grantedByUserId: ownerUserId }).onDuplicateKeyUpdate({ set: { grantedByUserId: ownerUserId, grantedAt: new Date() } });
+  if (accessRole) {
+    await db.insert(timesheetAccess).values({ userId, grantedByUserId, accessRole }).onDuplicateKeyUpdate({ set: { grantedByUserId, accessRole, grantedAt: new Date() } });
   } else {
     await db.delete(timesheetAccess).where(eq(timesheetAccess.userId, userId));
   }

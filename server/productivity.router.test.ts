@@ -18,7 +18,9 @@ vi.mock("./db", () => ({
   getUserGeminiModel: vi.fn(),
   updateUserGeminiModel: vi.fn(),
   hasTimesheetAccess: vi.fn(),
-  listTimesheetViewerAccounts: vi.fn(),
+  getTimesheetAccessRole: vi.fn(),
+  listTimesheetAccessAccounts: vi.fn(),
+  getTimesheetAccessAccount: vi.fn(),
   setTimesheetAccess: vi.fn(),
   getTelegramConnection: vi.fn(),
   createTelegramLink: vi.fn(),
@@ -88,12 +90,19 @@ function createUserContext(userId = 42): TrpcContext {
     res: { clearCookie: vi.fn() } as unknown as TrpcContext["res"],
   };
 }
+function createTimesheetRootContext(userId = 73): TrpcContext {
+  const context = createUserContext(userId);
+  if (ENV.ownerOpenId) context.user.openId = ENV.ownerOpenId;
+  else context.user.role = "admin";
+  return context;
+}
 
 describe("productivity router data isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(db.getUserGeminiModel).mockResolvedValue("gemini-3.5-flash-lite");
     vi.mocked(db.hasTimesheetAccess).mockResolvedValue(false);
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue(null);
   });
 
   it("loads tasks only in the authenticated user's workspace", async () => {
@@ -173,29 +182,55 @@ describe("productivity router data isolation", () => {
 
   it("allows the owner and accounts granted by the owner to load the shared Timesheet source", async () => {
     vi.mocked(getTimesheetPeople).mockResolvedValue([{ name: "Nguyễn Tấn Pháp" }]);
-    const ownerContext = createUserContext(73);
-    ownerContext.user.openId = ENV.ownerOpenId || ownerContext.user.openId;
-    const owner = appRouter.createCaller(ownerContext);
+    const owner = appRouter.createCaller(createTimesheetRootContext());
     await expect(owner.timesheet.people()).resolves.toEqual([{ name: "Nguyễn Tấn Pháp" }]);
 
-    vi.mocked(db.hasTimesheetAccess).mockResolvedValue(true);
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("viewer");
     const grantedUser = appRouter.createCaller(createUserContext(74));
     await expect(grantedUser.timesheet.people()).resolves.toEqual([{ name: "Nguyễn Tấn Pháp" }]);
-    expect(db.hasTimesheetAccess).toHaveBeenCalledWith(74);
+    expect(db.getTimesheetAccessRole).toHaveBeenCalledWith(74);
   });
 
-  it("blocks unapproved Timesheet accounts and lets the owner grant or revoke a selected account", async () => {
-    if (!ENV.ownerOpenId) return;
+  it("blocks unapproved Timesheet accounts and lets the owner appoint, demote, or revoke a selected account", async () => {
     const unapproved = appRouter.createCaller(createUserContext(74));
     await expect(unapproved.timesheet.people()).rejects.toThrow("Bạn chưa được quản trị viên cấp quyền xem chấm công");
 
-    const ownerContext = createUserContext(73);
-    ownerContext.user.openId = ENV.ownerOpenId;
+    const ownerContext = createTimesheetRootContext();
     vi.mocked(db.setTimesheetAccess).mockResolvedValue(true);
+    vi.mocked(db.getTimesheetAccessAccount).mockResolvedValue({ id: 74, isRoot: false, accessRole: null });
     const owner = appRouter.createCaller(ownerContext);
-    await expect(owner.timesheet.setAccess({ userId: 74, allowed: true })).resolves.toEqual({ success: true, userId: 74, allowed: true });
-    expect(db.setTimesheetAccess).toHaveBeenCalledWith(73, 74, true);
-    await expect(owner.timesheet.setAccess({ userId: 73, allowed: true })).rejects.toThrow("Tài khoản quản trị luôn có quyền xem chấm công");
+    await expect(owner.timesheet.setAccess({ userId: 74, accessRole: "admin" })).resolves.toEqual({ success: true, userId: 74, accessRole: "admin" });
+    expect(db.setTimesheetAccess).toHaveBeenCalledWith(73, 74, "admin");
+
+    vi.mocked(db.getTimesheetAccessAccount).mockResolvedValue({ id: 74, isRoot: false, accessRole: "admin" });
+    await expect(owner.timesheet.setAccess({ userId: 74, accessRole: "viewer" })).resolves.toEqual({ success: true, userId: 74, accessRole: "viewer" });
+    await expect(owner.timesheet.setAccess({ userId: 74, accessRole: null })).resolves.toEqual({ success: true, userId: 74, accessRole: null });
+    await expect(owner.timesheet.setAccess({ userId: 73, accessRole: "admin" })).rejects.toThrow("Bạn không thể tự thay đổi quyền Timesheet của mình");
+
+    vi.mocked(db.getTimesheetAccessAccount).mockResolvedValue({ id: 74, isRoot: true, accessRole: null });
+    await expect(owner.timesheet.setAccess({ userId: 74, accessRole: "viewer" })).rejects.toThrow("Không thể thay đổi quyền của chủ sở hữu Timesheet");
+  });
+
+  it("lets a delegated Timesheet admin manage viewers but prevents privilege escalation", async () => {
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("admin");
+    vi.mocked(db.setTimesheetAccess).mockResolvedValue(true);
+    vi.mocked(db.getTimesheetAccessAccount).mockResolvedValue({ id: 75, isRoot: false, accessRole: null });
+    const delegatedAdmin = appRouter.createCaller(createUserContext(74));
+
+    await expect(delegatedAdmin.timesheet.setAccess({ userId: 75, accessRole: "viewer" })).resolves.toEqual({ success: true, userId: 75, accessRole: "viewer" });
+    expect(db.setTimesheetAccess).toHaveBeenCalledWith(74, 75, "viewer");
+    await expect(delegatedAdmin.timesheet.setAccess({ userId: 75, accessRole: "admin" })).rejects.toThrow("Chỉ chủ sở hữu Timesheet mới có thể cấp quyền Admin Timesheet");
+
+    vi.mocked(db.getTimesheetAccessAccount).mockResolvedValue({ id: 75, isRoot: false, accessRole: "admin" });
+    await expect(delegatedAdmin.timesheet.setAccess({ userId: 75, accessRole: null })).rejects.toThrow("Admin Timesheet được ủy quyền không thể thay đổi quyền của Admin Timesheet khác");
+  });
+
+  it("prevents a Timesheet viewer from managing account access", async () => {
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("viewer");
+    const viewer = appRouter.createCaller(createUserContext(74));
+
+    await expect(viewer.timesheet.setAccess({ userId: 75, accessRole: "viewer" })).rejects.toThrow("Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập");
+    expect(db.setTimesheetAccess).not.toHaveBeenCalled();
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {
