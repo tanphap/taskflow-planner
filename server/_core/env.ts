@@ -15,4 +15,7 @@ export const ENV = {
   microsoftOAuthClientId: process.env.MICROSOFT_OAUTH_CLIENT_ID ?? "",
   microsoftOAuthClientSecret: process.env.MICROSOFT_OAUTH_CLIENT_SECRET ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  timesheetCsvUrl: process.env.TIMESHEET_CSV_URL ?? "",
+  timesheetEmployeeMatch: process.env.TIMESHEET_EMPLOYEE_MATCH ?? "Pháp",
+  timesheetStateFile: process.env.TIMESHEET_STATE_FILE ?? "",
 };
