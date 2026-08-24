@@ -259,3 +259,4 @@
 - [x] Kiểm tra nhánh GitHub feature/timesheet-dashboard, đánh giá tác động và đề xuất cách triển khai an toàn vào TaskFlow.
 - [x] Hợp nhất Timesheet Dashboard với bộ chọn tên lọc dữ liệu chấm công, cấu hình nguồn an toàn, kiểm thử và xuất bản; đã xác minh UI, quyền chủ sở hữu, responsive và build.
 - [x] Thêm chữ ký ntphap design và email liên hệ tanphap101@gmail.com; đã kiểm tra responsive và sẵn sàng xuất bản.
+- [x] Đổi chữ ký thành RIO_Design và hiển thị mã phiên bản phát hành để dễ quản lý; đã kiểm tra responsive và sẵn sàng xuất bản.

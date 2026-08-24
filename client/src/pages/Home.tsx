@@ -1052,8 +1052,8 @@ export default function Home() {
               <ChevronDown className="h-4 w-4 text-[var(--ink-muted)]" />
             </button>
             <div className="mt-3 border-t border-[var(--line)] px-2 pt-3 text-[10px] leading-4 text-[var(--ink-muted)]">
-              <span className="mono-label block tracking-[0.14em]">ntphap design</span>
-              <a href="mailto:tanphap101@gmail.com" className="mt-0.5 block w-fit break-all text-[11px] normal-case tracking-normal transition hover:text-[var(--terracotta)] hover:underline" aria-label="Liên hệ ntphap design qua email tanphap101@gmail.com">tanphap101@gmail.com</a>
+              <span className="mono-label block tracking-[0.14em]">RIO_Design <span className="text-[var(--terracotta)]">· v1.0.1</span></span>
+              <a href="mailto:tanphap101@gmail.com" className="mt-0.5 block w-fit break-all text-[11px] normal-case tracking-normal transition hover:text-[var(--terracotta)] hover:underline" aria-label="Liên hệ RIO_Design qua email tanphap101@gmail.com">tanphap101@gmail.com</a>
             </div>
           </div>
         </aside>
