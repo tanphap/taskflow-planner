@@ -15,6 +15,7 @@ import {
   tasks,
   telegramConnections,
   telegramDeliveryLogs,
+  timesheetAccess,
   users,
 } from "../drizzle/schema";
 import { expandCalendarEvents, getTelegramOccurrenceDueAt, parseRecurrenceRule } from "../shared/recurrence";
@@ -64,6 +65,40 @@ export async function getUserGeminiModel(userId: number): Promise<GeminiModel> {
 export async function updateUserGeminiModel(userId: number, geminiModel: GeminiModel) {
   const db = await requireDb();
   await db.update(users).set({ geminiModel }).where(eq(users.id, userId));
+}
+export async function hasTimesheetAccess(userId: number) {
+  const db = await requireDb();
+  return Boolean((await db.select({ id: timesheetAccess.id }).from(timesheetAccess).where(eq(timesheetAccess.userId, userId)).limit(1))[0]);
+}
+export async function listTimesheetViewerAccounts(ownerOpenId: string) {
+  const db = await requireDb();
+  const rows = await db.select({
+    id: users.id,
+    openId: users.openId,
+    name: users.name,
+    email: users.email,
+    accessId: timesheetAccess.id,
+    grantedAt: timesheetAccess.grantedAt,
+  }).from(users).leftJoin(timesheetAccess, eq(users.id, timesheetAccess.userId)).orderBy(asc(users.name), asc(users.email));
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    isOwner: row.openId === ownerOpenId,
+    granted: Boolean(row.accessId),
+    grantedAt: row.grantedAt,
+  }));
+}
+export async function setTimesheetAccess(ownerUserId: number, userId: number, allowed: boolean) {
+  const db = await requireDb();
+  const exists = (await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!exists) return false;
+  if (allowed) {
+    await db.insert(timesheetAccess).values({ userId, grantedByUserId: ownerUserId }).onDuplicateKeyUpdate({ set: { grantedByUserId: ownerUserId, grantedAt: new Date() } });
+  } else {
+    await db.delete(timesheetAccess).where(eq(timesheetAccess.userId, userId));
+  }
+  return true;
 }
 
 export type TaskInput = { title: string; description?: string | null; status: "todo" | "in_progress" | "done"; priority: "low" | "medium" | "high"; dueAt?: Date | null; reminderAt?: Date | null };

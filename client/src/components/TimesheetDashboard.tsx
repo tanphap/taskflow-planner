@@ -1,7 +1,7 @@
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
-import { AlarmClock, BriefcaseBusiness, CalendarDays, Clock3, FileSpreadsheet, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { AlarmClock, BriefcaseBusiness, CalendarDays, Clock3, FileSpreadsheet, Loader2, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
@@ -26,12 +26,14 @@ export function TimesheetDashboard() {
   const locale = isEnglish ? "en-US" : "vi-VN";
   const monthNames = isEnglish ? monthNamesEn : monthNamesVi;
   const chartConfig = { hours: { label: isEnglish ? "Work hours" : "Giờ làm", color: "var(--terracotta)" } } satisfies ChartConfig;
-  const people = trpc.timesheet.people.useQuery(undefined, { refetchOnWindowFocus: false });
+  const access = trpc.timesheet.access.useQuery(undefined, { refetchOnWindowFocus: false });
+  const people = trpc.timesheet.people.useQuery(undefined, { enabled: access.data?.canView === true, refetchOnWindowFocus: false });
   useEffect(() => { if (!employeeName && people.data?.[0]?.name) setEmployeeName(people.data[0].name); }, [employeeName, people.data]);
   const stats = trpc.timesheet.stats.useQuery({ month, year, employeeName }, { enabled: Boolean(employeeName), refetchOnWindowFocus: false });
   const years = Array.from({ length: 7 }, (_, index) => now.getFullYear() + 1 - index);
 
-  if (people.isLoading || (employeeName && stats.isLoading)) return <div className="grid h-80 place-items-center" role="status"><Loader2 className="h-6 w-6 animate-spin text-[var(--terracotta)]" /><span className="sr-only">{isEnglish ? "Loading timesheet data" : "Đang tải dữ liệu chấm công"}</span></div>;
+  if (access.isLoading || people.isLoading || (employeeName && stats.isLoading)) return <div className="grid h-80 place-items-center" role="status"><Loader2 className="h-6 w-6 animate-spin text-[var(--terracotta)]" /><span className="sr-only">{isEnglish ? "Loading timesheet data" : "Đang tải dữ liệu chấm công"}</span></div>;
+  if (!access.data?.canView) return <section className="mx-auto max-w-3xl rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-8 text-center shadow-sm"><span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[var(--terracotta-soft)] text-[var(--terracotta-dark)]"><ShieldCheck className="h-5 w-5" /></span><h2 className="mt-4 font-display text-2xl">{isEnglish ? "Timesheet access required" : "Cần được cấp quyền xem chấm công"}</h2><p className="mt-2 text-sm leading-6 text-[var(--ink-muted)]">{isEnglish ? "Ask the Timesheet administrator to approve your signed-in account. No shared timesheet data is loaded until permission is granted." : "Hãy yêu cầu quản trị viên Timesheet phê duyệt tài khoản bạn đang đăng nhập. Dữ liệu chấm công dùng chung sẽ không được tải trước khi có quyền."}</p></section>;
   if (people.isError || stats.isError) { const error = people.error ?? stats.error; return <section className="mx-auto max-w-3xl rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-8 text-center shadow-sm"><span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[var(--terracotta-soft)] text-[var(--terracotta-dark)]"><TriangleAlert className="h-5 w-5" /></span><h2 className="mt-4 font-display text-2xl">{isEnglish ? "Timesheet data is unavailable" : "Chưa tải được dữ liệu chấm công"}</h2><p className="mt-2 text-sm text-[var(--ink-muted)]">{error?.message}</p><button type="button" className="swiss-button mt-5" onClick={() => { void people.refetch(); void stats.refetch(); }}><RefreshCw className="h-4 w-4" /> {isEnglish ? "Retry" : "Thử lại"}</button></section>; }
   if (!people.data?.length) return <section className="mx-auto max-w-3xl rounded-[22px] border border-dashed border-[var(--line-strong)] bg-[var(--surface-soft)] p-8 text-center"><p className="text-sm text-[var(--ink-muted)]">{isEnglish ? "No valid names were found in the Timesheet source." : "Không tìm thấy tên hợp lệ trong nguồn chấm công."}</p></section>;
   if (!employeeName || !stats.data) return <div className="grid h-80 place-items-center text-sm text-[var(--ink-muted)]">{isEnglish ? "Select a name to view the dashboard." : "Chọn tên để xem dashboard."}</div>;

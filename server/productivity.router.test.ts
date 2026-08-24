@@ -17,6 +17,9 @@ vi.mock("./db", () => ({
   updateUserProfile: vi.fn(),
   getUserGeminiModel: vi.fn(),
   updateUserGeminiModel: vi.fn(),
+  hasTimesheetAccess: vi.fn(),
+  listTimesheetViewerAccounts: vi.fn(),
+  setTimesheetAccess: vi.fn(),
   getTelegramConnection: vi.fn(),
   createTelegramLink: vi.fn(),
   completeTelegramLink: vi.fn(),
@@ -90,6 +93,7 @@ describe("productivity router data isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(db.getUserGeminiModel).mockResolvedValue("gemini-3.5-flash-lite");
+    vi.mocked(db.hasTimesheetAccess).mockResolvedValue(false);
   });
 
   it("loads tasks only in the authenticated user's workspace", async () => {
@@ -167,17 +171,31 @@ describe("productivity router data isolation", () => {
     expect(verifyGeminiConnection).toHaveBeenCalledWith("gemini-3.5-flash");
   });
 
-  it("limits the shared Timesheet source to the configured owner", async () => {
+  it("allows the owner and accounts granted by the owner to load the shared Timesheet source", async () => {
     vi.mocked(getTimesheetPeople).mockResolvedValue([{ name: "Nguyễn Tấn Pháp" }]);
     const ownerContext = createUserContext(73);
     ownerContext.user.openId = ENV.ownerOpenId || ownerContext.user.openId;
     const owner = appRouter.createCaller(ownerContext);
     await expect(owner.timesheet.people()).resolves.toEqual([{ name: "Nguyễn Tấn Pháp" }]);
 
-    if (ENV.ownerOpenId) {
-      const otherUser = appRouter.createCaller(createUserContext(74));
-      await expect(otherUser.timesheet.people()).rejects.toThrow("Chấm công chỉ dành cho chủ sở hữu nguồn dữ liệu");
-    }
+    vi.mocked(db.hasTimesheetAccess).mockResolvedValue(true);
+    const grantedUser = appRouter.createCaller(createUserContext(74));
+    await expect(grantedUser.timesheet.people()).resolves.toEqual([{ name: "Nguyễn Tấn Pháp" }]);
+    expect(db.hasTimesheetAccess).toHaveBeenCalledWith(74);
+  });
+
+  it("blocks unapproved Timesheet accounts and lets the owner grant or revoke a selected account", async () => {
+    if (!ENV.ownerOpenId) return;
+    const unapproved = appRouter.createCaller(createUserContext(74));
+    await expect(unapproved.timesheet.people()).rejects.toThrow("Bạn chưa được quản trị viên cấp quyền xem chấm công");
+
+    const ownerContext = createUserContext(73);
+    ownerContext.user.openId = ENV.ownerOpenId;
+    vi.mocked(db.setTimesheetAccess).mockResolvedValue(true);
+    const owner = appRouter.createCaller(ownerContext);
+    await expect(owner.timesheet.setAccess({ userId: 74, allowed: true })).resolves.toEqual({ success: true, userId: 74, allowed: true });
+    expect(db.setTimesheetAccess).toHaveBeenCalledWith(73, 74, true);
+    await expect(owner.timesheet.setAccess({ userId: 73, allowed: true })).rejects.toThrow("Tài khoản quản trị luôn có quyền xem chấm công");
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {

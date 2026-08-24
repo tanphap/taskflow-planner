@@ -54,8 +54,15 @@ function serializeEventInput(input: z.infer<typeof eventInput>): db.EventInput {
 function normalizeConversationSubject(subject: string) {
   return subject.replace(/^\s*(?:(?:re|fw|fwd)\s*:\s*)+/i, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
 }
-function requireTimesheetOwner(user: { openId: string }) {
-  if (ENV.ownerOpenId && user.openId !== ENV.ownerOpenId) throw new TRPCError({ code: "FORBIDDEN", message: "Chấm công chỉ dành cho chủ sở hữu nguồn dữ liệu." });
+function isTimesheetOwner(user: { openId: string; role?: string }) {
+  return ENV.ownerOpenId ? user.openId === ENV.ownerOpenId : user.role === "admin";
+}
+function requireTimesheetOwner(user: { openId: string; role?: string }) {
+  if (!isTimesheetOwner(user)) throw new TRPCError({ code: "FORBIDDEN", message: "Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập." });
+}
+async function requireTimesheetViewer(user: { id: number; openId: string; role?: string }) {
+  if (isTimesheetOwner(user) || await db.hasTimesheetAccess(user.id)) return;
+  throw new TRPCError({ code: "FORBIDDEN", message: "Bạn chưa được quản trị viên cấp quyền xem chấm công." });
 }
 
 function guardGeminiProposalAgainstCalendar<T extends { summary: string; eventStartAt: Date | null; eventEndAt: Date | null }>(result: T, busySlots: Array<{ startAt: Date; endAt: Date }>, locale: "vi" | "en") {
@@ -94,8 +101,22 @@ export const appRouter = router({
   auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => db.getDashboardData(ctx.user.id)) }),
   timesheet: router({
-    people: protectedProcedure.query(async ({ ctx }) => {
+    access: protectedProcedure.query(async ({ ctx }) => ({
+      canManage: isTimesheetOwner(ctx.user),
+      canView: isTimesheetOwner(ctx.user) || await db.hasTimesheetAccess(ctx.user.id),
+    })),
+    accounts: protectedProcedure.query(async ({ ctx }) => {
       requireTimesheetOwner(ctx.user);
+      return db.listTimesheetViewerAccounts(ENV.ownerOpenId);
+    }),
+    setAccess: protectedProcedure.input(z.object({ userId: z.number().int().positive(), allowed: z.boolean() })).mutation(async ({ ctx, input }) => {
+      requireTimesheetOwner(ctx.user);
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Tài khoản quản trị luôn có quyền xem chấm công." });
+      if (!await db.setTimesheetAccess(ctx.user.id, input.userId, input.allowed)) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản cần cấp quyền." });
+      return { success: true as const, ...input };
+    }),
+    people: protectedProcedure.query(async ({ ctx }) => {
+      await requireTimesheetViewer(ctx.user);
       try { return await getTimesheetPeople(); }
       catch (error) {
         console.error("[Timesheet] people failed", { reason: error instanceof Error ? error.message : String(error) });
@@ -107,7 +128,7 @@ export const appRouter = router({
       year: z.number().int().min(2000).max(2100),
       employeeName: z.string().trim().min(1).max(160),
     })).query(async ({ ctx, input }) => {
-      requireTimesheetOwner(ctx.user);
+      await requireTimesheetViewer(ctx.user);
       try {
         return await getTimesheetStats(input);
       } catch (error) {

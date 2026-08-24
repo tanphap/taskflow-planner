@@ -314,6 +314,21 @@ export const scheduledJobs = mysqlTable(
   table => [index("scheduled_jobs_task_uid_idx").on(table.taskUid)],
 );
 
+/** Owner-managed allowlist for the shared Timesheet source. The owner is never represented by a grant row. */
+export const timesheetAccess = mysqlTable(
+  "timesheet_access",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    grantedByUserId: int("grantedByUserId").notNull(),
+    grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("timesheet_access_user_uq").on(table.userId),
+    index("timesheet_access_granted_by_idx").on(table.grantedByUserId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
@@ -327,3 +342,4 @@ export type EmailMessage = typeof emailMessages.$inferSelect;
 export type EmailGeminiSummary = typeof emailGeminiSummaries.$inferSelect;
 export type EmailNote = typeof emailNotes.$inferSelect;
 export type EmailEventSuggestion = typeof emailEventSuggestions.$inferSelect;
+export type TimesheetAccess = typeof timesheetAccess.$inferSelect;
