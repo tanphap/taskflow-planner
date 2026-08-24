@@ -1119,7 +1119,7 @@ export default function Home() {
               onOpenOriginalContent={(messageId: number) => originalEmailContent.mutateAsync({ messageId })}
               onCreateEventFromSummary={openCreateEventFromEmailSummary}
             />}
-            {view === "profile" && <><ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} /><div className="mx-auto max-w-4xl"><GeminiModelSettings /><TimesheetAccessAdmin /><TimesheetScheduleImageImport onOpenCalendar={() => setView("calendar")} /></div></>}
+            {view === "profile" && <><ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} /><div className="mx-auto max-w-4xl"><GeminiModelSettings /><TimesheetAccessAdmin /><TimesheetScheduleImageImport onOpenTimesheet={() => setView("timesheet")} /></div></>}
           </div>
         </main>
       </div>

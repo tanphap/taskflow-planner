@@ -9,7 +9,11 @@ vi.mock("./db", () => ({
   deleteTask: vi.fn(),
   listEvents: vi.fn(),
   createEvent: vi.fn(),
-  createTimesheetShiftEvents: vi.fn(),
+  listTimesheetDutySchedules: vi.fn(),
+  saveTimesheetDutySchedules: vi.fn(),
+  createTimesheetDutySchedule: vi.fn(),
+  updateTimesheetDutySchedule: vi.fn(),
+  deleteTimesheetDutySchedule: vi.fn(),
   updateEvent: vi.fn(),
   deleteEvent: vi.fn(),
   syncDueNotifications: vi.fn(),
@@ -261,9 +265,19 @@ describe("productivity router data isolation", () => {
     await expect(viewer.timesheet.extractScheduleFromImage({ imageDataUrl, locale: "vi", acknowledgeUnpaidDataUse: true })).rejects.toThrow("Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập");
   });
 
-  it("creates reviewed roster shifts only in the acting Timesheet admin's calendar", async () => {
+  it("shows the shared duty schedule to every signed-in account without exposing protected Timesheet source data", async () => {
+    vi.mocked(db.listTimesheetDutySchedules).mockResolvedValue([{ id: 12, dutyDate: "2026-08-03", shift: "S", assignment: "Trung-Minh", sourceTitle: "Lịch trực tháng 8", createdByUserId: 74, updatedByUserId: 74, createdAt: new Date(), updatedAt: new Date() }]);
+    const user = appRouter.createCaller(createUserContext(75));
+
+    await expect(user.timesheet.dutySchedule({ year: 2026, month: 8 })).resolves.toHaveLength(1);
+
+    expect(db.listTimesheetDutySchedules).toHaveBeenCalledWith("2026-08-01", "2026-08-31");
+    expect(getTimesheetPeople).not.toHaveBeenCalled();
+  });
+
+  it("stores reviewed roster shifts in the shared schedule rather than the acting admin's personal calendar", async () => {
     vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("admin");
-    vi.mocked(db.createTimesheetShiftEvents).mockResolvedValue({ created: 2, skipped: 1 });
+    vi.mocked(db.saveTimesheetDutySchedules).mockResolvedValue({ created: 2, updated: 1 });
     const admin = appRouter.createCaller(createUserContext(74));
     const entries = [
       { date: "2026-08-03", shift: "S" as const, assignment: "Trung-Minh" },
@@ -271,9 +285,31 @@ describe("productivity router data isolation", () => {
       { date: "2026-02-30", shift: "S" as const, assignment: "Không hợp lệ" },
     ];
 
-    await expect(admin.timesheet.createScheduleEvents({ scheduleTitle: "Lịch trực tháng 8", entries: entries.slice(0, 2), locale: "vi" })).resolves.toEqual({ created: 2, skipped: 1 });
-    expect(db.createTimesheetShiftEvents).toHaveBeenCalledWith(74, "Lịch trực tháng 8", entries.slice(0, 2), "vi");
-    await expect(admin.timesheet.createScheduleEvents({ scheduleTitle: "Lịch trực tháng 8", entries, locale: "vi" })).rejects.toThrow("Ngày trực không hợp lệ");
+    await expect(admin.timesheet.saveDutySchedule({ scheduleTitle: "Lịch trực tháng 8", entries: entries.slice(0, 2), locale: "vi" })).resolves.toEqual({ created: 2, updated: 1 });
+    expect(db.saveTimesheetDutySchedules).toHaveBeenCalledWith(74, "Lịch trực tháng 8", entries.slice(0, 2));
+    expect(db.createEvent).not.toHaveBeenCalled();
+    await expect(admin.timesheet.saveDutySchedule({ scheduleTitle: "Lịch trực tháng 8", entries, locale: "vi" })).rejects.toThrow("Ngày trực không hợp lệ");
+  });
+
+  it("allows a Timesheet admin to edit shared duty shifts and blocks non-admin accounts", async () => {
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("admin");
+    vi.mocked(db.createTimesheetDutySchedule).mockResolvedValue(44);
+    vi.mocked(db.updateTimesheetDutySchedule).mockResolvedValue("updated");
+    vi.mocked(db.deleteTimesheetDutySchedule).mockResolvedValue(true);
+    const admin = appRouter.createCaller(createUserContext(74));
+    const input = { date: "2026-08-03", shift: "S" as const, assignment: "Trung-Minh", locale: "vi" as const };
+
+    await expect(admin.timesheet.createDutyScheduleEntry(input)).resolves.toEqual({ id: 44 });
+    await expect(admin.timesheet.updateDutyScheduleEntry({ id: 44, ...input })).resolves.toEqual({ success: true });
+    await expect(admin.timesheet.deleteDutyScheduleEntry({ id: 44 })).resolves.toEqual({ success: true });
+    expect(db.createTimesheetDutySchedule).toHaveBeenCalledWith(74, expect.objectContaining({ date: "2026-08-03", shift: "S" }), "Chỉnh sửa trực tiếp");
+    expect(db.updateTimesheetDutySchedule).toHaveBeenCalledWith(74, 44, expect.objectContaining({ assignment: "Trung-Minh" }), "Chỉnh sửa trực tiếp");
+    expect(db.deleteTimesheetDutySchedule).toHaveBeenCalledWith(44);
+
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue(null);
+    const regularUser = appRouter.createCaller(createUserContext(75));
+    await expect(regularUser.timesheet.createDutyScheduleEntry(input)).rejects.toThrow("Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập");
+    expect(db.createTimesheetDutySchedule).toHaveBeenCalledTimes(1);
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {

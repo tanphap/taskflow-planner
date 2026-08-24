@@ -330,6 +330,26 @@ export const timesheetAccess = mysqlTable(
   ],
 );
 
+/** Shared duty roster. It is intentionally separate from each account's personal calendar. */
+export const timesheetDutySchedules = mysqlTable(
+  "timesheet_duty_schedules",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    dutyDate: varchar("dutyDate", { length: 10 }).notNull(),
+    shift: mysqlEnum("shift", ["S", "D"]).notNull(),
+    assignment: varchar("assignment", { length: 240 }).notNull(),
+    sourceTitle: varchar("sourceTitle", { length: 240 }).notNull(),
+    createdByUserId: int("createdByUserId").notNull(),
+    updatedByUserId: int("updatedByUserId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("timesheet_duty_schedules_date_shift_uq").on(table.dutyDate, table.shift),
+    index("timesheet_duty_schedules_date_idx").on(table.dutyDate),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
@@ -344,3 +364,4 @@ export type EmailGeminiSummary = typeof emailGeminiSummaries.$inferSelect;
 export type EmailNote = typeof emailNotes.$inferSelect;
 export type EmailEventSuggestion = typeof emailEventSuggestions.$inferSelect;
 export type TimesheetAccess = typeof timesheetAccess.$inferSelect;
+export type TimesheetDutySchedule = typeof timesheetDutySchedules.$inferSelect;

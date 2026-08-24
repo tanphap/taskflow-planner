@@ -120,6 +120,13 @@
       "when": 1787550275680,
       "tag": "0016_purple_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1787552951753,
+      "tag": "0017_wet_skin",
+      "breakpoints": true
     }
   ]
 }

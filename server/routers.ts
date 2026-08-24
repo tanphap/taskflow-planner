@@ -58,6 +58,8 @@ const timesheetScheduleSaveInput = z.object({
   entries: z.array(timesheetScheduleEntryInput).min(1).max(180),
   locale: z.enum(["vi", "en"]),
 });
+const timesheetDutyScheduleQueryInput = z.object({ month: z.number().int().min(1).max(12), year: z.number().int().min(2000).max(2100) });
+const timesheetDutyScheduleEditInput = timesheetScheduleEntryInput.extend({ locale: z.enum(["vi", "en"]) });
 const emailNoteInput = z.object({
   title: z.string().trim().min(1, "Hãy nhập tiêu đề ghi chú").max(240),
   body: z.string().trim().max(4000).nullable().optional(),
@@ -169,9 +171,33 @@ export const appRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Không thể đọc ảnh lịch trực." });
       }
     }),
-    createScheduleEvents: protectedProcedure.input(timesheetScheduleSaveInput).mutation(async ({ ctx, input }) => {
+    dutySchedule: protectedProcedure.input(timesheetDutyScheduleQueryInput).query(async ({ input }) => {
+      const fromDate = `${input.year}-${String(input.month).padStart(2, "0")}-01`;
+      const lastDay = new Date(Date.UTC(input.year, input.month, 0)).getUTCDate();
+      const toDate = `${input.year}-${String(input.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      return db.listTimesheetDutySchedules(fromDate, toDate);
+    }),
+    saveDutySchedule: protectedProcedure.input(timesheetScheduleSaveInput).mutation(async ({ ctx, input }) => {
       await requireTimesheetManager(ctx.user);
-      return db.createTimesheetShiftEvents(ctx.user.id, input.scheduleTitle, input.entries, input.locale);
+      return db.saveTimesheetDutySchedules(ctx.user.id, input.scheduleTitle, input.entries);
+    }),
+    createDutyScheduleEntry: protectedProcedure.input(timesheetDutyScheduleEditInput).mutation(async ({ ctx, input }) => {
+      await requireTimesheetManager(ctx.user);
+      const id = await db.createTimesheetDutySchedule(ctx.user.id, input, input.locale === "en" ? "Manual update" : "Chỉnh sửa trực tiếp");
+      if (!id) throw new TRPCError({ code: "CONFLICT", message: "Ca trực cùng ngày và cùng buổi đã tồn tại." });
+      return { id };
+    }),
+    updateDutyScheduleEntry: protectedProcedure.input(timesheetDutyScheduleEditInput.extend({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      await requireTimesheetManager(ctx.user);
+      const result = await db.updateTimesheetDutySchedule(ctx.user.id, input.id, input, input.locale === "en" ? "Manual update" : "Chỉnh sửa trực tiếp");
+      if (result === "not_found") throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy ca trực cần sửa." });
+      if (result === "conflict") throw new TRPCError({ code: "CONFLICT", message: "Ca trực cùng ngày và cùng buổi đã tồn tại." });
+      return { success: true as const };
+    }),
+    deleteDutyScheduleEntry: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      await requireTimesheetManager(ctx.user);
+      if (!await db.deleteTimesheetDutySchedule(input.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy ca trực cần xóa." });
+      return { success: true as const };
     }),
     people: protectedProcedure.query(async ({ ctx }) => {
       await requireTimesheetViewer(ctx.user);

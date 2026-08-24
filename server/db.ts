@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, inArray, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
@@ -16,6 +16,7 @@ import {
   telegramConnections,
   telegramDeliveryLogs,
   timesheetAccess,
+  timesheetDutySchedules,
   users,
 } from "../drizzle/schema";
 import { expandCalendarEvents, getTelegramOccurrenceDueAt, parseRecurrenceRule } from "../shared/recurrence";
@@ -158,52 +159,64 @@ export async function createEvent(userId: number, input: EventInput) {
   const result = await db.insert(calendarEvents).values({ userId, title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, recurrenceRule: input.recurrenceRule ?? null, telegramReminder: input.telegramReminder });
   return Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
 }
-export type TimesheetShiftEventInput = {
+export type TimesheetDutyScheduleInput = {
   date: string;
   shift: "S" | "D";
   assignment: string;
 };
 
-function timesheetShiftRange(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  const startAt = new Date(Date.UTC(year, month - 1, day, -7, 0, 0));
-  const endAt = new Date(Date.UTC(year, month - 1, day, 16, 59, 0));
-  return { startAt, endAt };
-}
-
-function timesheetShiftMarker(shift: "S" | "D", assignment: string) {
-  return `[timesheet-image:${shift}:${assignment.replace(/\s+/g, " ").trim().toLocaleLowerCase("vi")}]`;
-}
-
-export async function createTimesheetShiftEvents(userId: number, scheduleTitle: string, entries: TimesheetShiftEventInput[], locale: "vi" | "en") {
+export async function listTimesheetDutySchedules(fromDate: string, toDate: string) {
   const db = await requireDb();
-  const candidates = entries.map(entry => {
-    const { startAt, endAt } = timesheetShiftRange(entry.date);
-    const marker = timesheetShiftMarker(entry.shift, entry.assignment);
-    const shiftTitle = locale === "en" ? `Duty shift ${entry.shift} · ${entry.assignment}` : `Trực ca ${entry.shift} · ${entry.assignment}`;
-    const description = locale === "en"
-      ? `${marker}\nRoster: ${scheduleTitle}\nShift: ${entry.shift}\nDate: ${entry.date}\n\nExtracted from a roster image and reviewed by a Timesheet administrator. No reminder was enabled.`
-      : `${marker}\nLịch trực: ${scheduleTitle}\nCa: ${entry.shift}\nNgày: ${entry.date}\n\nDữ liệu được trích xuất từ ảnh lịch trực và đã được Admin Timesheet rà soát. Hệ thống không bật nhắc việc.`;
-    return { ...entry, startAt, endAt, marker, title: shiftTitle.slice(0, 240), description };
-  });
-  const existing = candidates.length
-    ? await db.select({ startAt: calendarEvents.startAt, description: calendarEvents.description }).from(calendarEvents).where(and(eq(calendarEvents.userId, userId), inArray(calendarEvents.startAt, candidates.map(candidate => candidate.startAt))))
-    : [];
-  const existingMarkers = new Set(existing.flatMap(event => candidates.filter(candidate => event.startAt.getTime() === candidate.startAt.getTime() && event.description?.includes(candidate.marker)).map(candidate => candidate.marker)));
-  const newEvents = candidates.filter(candidate => !existingMarkers.has(candidate.marker));
-  if (newEvents.length) {
-    await db.insert(calendarEvents).values(newEvents.map(event => ({
-      userId,
-      title: event.title,
-      description: event.description,
-      startAt: event.startAt,
-      endAt: event.endAt,
-      reminderAt: null,
-      recurrenceRule: null,
-      telegramReminder: false,
-    })));
+  return db.select().from(timesheetDutySchedules)
+    .where(and(gte(timesheetDutySchedules.dutyDate, fromDate), lte(timesheetDutySchedules.dutyDate, toDate)))
+    .orderBy(asc(timesheetDutySchedules.dutyDate), asc(timesheetDutySchedules.shift));
+}
+
+export async function saveTimesheetDutySchedules(actorUserId: number, scheduleTitle: string, entries: TimesheetDutyScheduleInput[]) {
+  const db = await requireDb();
+  let created = 0;
+  let updated = 0;
+  for (const entry of entries) {
+    const existing = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules)
+      .where(and(eq(timesheetDutySchedules.dutyDate, entry.date), eq(timesheetDutySchedules.shift, entry.shift))).limit(1);
+    if (existing[0]) {
+      await db.update(timesheetDutySchedules).set({ assignment: entry.assignment.trim(), sourceTitle: scheduleTitle.trim(), updatedByUserId: actorUserId })
+        .where(eq(timesheetDutySchedules.id, existing[0].id));
+      updated += 1;
+    } else {
+      await db.insert(timesheetDutySchedules).values({ dutyDate: entry.date, shift: entry.shift, assignment: entry.assignment.trim(), sourceTitle: scheduleTitle.trim(), createdByUserId: actorUserId, updatedByUserId: actorUserId });
+      created += 1;
+    }
   }
-  return { created: newEvents.length, skipped: candidates.length - newEvents.length };
+  return { created, updated };
+}
+
+export async function createTimesheetDutySchedule(actorUserId: number, input: TimesheetDutyScheduleInput, sourceTitle: string) {
+  const db = await requireDb();
+  const existing = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules)
+    .where(and(eq(timesheetDutySchedules.dutyDate, input.date), eq(timesheetDutySchedules.shift, input.shift))).limit(1);
+  if (existing[0]) return null;
+  const result = await db.insert(timesheetDutySchedules).values({ dutyDate: input.date, shift: input.shift, assignment: input.assignment.trim(), sourceTitle: sourceTitle.trim(), createdByUserId: actorUserId, updatedByUserId: actorUserId });
+  return Number((result as unknown as [{ insertId?: number }])[0]?.insertId) || null;
+}
+
+export async function updateTimesheetDutySchedule(actorUserId: number, id: number, input: TimesheetDutyScheduleInput, sourceTitle: string) {
+  const db = await requireDb();
+  const conflict = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules)
+    .where(and(eq(timesheetDutySchedules.dutyDate, input.date), eq(timesheetDutySchedules.shift, input.shift), ne(timesheetDutySchedules.id, id))).limit(1);
+  if (conflict[0]) return "conflict" as const;
+  const current = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules).where(eq(timesheetDutySchedules.id, id)).limit(1);
+  if (!current[0]) return "not_found" as const;
+  await db.update(timesheetDutySchedules).set({ dutyDate: input.date, shift: input.shift, assignment: input.assignment.trim(), sourceTitle: sourceTitle.trim(), updatedByUserId: actorUserId }).where(eq(timesheetDutySchedules.id, id));
+  return "updated" as const;
+}
+
+export async function deleteTimesheetDutySchedule(id: number) {
+  const db = await requireDb();
+  const current = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules).where(eq(timesheetDutySchedules.id, id)).limit(1);
+  if (!current[0]) return false;
+  await db.delete(timesheetDutySchedules).where(eq(timesheetDutySchedules.id, id));
+  return true;
 }
 export async function getEvent(userId: number, eventId: number) {
   const db = await requireDb();

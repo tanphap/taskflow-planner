@@ -266,3 +266,5 @@
 - [x] Kiểm chứng giao diện tải ảnh lịch trực trong Hồ sơ trên desktop và điện thoại: vùng chọn tệp, giới hạn định dạng/dung lượng và quyền Admin Timesheet hiển thị phù hợp.
 - [x] Bổ sung thông tin nhận diện và tìm kiếm/lọc tài khoản trong danh sách cấp quyền Timesheet để Admin cấp quyền chính xác, kèm kiểm thử và xuất bản.
 - [x] Kiểm chứng desktop và điện thoại: thanh tìm tên/email, trạng thái quyền và ngày đăng nhập gần nhất hiển thị rõ trong danh sách Timesheet.
+- [x] Chuyển lịch trực thành lịch dùng chung cho mọi tài khoản xem, không ghi vào lịch hẹn cá nhân; cho phép Admin Timesheet thêm/sửa/xóa trực tiếp các ca, kèm migration, kiểm thử và xuất bản.
+- [x] Kiểm chứng desktop: lịch trực dùng chung xuất hiện trong màn hình Chấm công, điều hướng tháng và điều khiển thêm ca của Admin hiển thị đúng.

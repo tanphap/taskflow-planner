@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarPlus, CheckSquare, FileImage, Loader2, ScanLine, ShieldCheck, Square, Upload, X } from "lucide-react";
+import { CalendarDays, CheckSquare, FileImage, Loader2, ScanLine, ShieldCheck, Square, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
@@ -28,7 +28,7 @@ async function readImageDataUrl(file: File) {
   });
 }
 
-export function TimesheetScheduleImageImport({ onOpenCalendar }: { onOpenCalendar: () => void }) {
+export function TimesheetScheduleImageImport({ onOpenTimesheet }: { onOpenTimesheet: () => void }) {
   const { language } = useLanguage();
   const isEnglish = language === "en";
   const utils = trpc.useUtils();
@@ -48,12 +48,12 @@ export function TimesheetScheduleImageImport({ onOpenCalendar }: { onOpenCalenda
     },
     onError: error => toast.error(error.message),
   });
-  const createEvents = trpc.timesheet.createScheduleEvents.useMutation({
+  const saveDutySchedule = trpc.timesheet.saveDutySchedule.useMutation({
     onSuccess: async result => {
-      await Promise.all([utils.calendar.list.invalidate(), utils.dashboard.overview.invalidate()]);
+      await utils.timesheet.dutySchedule.invalidate();
       toast.success(isEnglish
-        ? `${result.created} duty shift(s) added${result.skipped ? `; ${result.skipped} duplicate(s) skipped` : ""}`
-        : `Đã thêm ${result.created} ca trực${result.skipped ? `; bỏ qua ${result.skipped} ca trùng` : ""}`);
+        ? `${result.created} new duty shift(s) saved${result.updated ? `; ${result.updated} updated` : ""}`
+        : `Đã lưu ${result.created} ca trực mới${result.updated ? `; cập nhật ${result.updated} ca` : ""}`);
       setProposal(null);
       setSelectedKeys(new Set());
     },
@@ -114,13 +114,13 @@ export function TimesheetScheduleImageImport({ onOpenCalendar }: { onOpenCalenda
     });
   };
 
-  const addSelectedEvents = () => {
+  const saveSelectedShifts = () => {
     if (!proposal || !selectedEntries.length) return;
     const confirmation = isEnglish
-      ? `Add ${selectedEntries.length} selected duty shift(s) to your personal calendar? No reminder will be enabled.`
-      : `Thêm ${selectedEntries.length} ca trực đã chọn vào lịch hẹn cá nhân? Hệ thống không bật nhắc việc.`;
+      ? `Save ${selectedEntries.length} selected duty shift(s) to the shared roster? This will not create personal calendar events or reminders.`
+      : `Lưu ${selectedEntries.length} ca trực đã chọn vào lịch trực dùng chung? Hệ thống không tạo lịch hẹn cá nhân hoặc nhắc việc.`;
     if (!window.confirm(confirmation)) return;
-    createEvents.mutate({ scheduleTitle: proposal.scheduleTitle, entries: selectedEntries, locale: language });
+    saveDutySchedule.mutate({ scheduleTitle: proposal.scheduleTitle, entries: selectedEntries, locale: language });
   };
 
   return (
@@ -128,14 +128,14 @@ export function TimesheetScheduleImageImport({ onOpenCalendar }: { onOpenCalenda
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="mono-label text-[var(--terracotta)]">Admin / Timesheet</p>
-          <h4 className="mt-1 text-lg font-semibold tracking-[-0.03em]">{isEnglish ? "Roster image to calendar" : "Ảnh lịch trực → Lịch hẹn"}</h4>
+          <h4 className="mt-1 text-lg font-semibold tracking-[-0.03em]">{isEnglish ? "Roster image to shared duty schedule" : "Ảnh lịch trực → Lịch trực chung"}</h4>
         </div>
         <ScanLine className="mt-1 h-5 w-5 text-[var(--terracotta)]" aria-hidden="true" />
       </div>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--ink-muted)]">
         {isEnglish
-          ? "Upload a clear roster image. Gemini reads the Date, S, and Đ rows into reviewable all-day duty entries. Nothing is added until you select and confirm the shifts; entries are saved only in your own calendar."
-          : "Tải ảnh lịch trực rõ nét. Gemini đọc các hàng Ngày, S và Đ thành ca trực cả ngày để bạn kiểm tra. Không có lịch nào được thêm cho đến khi bạn chọn và xác nhận; các ca chỉ được lưu vào lịch hẹn của chính tài khoản đang đăng nhập."}
+          ? "Upload a clear roster image. Gemini reads the Date, S, and Đ rows into reviewable duty entries. Nothing is saved until you select and confirm; approved shifts appear in the shared duty schedule, not personal calendars."
+          : "Tải ảnh lịch trực rõ nét. Gemini đọc các hàng Ngày, S và Đ thành ca trực để bạn kiểm tra. Không có dữ liệu nào được lưu cho đến khi bạn chọn và xác nhận; các ca đã duyệt hiển thị trên lịch trực chung, không ghi vào lịch hẹn cá nhân."}
       </p>
 
       <input ref={inputRef} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => void chooseImage(event.target.files?.[0])} />
@@ -149,7 +149,7 @@ export function TimesheetScheduleImageImport({ onOpenCalendar }: { onOpenCalenda
         <div className="mt-4 overflow-hidden border border-[var(--line)] bg-white">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--surface-soft)] px-3 py-2">
             <p className="flex min-w-0 items-center gap-2 text-sm font-semibold"><FileImage className="h-4 w-4 shrink-0 text-[var(--terracotta)]" /><span className="truncate">{imageName}</span></p>
-            <button type="button" onClick={clearImage} disabled={extract.isPending || createEvents.isPending} className="inline-flex min-h-8 items-center gap-1.5 px-2 text-xs font-semibold text-[var(--terracotta-dark)] underline-offset-4 hover:underline disabled:opacity-50"><X className="h-3.5 w-3.5" />{isEnglish ? "Remove" : "Bỏ ảnh"}</button>
+            <button type="button" onClick={clearImage} disabled={extract.isPending || saveDutySchedule.isPending} className="inline-flex min-h-8 items-center gap-1.5 px-2 text-xs font-semibold text-[var(--terracotta-dark)] underline-offset-4 hover:underline disabled:opacity-50"><X className="h-3.5 w-3.5" />{isEnglish ? "Remove" : "Bỏ ảnh"}</button>
           </div>
           <img src={imageDataUrl} alt={isEnglish ? "Selected duty roster" : "Ảnh lịch trực đã chọn"} className="max-h-80 w-full object-contain bg-[#f5f5f2]" />
         </div>
@@ -190,19 +190,19 @@ export function TimesheetScheduleImageImport({ onOpenCalendar }: { onOpenCalenda
             })}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-xs leading-5 text-[var(--ink-muted)]"><ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[var(--terracotta)]" />{isEnglish ? "All entries are all-day events. No Telegram reminder is enabled." : "Mọi ca được tạo dạng lịch cả ngày. Hệ thống không bật nhắc Telegram."}</p>
+              <p className="flex items-center gap-1.5 text-xs leading-5 text-[var(--ink-muted)]"><ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[var(--terracotta)]" />{isEnglish ? "Approved entries are shared duty shifts. No personal calendar event or Telegram reminder is created." : "Ca đã duyệt là lịch trực dùng chung. Hệ thống không tạo lịch hẹn cá nhân hoặc nhắc Telegram."}</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setSelectedKeys(new Set(proposal.entries.map(entryKey)))} className="min-h-9 px-2 text-xs font-semibold underline-offset-4 hover:text-[var(--terracotta)] hover:underline">{isEnglish ? "Select all" : "Chọn tất cả"}</button>
-              <button type="button" onClick={addSelectedEvents} disabled={!selectedEntries.length || createEvents.isPending} className="inline-flex min-h-9 items-center gap-2 bg-[#e23221] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#bd271a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e23221] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                {createEvents.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
-                {isEnglish ? `Add ${selectedEntries.length} to calendar` : `Thêm ${selectedEntries.length} ca vào lịch hẹn`}
+              <button type="button" onClick={saveSelectedShifts} disabled={!selectedEntries.length || saveDutySchedule.isPending} className="inline-flex min-h-9 items-center gap-2 bg-[#e23221] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#bd271a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e23221] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                {saveDutySchedule.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarDays className="h-3.5 w-3.5" />}
+                {isEnglish ? `Save ${selectedEntries.length} to duty schedule` : `Lưu ${selectedEntries.length} ca vào lịch trực`}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {!proposal && createEvents.isSuccess && <button type="button" onClick={onOpenCalendar} className="mt-4 inline-flex min-h-9 items-center gap-2 border border-[var(--line-strong)] px-3 py-2 text-xs font-semibold transition hover:border-[var(--terracotta)] hover:text-[var(--terracotta-dark)]"><CalendarPlus className="h-3.5 w-3.5" />{isEnglish ? "Open calendar" : "Mở lịch hẹn"}</button>}
+      {!proposal && saveDutySchedule.isSuccess && <button type="button" onClick={onOpenTimesheet} className="mt-4 inline-flex min-h-9 items-center gap-2 border border-[var(--line-strong)] px-3 py-2 text-xs font-semibold transition hover:border-[var(--terracotta)] hover:text-[var(--terracotta-dark)]"><CalendarDays className="h-3.5 w-3.5" />{isEnglish ? "Open duty schedule" : "Mở lịch trực"}</button>}
     </section>
   );
 }
