@@ -278,3 +278,5 @@
 - [x] Cập nhật bộ lọc lịch trực để ca chứa nhiều tên theo cú pháp “Ca sáng/đêm Tên 1 – Tên 2” hiển thị khi tìm bất kỳ một tên nào; kiểm thử, xác minh và xuất bản.
 - [x] Kiểm tra ban đầu desktop: điều hướng tới Chấm công hoạt động; ảnh chụp lúc dữ liệu đang tải nên tiếp tục xác minh sau khi trạng thái tải hoàn tất.
 - [x] Kiểm chứng desktop/mobile: ô “Tìm một người trong ca” và lọc ca hiển thị gọn trong lịch trực; các kiểm thử xác nhận tên thứ nhất hoặc thứ hai đều trả về đúng ca.
+- [x] Căn S/D về trái, căn giữa tên nhân sự trong ô ca và đổi màu lịch trực sang bảng màu cảm hứng Claude; kiểm chứng responsive và xuất bản.
+- [x] Kiểm chứng desktop/mobile: ký hiệu S/D ở mép trái, tên nhân sự căn giữa và màu kem–cam đất vẫn rõ trên các ô lịch thu gọn.
