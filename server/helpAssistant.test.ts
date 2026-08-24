@@ -26,8 +26,8 @@ describe("TaskFlow help assistant", () => {
     }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getTaskFlowHelpResponse({ locale: "en", messages: [{ role: "user", content: "How do I add a task?" }] })).resolves.toEqual({ answer: "Open **Tasks**, then select Add task.", suggestedViews: ["tasks"], model: GEMINI_EMAIL_SUMMARY_MODEL });
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`models/${GEMINI_EMAIL_SUMMARY_MODEL}:generateContent`);
+    await expect(getTaskFlowHelpResponse({ locale: "en", model: "gemini-3.5-flash", messages: [{ role: "user", content: "How do I add a task?" }] })).resolves.toEqual({ answer: "Open **Tasks**, then select Add task.", suggestedViews: ["tasks"], model: "gemini-3.5-flash" });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("models/gemini-3.5-flash:generateContent");
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(request.systemInstruction.parts[0].text).toContain("Never claim that you can see, create, edit, delete");
     expect(request.contents).toEqual([{ role: "user", parts: [{ text: "How do I add a task?" }] }]);

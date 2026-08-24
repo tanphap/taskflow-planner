@@ -15,6 +15,8 @@ vi.mock("./db", () => ({
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
   updateUserProfile: vi.fn(),
+  getUserGeminiModel: vi.fn(),
+  updateUserGeminiModel: vi.fn(),
   getTelegramConnection: vi.fn(),
   createTelegramLink: vi.fn(),
   completeTelegramLink: vi.fn(),
@@ -65,6 +67,7 @@ function createUserContext(userId = 42): TrpcContext {
       openId: `user-${userId}`,
       name: "Người dùng thử nghiệm",
       email: "user@example.com",
+      geminiModel: "gemini-3.5-flash-lite",
       loginMethod: "manus",
       role: "user",
       createdAt: new Date(),
@@ -77,7 +80,10 @@ function createUserContext(userId = 42): TrpcContext {
 }
 
 describe("productivity router data isolation", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(db.getUserGeminiModel).mockResolvedValue("gemini-3.5-flash-lite");
+  });
 
   it("loads tasks only in the authenticated user's workspace", async () => {
     vi.mocked(db.listTasks).mockResolvedValue([]);
@@ -132,6 +138,15 @@ describe("productivity router data isolation", () => {
     expect(db.syncDueNotifications).toHaveBeenCalledWith(73);
     expect(db.markNotificationRead).toHaveBeenCalledWith(73, 3);
     expect(db.updateUserProfile).toHaveBeenCalledWith(73, { name: "Minh", email: "minh@example.com" });
+  });
+
+  it("stores the Gemini model only for the authenticated account", async () => {
+    vi.mocked(db.updateUserGeminiModel).mockResolvedValue(undefined);
+    const caller = appRouter.createCaller(createUserContext(73));
+
+    await expect(caller.profile.updateGeminiModel({ model: "gemini-3.5-flash" })).resolves.toEqual({ success: true, model: "gemini-3.5-flash" });
+
+    expect(db.updateUserGeminiModel).toHaveBeenCalledWith(73, "gemini-3.5-flash");
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {
@@ -301,7 +316,7 @@ describe("productivity router data isolation", () => {
 
     expect(db.countEmailGeminiSummariesSince).not.toHaveBeenCalled();
     expect(fetchMailboxMessageForGeminiSummary).toHaveBeenCalledWith(73, 17, { spreadsheetSelections: undefined });
-    expect(summarizeGmailEmailWithGemini).toHaveBeenCalledWith(expect.objectContaining({ body: "Nội dung email đầy đủ.", attachments: [], busySlots: [] }), "vi");
+    expect(summarizeGmailEmailWithGemini).toHaveBeenCalledWith(expect.objectContaining({ body: "Nội dung email đầy đủ.", attachments: [], busySlots: [] }), "vi", "gemini-3.5-flash-lite");
     expect(db.createEmailGeminiSummary).toHaveBeenCalledWith(73, expect.objectContaining({ emailAccountId: 9, emailMessageId: 17 }));
     expect(db.markEmailMessageRead).toHaveBeenCalledWith(73, 17);
     expect(result).not.toHaveProperty("remainingToday");

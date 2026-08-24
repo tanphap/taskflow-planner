@@ -1,7 +1,8 @@
 import { ENV } from "./_core/env";
+import { DEFAULT_GEMINI_MODEL, resolveGeminiModel, type GeminiModel } from "../shared/geminiModels";
 
 // Gemini 2.5 Flash Lite is no longer provisioned for new API users and returns HTTP 404.
-export const GEMINI_EMAIL_SUMMARY_MODEL = "gemini-3.5-flash-lite";
+export const GEMINI_EMAIL_SUMMARY_MODEL = DEFAULT_GEMINI_MODEL;
 
 export type GeminiSummarySource = {
   subject: string;
@@ -108,8 +109,9 @@ export function parseGeminiEmailSummaryResponse(value: string): Pick<GeminiEmail
   }
 }
 
-export async function summarizeGmailEmailWithGemini(source: GeminiSummarySource, locale: string): Promise<GeminiEmailSummaryResult> {
+export async function summarizeGmailEmailWithGemini(source: GeminiSummarySource, locale: string, model?: GeminiModel): Promise<GeminiEmailSummaryResult> {
   if (!ENV.geminiApiKey) throw new Error("Gemini API key chưa được cấu hình.");
+  const selectedModel = resolveGeminiModel(model);
   let attachmentBytes = 0;
   const attachmentParts = (source.attachments ?? []).slice(0, MAX_ATTACHMENT_COUNT).flatMap(attachment => {
     const content = attachment.content;
@@ -121,7 +123,7 @@ export async function summarizeGmailEmailWithGemini(source: GeminiSummarySource,
   const extractedTables = (source.attachments ?? []).slice(0, MAX_ATTACHMENT_COUNT).flatMap(attachment => attachment.tableText ? [`${attachment.filename}:\n${attachment.tableText.slice(0, MAX_TABLE_ATTACHMENT_CHARS)}`] : []).join("\n\n") || "(No readable CSV/Excel table attachment)";
   let response: Response;
   try {
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMAIL_SUMMARY_MODEL}:generateContent`, {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": ENV.geminiApiKey },
     body: JSON.stringify({
@@ -141,5 +143,5 @@ export async function summarizeGmailEmailWithGemini(source: GeminiSummarySource,
   const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
   const parsed = parseGeminiEmailSummaryResponse(payload.candidates?.[0]?.content?.parts?.map(part => part.text ?? "").join("\n") ?? "");
   if (!parsed.summary) throw new Error("Gemini không trả về nội dung tóm tắt.");
-  return { ...parsed, model: GEMINI_EMAIL_SUMMARY_MODEL };
+  return { ...parsed, model: selectedModel };
 }

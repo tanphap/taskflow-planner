@@ -17,6 +17,7 @@ import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiScheduler";
 import { isGeminiTemporaryError, summarizeGmailEmailWithGemini } from "./geminiEmailSummary";
 import { getTaskFlowHelpResponse } from "./helpAssistant";
+import { GEMINI_MODELS } from "../shared/geminiModels";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -92,9 +93,9 @@ export const appRouter = router({
     chat: protectedProcedure.input(z.object({
       locale: z.enum(["vi", "en"]).default("vi"),
       messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(1200) })).min(1).max(10),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
       try {
-        return await getTaskFlowHelpResponse(input);
+        return await getTaskFlowHelpResponse({ ...input, model: await db.getUserGeminiModel(ctx.user.id) });
       } catch (error) {
         const reason = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
         console.error("[HelpAssistant] request failed", { reason });
@@ -115,7 +116,11 @@ export const appRouter = router({
     delete: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const event = await db.getEvent(ctx.user.id, input.id); if (event?.telegramJobUid) await deleteHeartbeatJob(event.telegramJobUid, getRequestSessionToken(ctx.req.headers)); await db.deleteEvent(ctx.user.id, input.id); return { success: true } as const; }),
   }),
   notifications: router({ due: protectedProcedure.query(({ ctx }) => db.syncDueNotifications(ctx.user.id)), markRead: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await db.markNotificationRead(ctx.user.id, input.id); return { success: true } as const; }), markAllRead: protectedProcedure.mutation(async ({ ctx }) => { await db.markAllNotificationsRead(ctx.user.id); return { success: true } as const; }) }),
-  profile: router({ update: protectedProcedure.input(z.object({ name: z.string().trim().max(120), email: z.string().trim().email("Địa chỉ email không hợp lệ").max(320) })).mutation(async ({ ctx, input }) => { await db.updateUserProfile(ctx.user.id, input); return { success: true } as const; }) }),
+  profile: router({
+    update: protectedProcedure.input(z.object({ name: z.string().trim().max(120), email: z.string().trim().email("Địa chỉ email không hợp lệ").max(320) })).mutation(async ({ ctx, input }) => { await db.updateUserProfile(ctx.user.id, input); return { success: true } as const; }),
+    geminiModel: protectedProcedure.query(({ ctx }) => db.getUserGeminiModel(ctx.user.id)),
+    updateGeminiModel: protectedProcedure.input(z.object({ model: z.enum(GEMINI_MODELS) })).mutation(async ({ ctx, input }) => { await db.updateUserGeminiModel(ctx.user.id, input.model); return { success: true as const, model: input.model }; }),
+  }),
   telegram: router({
     status: protectedProcedure.query(async ({ ctx }) => { const connection = await db.getTelegramConnection(ctx.user.id); return { connected: Boolean(connection?.chatId), pending: Boolean(connection?.linkToken), expiresAt: connection?.linkTokenExpiresAt ?? null }; }),
     beginLink: protectedProcedure.mutation(async ({ ctx }) => { const code = `TF-${nanoid(24)}`; const expiresAt = new Date(Date.now() + 15 * 60_000); await db.createTelegramLink(ctx.user.id, code, expiresAt); return { code, expiresAt }; }),
@@ -189,7 +194,7 @@ export const appRouter = router({
           conversation,
           attachments: rawMessage.attachments,
           busySlots,
-        }, input.locale);
+        }, input.locale, await db.getUserGeminiModel(ctx.user.id));
         const result = guardGeminiProposalAgainstCalendar(proposedResult, busySlots, input.locale);
         const summary = await db.createEmailGeminiSummary(ctx.user.id, { emailAccountId: source.emailAccountId, emailMessageId: source.id, summary: result.summary, eventStartAt: result.eventStartAt, eventEndAt: result.eventEndAt, locale: input.locale, model: result.model });
         if (!summary) throw new Error("Không thể lưu tóm tắt Gemini.");

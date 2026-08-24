@@ -52,11 +52,11 @@ describe("Gemini email summary safeguards", () => {
       ...source,
       body: "Nội dung thư đầy đủ.",
       attachments: [{ filename: "agenda.txt", contentType: "text/plain", size: 20, content: Buffer.from("Nội dung tệp đính kèm") }],
-    }, "vi");
+    }, "vi", "gemini-3.5-flash");
     expect(result.summary).toBe("- Cuộc họp thử nghiệm lúc 10:00.");
     expect(result.eventStartAt?.toISOString()).toBe("2026-08-24T03:00:00.000Z");
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`models/${GEMINI_EMAIL_SUMMARY_MODEL}:generateContent`);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("models/gemini-3.5-flash:generateContent");
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(request.contents[0].parts[0].text).toContain(source.snippet);
     expect(request.contents[0].parts[0].text).toContain("agenda.txt");

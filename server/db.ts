@@ -20,6 +20,7 @@ import {
 import { expandCalendarEvents, getTelegramOccurrenceDueAt, parseRecurrenceRule } from "../shared/recurrence";
 import { getVietnamDateKey } from "../shared/dailyQuote";
 import { ENV } from "./_core/env";
+import { resolveGeminiModel, type GeminiModel } from "../shared/geminiModels";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -54,6 +55,15 @@ export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
   return (await db.select().from(users).where(eq(users.openId, openId)).limit(1))[0];
+}
+export async function getUserGeminiModel(userId: number): Promise<GeminiModel> {
+  const db = await requireDb();
+  const user = (await db.select({ geminiModel: users.geminiModel }).from(users).where(eq(users.id, userId)).limit(1))[0];
+  return resolveGeminiModel(user?.geminiModel);
+}
+export async function updateUserGeminiModel(userId: number, geminiModel: GeminiModel) {
+  const db = await requireDb();
+  await db.update(users).set({ geminiModel }).where(eq(users.id, userId));
 }
 
 export type TaskInput = { title: string; description?: string | null; status: "todo" | "in_progress" | "done"; priority: "low" | "medium" | "high"; dueAt?: Date | null; reminderAt?: Date | null };

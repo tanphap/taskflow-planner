@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `geminiModel` varchar(80) DEFAULT 'gemini-3.5-flash-lite' NOT NULL;

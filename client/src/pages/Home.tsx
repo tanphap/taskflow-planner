@@ -5,6 +5,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AIChatBox } from "@/components/AIChatBox";
+import { GeminiModelSettings } from "@/components/GeminiModelSettings";
 import { filterEmailInbox, type EmailInboxFocus } from "../../../shared/emailInboxFilters";
 import { getEmailConnectionFeedback } from "../../../shared/emailConnectionFeedback";
 import { quickReminderAt } from "../../../shared/recurrence";
@@ -1094,7 +1095,7 @@ export default function Home() {
               onOpenOriginalContent={(messageId: number) => originalEmailContent.mutateAsync({ messageId })}
               onCreateEventFromSummary={openCreateEventFromEmailSummary}
             />}
-            {view === "profile" && <ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} />}
+            {view === "profile" && <><ProfileView name={user.name ?? ""} email={user.email ?? ""} saving={updateProfile.isPending} onSave={data => updateProfile.mutate(data)} onLogout={logout} telegram={telegramStatus.data} telegramHistory={(telegramHistory.data ?? []) as TelegramDeliveryLogRecord[]} linkCode={telegramLinkCode} linking={beginTelegramLink.isPending || confirmTelegramLink.isPending} onBeginTelegramLink={() => beginTelegramLink.mutate()} onConfirmTelegramLink={() => confirmTelegramLink.mutate()} /><div className="mx-auto max-w-4xl"><GeminiModelSettings /></div></>}
           </div>
         </main>
       </div>

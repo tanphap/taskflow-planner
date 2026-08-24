@@ -1,6 +1,7 @@
 import { ENV } from "./_core/env";
 import { GEMINI_EMAIL_SUMMARY_MODEL, GeminiTemporaryError } from "./geminiEmailSummary";
 import { normalizeSuggestedHelpViews, type HelpAssistantLocale, type HelpAssistantView } from "../shared/helpAssistantHistory";
+import { resolveGeminiModel, type GeminiModel } from "../shared/geminiModels";
 
 const HELP_CHAT_MODEL = GEMINI_EMAIL_SUMMARY_MODEL;
 const MAX_HELP_MESSAGES = 10;
@@ -85,13 +86,14 @@ function getGeminiText(payload: unknown) {
     : "";
 }
 
-export async function getTaskFlowHelpResponse(input: { locale: HelpLocale; messages: HelpChatMessage[] }) {
+export async function getTaskFlowHelpResponse(input: { locale: HelpLocale; messages: HelpChatMessage[]; model?: GeminiModel }) {
   const messages = buildTaskFlowHelpMessages(input.locale, input.messages);
   if (messages.length < 2) throw new Error("Help assistant requires a question");
   if (!ENV.geminiApiKey) throw new Error("Gemini API key chưa được cấu hình.");
+  const selectedModel = resolveGeminiModel(input.model);
   let response: Response;
   try {
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${HELP_CHAT_MODEL}:generateContent`, {
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": ENV.geminiApiKey },
       body: JSON.stringify({
@@ -112,6 +114,6 @@ export async function getTaskFlowHelpResponse(input: { locale: HelpLocale; messa
   const parsed = parseTaskFlowHelpResponse(getGeminiText(await response.json()));
   return {
     ...parsed,
-    model: HELP_CHAT_MODEL,
+    model: selectedModel,
   };
 }
