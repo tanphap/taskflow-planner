@@ -18,6 +18,7 @@ import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiSchedule
 import { isGeminiTemporaryError, summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
 import { getTaskFlowHelpResponse } from "./helpAssistant";
 import { GEMINI_MODELS } from "../shared/geminiModels";
+import { getTimesheetStats } from "./timesheet";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -89,6 +90,19 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => db.getDashboardData(ctx.user.id)) }),
+  timesheet: router({
+    stats: protectedProcedure.input(z.object({
+      month: z.number().int().min(1).max(12),
+      year: z.number().int().min(2000).max(2100),
+    })).query(async ({ input }) => {
+      try {
+        return await getTimesheetStats(input);
+      } catch (error) {
+        console.error("[Timesheet] stats failed", { reason: error instanceof Error ? error.message : String(error) });
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Không thể tải dữ liệu chấm công. Vui lòng thử lại sau." });
+      }
+    }),
+  }),
   helpAssistant: router({
     chat: protectedProcedure.input(z.object({
       locale: z.enum(["vi", "en"]).default("vi"),

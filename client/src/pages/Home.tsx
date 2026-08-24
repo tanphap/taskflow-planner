@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AIChatBox } from "@/components/AIChatBox";
 import { GeminiModelSettings } from "@/components/GeminiModelSettings";
+import { TimesheetDashboard } from "@/components/TimesheetDashboard";
 import { filterEmailInbox, type EmailInboxFocus } from "../../../shared/emailInboxFilters";
 import { getEmailConnectionFeedback } from "../../../shared/emailConnectionFeedback";
 import { quickReminderAt } from "../../../shared/recurrence";
@@ -57,7 +58,7 @@ import {
 } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-type View = "dashboard" | "tasks" | "calendar" | "notifications" | "profile" | "email";
+type View = "dashboard" | "tasks" | "calendar" | "notifications" | "profile" | "email" | "timesheet";
 type TaskStatus = "todo" | "in_progress" | "done";
 type Priority = "low" | "medium" | "high";
 type DailyQuoteMode = "auto" | "fixed";
@@ -255,6 +256,20 @@ Object.assign(englishCopy, {
   ,"(Không có tiêu đề)": "(No subject)"
 });
 
+Object.assign(englishCopy, {
+  "Chấm công": "Timesheet",
+  "Thống kê chấm công": "Timesheet analytics",
+  "Ngày làm việc": "Work days",
+  "Tổng giờ": "Total hours",
+  "Ngày công": "Work units",
+  "Giờ làm": "Hours worked",
+  "Số việc": "Tasks",
+  "Theo thư viện công việc": "By work library",
+  "Tổng hợp từng ngày": "Daily summary",
+  "Báo cáo tháng này đã được gửi": "This month's report was sent",
+  "Báo cáo tháng này chưa được ghi nhận đã gửi": "This month's report is not marked as sent",
+});
+
 const vietnameseCopy: Record<string, string> = Object.fromEntries(Object.entries(englishCopy).map(([vietnamese, english]) => [english, vietnamese]));
 
 function getAppLocale() {
@@ -424,6 +439,7 @@ const priorityMeta: Record<Priority, { label: string; className: string }> = {
 
 const navigation: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
   { id: "dashboard", label: "Tổng quan", icon: LayoutDashboard },
+  { id: "timesheet", label: "Chấm công", icon: AlarmClock },
   { id: "tasks", label: "Công việc", icon: ClipboardList },
   { id: "calendar", label: "Lịch hẹn", icon: CalendarDays },
   { id: "notifications", label: "Nhắc việc", icon: Bell },
@@ -691,6 +707,7 @@ function pageTitle(view: View) {
     calendar: "Lịch hẹn",
     notifications: "Trung tâm nhắc việc",
     email: "Quản trị email",
+    timesheet: "Thống kê chấm công",
     profile: "Hồ sơ cá nhân",
   })[view];
 }
@@ -702,7 +719,7 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState<View>(() => {
     const requestedView = new URLSearchParams(window.location.search).get("view");
-    return requestedView && ["dashboard", "tasks", "calendar", "notifications", "profile", "email"].includes(requestedView)
+    return requestedView && ["dashboard", "tasks", "calendar", "notifications", "profile", "email", "timesheet"].includes(requestedView)
       ? requestedView as View
       : "dashboard";
   });
@@ -1046,6 +1063,7 @@ export default function Home() {
 
           <div className="mx-auto w-full max-w-[1440px] p-4 pb-10 md:p-8 lg:p-10">
             {view === "dashboard" && <DashboardView data={dashboard.data} aiOverview={emailAiOverview.data as EmailAiOverviewData | undefined} loading={dashboard.isLoading || emailAiOverview.isLoading} quoteMode={dailyQuoteMode} onQuoteModeChange={setDailyQuoteMode} onOpenTasks={() => setView("tasks")} onOpenCalendar={() => setView("calendar")} onOpenEmail={() => setView("email")} onCreateTask={openCreateTask} onEditTask={openEditTask} />}
+            {view === "timesheet" && <TimesheetDashboard />}
             {view === "tasks" && <TasksView tasks={taskData} onCreate={openCreateTask} onEdit={openEditTask} onSchedule={openCreateEventFromTask} onDelete={id => deleteTask.mutate({ id })} onToggleDone={task => updateTask.mutate({ id: task.id, data: { title: task.title, description: task.description, status: task.status === "done" ? "todo" : "done", priority: task.priority, dueAt: asDate(task.dueAt), reminderAt: asDate(task.reminderAt) } })} />}
             {view === "calendar" && <CalendarView events={eventData} tasks={taskData} onCreate={openCreateEvent} onEdit={openEditEvent} onDelete={id => deleteEvent.mutate({ id })} />}
             {view === "notifications" && <NotificationsView notifications={notificationData} onRead={id => markRead.mutate({ id })} onReadAll={() => markAllRead.mutate()} />}
