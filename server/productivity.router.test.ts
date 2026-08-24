@@ -266,7 +266,7 @@ describe("productivity router data isolation", () => {
   });
 
   it("shows the shared duty schedule to every signed-in account without exposing protected Timesheet source data", async () => {
-    vi.mocked(db.listTimesheetDutySchedules).mockResolvedValue([{ id: 12, dutyDate: "2026-08-03", shift: "S", assignment: "Trung-Minh", sourceTitle: "Lịch trực tháng 8", createdByUserId: 74, updatedByUserId: 74, createdAt: new Date(), updatedAt: new Date() }]);
+    vi.mocked(db.listTimesheetDutySchedules).mockResolvedValue([{ id: 12, dutyDate: "2026-08-03", shift: "S", assignment: "Trung-Minh", sourceTitle: "Lịch trực tháng 8", changeNote: null, isChanged: false, createdByUserId: 74, updatedByUserId: 74, createdAt: new Date(), updatedAt: new Date() }]);
     const user = appRouter.createCaller(createUserContext(75));
 
     await expect(user.timesheet.dutySchedule({ year: 2026, month: 8 })).resolves.toHaveLength(1);
@@ -298,13 +298,16 @@ describe("productivity router data isolation", () => {
     vi.mocked(db.deleteTimesheetDutySchedule).mockResolvedValue(true);
     const admin = appRouter.createCaller(createUserContext(74));
     const input = { date: "2026-08-03", shift: "S" as const, assignment: "Trung-Minh", locale: "vi" as const };
+    const updateInput = { ...input, changeNote: "Đổi ca theo đề nghị của tổ trực" };
 
     await expect(admin.timesheet.createDutyScheduleEntry(input)).resolves.toEqual({ id: 44 });
-    await expect(admin.timesheet.updateDutyScheduleEntry({ id: 44, ...input })).resolves.toEqual({ success: true });
+    await expect(admin.timesheet.updateDutyScheduleEntry({ id: 44, ...updateInput })).resolves.toEqual({ success: true });
     await expect(admin.timesheet.deleteDutyScheduleEntry({ id: 44 })).resolves.toEqual({ success: true });
     expect(db.createTimesheetDutySchedule).toHaveBeenCalledWith(74, expect.objectContaining({ date: "2026-08-03", shift: "S" }), "Chỉnh sửa trực tiếp");
-    expect(db.updateTimesheetDutySchedule).toHaveBeenCalledWith(74, 44, expect.objectContaining({ assignment: "Trung-Minh" }), "Chỉnh sửa trực tiếp");
+    expect(db.updateTimesheetDutySchedule).toHaveBeenCalledWith(74, 44, expect.objectContaining({ assignment: "Trung-Minh", changeNote: "Đổi ca theo đề nghị của tổ trực" }), "Chỉnh sửa trực tiếp");
     expect(db.deleteTimesheetDutySchedule).toHaveBeenCalledWith(44);
+
+    await expect(admin.timesheet.updateDutyScheduleEntry({ id: 44, ...input, changeNote: "" })).rejects.toThrow("Hãy nhập chú thích thay đổi ca");
 
     vi.mocked(db.getTimesheetAccessRole).mockResolvedValue(null);
     const regularUser = appRouter.createCaller(createUserContext(75));

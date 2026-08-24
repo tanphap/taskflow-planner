@@ -273,3 +273,5 @@
 - [x] Kiểm chứng desktop/mobile: tìm tên người trực, lọc loại ca và lịch nén theo chiều dọc hiển thị rõ; trên điện thoại ca được rút gọn để giữ lịch trong vùng xem nhanh.
 - [x] Thu nhỏ chữ và khoảng cách trong ô lịch trực để tên ca vừa ô, không cần cuộn; kiểm chứng desktop/mobile và xuất bản.
 - [x] Kiểm chứng desktop/mobile: các ca được thu nhỏ, rút gọn theo chiều ngang và ô lịch không còn thanh cuộn nội bộ.
+- [x] Thêm chú thích/lưu vết khi Admin đổi ca và màu trạng thái rõ ràng để người xem dễ theo dõi; migration, kiểm thử, xác minh responsive và xuất bản.
+- [x] Kiểm chứng desktop: ca S/D có màu phân biệt, chú giải màu hiển thị dưới lịch và dấu trạng thái Admin điều chỉnh có vị trí riêng.

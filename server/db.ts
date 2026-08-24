@@ -164,6 +164,7 @@ export type TimesheetDutyScheduleInput = {
   shift: "S" | "D";
   assignment: string;
 };
+export type TimesheetDutyScheduleUpdateInput = TimesheetDutyScheduleInput & { changeNote: string };
 
 export async function listTimesheetDutySchedules(fromDate: string, toDate: string) {
   const db = await requireDb();
@@ -180,7 +181,7 @@ export async function saveTimesheetDutySchedules(actorUserId: number, scheduleTi
     const existing = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules)
       .where(and(eq(timesheetDutySchedules.dutyDate, entry.date), eq(timesheetDutySchedules.shift, entry.shift))).limit(1);
     if (existing[0]) {
-      await db.update(timesheetDutySchedules).set({ assignment: entry.assignment.trim(), sourceTitle: scheduleTitle.trim(), updatedByUserId: actorUserId })
+      await db.update(timesheetDutySchedules).set({ assignment: entry.assignment.trim(), sourceTitle: scheduleTitle.trim(), changeNote: null, isChanged: false, updatedByUserId: actorUserId })
         .where(eq(timesheetDutySchedules.id, existing[0].id));
       updated += 1;
     } else {
@@ -200,14 +201,14 @@ export async function createTimesheetDutySchedule(actorUserId: number, input: Ti
   return Number((result as unknown as [{ insertId?: number }])[0]?.insertId) || null;
 }
 
-export async function updateTimesheetDutySchedule(actorUserId: number, id: number, input: TimesheetDutyScheduleInput, sourceTitle: string) {
+export async function updateTimesheetDutySchedule(actorUserId: number, id: number, input: TimesheetDutyScheduleUpdateInput, sourceTitle: string) {
   const db = await requireDb();
   const conflict = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules)
     .where(and(eq(timesheetDutySchedules.dutyDate, input.date), eq(timesheetDutySchedules.shift, input.shift), ne(timesheetDutySchedules.id, id))).limit(1);
   if (conflict[0]) return "conflict" as const;
   const current = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules).where(eq(timesheetDutySchedules.id, id)).limit(1);
   if (!current[0]) return "not_found" as const;
-  await db.update(timesheetDutySchedules).set({ dutyDate: input.date, shift: input.shift, assignment: input.assignment.trim(), sourceTitle: sourceTitle.trim(), updatedByUserId: actorUserId }).where(eq(timesheetDutySchedules.id, id));
+  await db.update(timesheetDutySchedules).set({ dutyDate: input.date, shift: input.shift, assignment: input.assignment.trim(), sourceTitle: sourceTitle.trim(), changeNote: input.changeNote.trim(), isChanged: true, updatedByUserId: actorUserId }).where(eq(timesheetDutySchedules.id, id));
   return "updated" as const;
 }
 

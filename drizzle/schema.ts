@@ -339,6 +339,8 @@ export const timesheetDutySchedules = mysqlTable(
     shift: mysqlEnum("shift", ["S", "D"]).notNull(),
     assignment: varchar("assignment", { length: 240 }).notNull(),
     sourceTitle: varchar("sourceTitle", { length: 240 }).notNull(),
+    changeNote: varchar("changeNote", { length: 400 }),
+    isChanged: boolean("isChanged").default(false).notNull(),
     createdByUserId: int("createdByUserId").notNull(),
     updatedByUserId: int("updatedByUserId").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
