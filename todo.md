@@ -257,3 +257,4 @@
 - [x] Thêm lựa chọn mô hình Gemini trong Hồ sơ, lưu theo tài khoản và áp dụng an toàn cho Bot hướng dẫn cùng tóm tắt email; migration, kiểm thử và responsive đã xác minh.
 - [x] Thêm nút kiểm tra kết nối Gemini trong Hồ sơ, xác minh API key và mô hình đã chọn mà không gửi dữ liệu người dùng.
 - [x] Kiểm tra nhánh GitHub feature/timesheet-dashboard, đánh giá tác động và đề xuất cách triển khai an toàn vào TaskFlow.
+- [x] Hợp nhất Timesheet Dashboard với bộ chọn tên lọc dữ liệu chấm công, cấu hình nguồn an toàn, kiểm thử và xuất bản; đã xác minh UI, quyền chủ sở hữu, responsive và build.

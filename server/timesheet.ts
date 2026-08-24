@@ -1,10 +1,10 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { ENV } from "./_core/env";
 
 const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTAfaIBOkxXKQu_F6vbUX3l0zmoIl2AJkXPIHQHnbSXT5kTf367ZN3wkE1r4cNE9L8Qfa67gAp_-pXp/pub?gid=0&single=true&output=csv";
 const MAX_CSV_BYTES = 5 * 1024 * 1024;
 const REQUIRED_COLUMNS = 17;
+const CSV_CACHE_TTL_MS = 5 * 60_000;
+let csvCache: { url: string; text: string; fetchedAt: number } | null = null;
 
 type TimesheetRow = {
   library: string;
@@ -17,6 +17,7 @@ type TimesheetRow = {
   year: number;
   hours: number;
 };
+export type TimesheetPerson = { name: string };
 
 export type TimesheetStats = {
   period: { month: number; year: number; label: string };
@@ -85,14 +86,16 @@ function calculateHours(startDateText: string, startText: string, endDateText: s
   return minutes >= 0 && minutes <= 72 * 60 ? round(minutes / 60) : 0;
 }
 
+function getPersonNames(source: string[]) {
+  return Array.from(new Set([source[11], source[12]].map(value => (value ?? "").replace(/\s+/g, " ").trim()).filter(Boolean)));
+}
 function toTimesheetRows(csv: string, employeeMatch: string) {
   const [headers, ...sourceRows] = parseCsv(csv.replace(/^\uFEFF/, ""));
   if (!headers || headers.length < REQUIRED_COLUMNS || headers[13]?.trim() !== "Ngày bắt đầu") throw new Error("Google Sheets không đúng cấu trúc chấm công mong đợi.");
   const rows: TimesheetRow[] = [];
   let skippedRowCount = 0;
   for (const source of sourceRows) {
-    const person = `${source[11] ?? ""} ${source[12] ?? ""}`;
-    if (!person.includes(employeeMatch)) continue;
+    if (!getPersonNames(source).includes(employeeMatch)) continue;
     const date = parseDate(source[13] ?? "");
     if (!date || source.length < REQUIRED_COLUMNS) { skippedRowCount += 1; continue; }
     rows.push({
@@ -109,9 +112,16 @@ function toTimesheetRows(csv: string, employeeMatch: string) {
   }
   return { rows, skippedRowCount };
 }
+export function listTimesheetPeople(csv: string): TimesheetPerson[] {
+  const [headers, ...sourceRows] = parseCsv(csv.replace(/^\uFEFF/, ""));
+  if (!headers || headers.length < REQUIRED_COLUMNS || headers[13]?.trim() !== "Ngày bắt đầu") throw new Error("Google Sheets không đúng cấu trúc chấm công mong đợi.");
+  return Array.from(new Set(sourceRows.flatMap(getPersonNames)))
+    .sort((left, right) => left.localeCompare(right, "vi"))
+    .map(name => ({ name }));
+}
 
 async function fetchCsv(url: string) {
-  const response = await fetch(url, { headers: { accept: "text/csv" }, signal: AbortSignal.timeout(15_000) });
+  const response = await fetch(url, { headers: { accept: "text/csv" }, signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`Không thể tải Google Sheets (HTTP ${response.status}).`);
   if (!response.body) throw new Error("Google Sheets trả về nội dung rỗng.");
   const reader = response.body.getReader();
@@ -129,19 +139,16 @@ async function fetchCsv(url: string) {
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   return new TextDecoder().decode(bytes);
 }
-
-async function getReportStatus(year: number, month: number, stateFile: string) {
-  try {
-    const state = JSON.parse(await readFile(stateFile, "utf8")) as Record<string, unknown>;
-    const sentAt = state[`${year}-${String(month).padStart(2, "0")}`];
-    return typeof sentAt === "string" ? { sent: true, sentAt } : { sent: false, sentAt: null };
-  } catch {
-    return { sent: false, sentAt: null };
-  }
+async function fetchTimesheetCsv() {
+  const csvUrl = ENV.timesheetCsvUrl || DEFAULT_CSV_URL;
+  if (csvCache?.url === csvUrl && Date.now() - csvCache.fetchedAt < CSV_CACHE_TTL_MS) return csvCache.text;
+  const text = await fetchCsv(csvUrl);
+  csvCache = { url: csvUrl, text, fetchedAt: Date.now() };
+  return text;
 }
 
-export function aggregateTimesheet(csv: string, input: { month: number; year: number; employeeMatch?: string; sentAt?: string | null }): TimesheetStats {
-  const { rows, skippedRowCount } = toTimesheetRows(csv, input.employeeMatch || "Pháp");
+export function aggregateTimesheet(csv: string, input: { month: number; year: number; employeeMatch: string }): TimesheetStats {
+  const { rows, skippedRowCount } = toTimesheetRows(csv, input.employeeMatch);
   const selected = rows.filter(row => row.year === input.year && row.month === input.month);
   const byDay = new Map<number, { date: string; day: number; hours: number; taskCount: number }>();
   const byLibrary = new Map<string, { name: string; hours: number; taskCount: number }>();
@@ -163,15 +170,14 @@ export function aggregateTimesheet(csv: string, input: { month: number; year: nu
     byDay: Array.from(byDay.values()).sort((left, right) => left.day - right.day),
     byLibrary: Array.from(byLibrary.values()).sort((left, right) => right.hours - left.hours || right.taskCount - left.taskCount),
     yearTrend,
-    report: { sent: Boolean(input.sentAt), sentAt: input.sentAt ?? null },
+    report: { sent: false, sentAt: null },
     source: { fetchedAt: new Date().toISOString(), rowCount: rows.length, skippedRowCount },
   };
 }
 
-export async function getTimesheetStats(input: { month: number; year: number }) {
-  const csvUrl = ENV.timesheetCsvUrl || DEFAULT_CSV_URL;
-  const employeeMatch = ENV.timesheetEmployeeMatch;
-  const stateFile = ENV.timesheetStateFile || resolve(process.cwd(), "..", ".timesheet_state.json");
-  const [csv, report] = await Promise.all([fetchCsv(csvUrl), getReportStatus(input.year, input.month, stateFile)]);
-  return aggregateTimesheet(csv, { ...input, employeeMatch, sentAt: report.sentAt });
+export async function getTimesheetPeople() {
+  return listTimesheetPeople(await fetchTimesheetCsv());
+}
+export async function getTimesheetStats(input: { month: number; year: number; employeeName: string }) {
+  return aggregateTimesheet(await fetchTimesheetCsv(), { month: input.month, year: input.year, employeeMatch: input.employeeName });
 }

@@ -18,7 +18,7 @@ import { configureEmailAiSync, EMAIL_AI_SYNC_INTERVALS } from "./emailAiSchedule
 import { isGeminiTemporaryError, summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
 import { getTaskFlowHelpResponse } from "./helpAssistant";
 import { GEMINI_MODELS } from "../shared/geminiModels";
-import { getTimesheetStats } from "./timesheet";
+import { getTimesheetPeople, getTimesheetStats } from "./timesheet";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -53,6 +53,9 @@ function serializeEventInput(input: z.infer<typeof eventInput>): db.EventInput {
 
 function normalizeConversationSubject(subject: string) {
   return subject.replace(/^\s*(?:(?:re|fw|fwd)\s*:\s*)+/i, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+function requireTimesheetOwner(user: { openId: string }) {
+  if (ENV.ownerOpenId && user.openId !== ENV.ownerOpenId) throw new TRPCError({ code: "FORBIDDEN", message: "Chấm công chỉ dành cho chủ sở hữu nguồn dữ liệu." });
 }
 
 function guardGeminiProposalAgainstCalendar<T extends { summary: string; eventStartAt: Date | null; eventEndAt: Date | null }>(result: T, busySlots: Array<{ startAt: Date; endAt: Date }>, locale: "vi" | "en") {
@@ -91,10 +94,20 @@ export const appRouter = router({
   auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => db.getDashboardData(ctx.user.id)) }),
   timesheet: router({
+    people: protectedProcedure.query(async ({ ctx }) => {
+      requireTimesheetOwner(ctx.user);
+      try { return await getTimesheetPeople(); }
+      catch (error) {
+        console.error("[Timesheet] people failed", { reason: error instanceof Error ? error.message : String(error) });
+        throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Không thể tải danh sách nhân sự chấm công. Vui lòng thử lại sau." });
+      }
+    }),
     stats: protectedProcedure.input(z.object({
       month: z.number().int().min(1).max(12),
       year: z.number().int().min(2000).max(2100),
-    })).query(async ({ input }) => {
+      employeeName: z.string().trim().min(1).max(160),
+    })).query(async ({ ctx, input }) => {
+      requireTimesheetOwner(ctx.user);
       try {
         return await getTimesheetStats(input);
       } catch (error) {

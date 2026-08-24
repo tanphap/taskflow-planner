@@ -55,10 +55,16 @@ vi.mock("./geminiEmailSummary", () => ({
   verifyGeminiConnection: vi.fn(),
   isGeminiTemporaryError: (error: unknown) => Boolean(error && typeof error === "object" && "retryable" in error && (error as { retryable?: unknown }).retryable),
 }));
+vi.mock("./timesheet", () => ({
+  getTimesheetPeople: vi.fn(),
+  getTimesheetStats: vi.fn(),
+}));
 
 import { appRouter } from "./routers";
 import * as db from "./db";
+import { ENV } from "./_core/env";
 import { summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
+import { getTimesheetPeople } from "./timesheet";
 import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, inspectMailboxSpreadsheetsForGemini } from "./emailSync";
 
 function createUserContext(userId = 42): TrpcContext {
@@ -159,6 +165,19 @@ describe("productivity router data isolation", () => {
 
     expect(db.getUserGeminiModel).toHaveBeenCalledWith(73);
     expect(verifyGeminiConnection).toHaveBeenCalledWith("gemini-3.5-flash");
+  });
+
+  it("limits the shared Timesheet source to the configured owner", async () => {
+    vi.mocked(getTimesheetPeople).mockResolvedValue([{ name: "Nguyễn Tấn Pháp" }]);
+    const ownerContext = createUserContext(73);
+    ownerContext.user.openId = ENV.ownerOpenId || ownerContext.user.openId;
+    const owner = appRouter.createCaller(ownerContext);
+    await expect(owner.timesheet.people()).resolves.toEqual([{ name: "Nguyễn Tấn Pháp" }]);
+
+    if (ENV.ownerOpenId) {
+      const otherUser = appRouter.createCaller(createUserContext(74));
+      await expect(otherUser.timesheet.people()).rejects.toThrow("Chấm công chỉ dành cho chủ sở hữu nguồn dữ liệu");
+    }
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {
@@ -358,14 +377,17 @@ describe("productivity router data isolation", () => {
   });
 
   it("removes a Gemini appointment proposal when it overlaps an existing calendar event", async () => {
+    const existingStartAt = new Date(Date.now() + 60 * 60_000);
+    const existingEndAt = new Date(existingStartAt.getTime() + 60 * 60_000);
+    const proposedStartAt = new Date(existingStartAt.getTime() + 30 * 60_000);
     vi.mocked(db.getEmailGeminiSummary).mockResolvedValue(null);
     vi.mocked(db.getEmailMessageForGeminiSummary).mockResolvedValue({
       id: 17, emailAccountId: 9, subject: "Họp khách hàng", senderName: "Lan", senderEmail: "lan@example.com", snippet: "Họp lúc 10:30.", receivedAt: new Date("2026-08-21T08:00:00.000Z"),
     } as never);
     vi.mocked(fetchMailboxMessageForGeminiSummary).mockResolvedValue({ text: "Xác nhận cuộc họp khách hàng lúc 10:30.", truncated: false, attachments: [] });
     vi.mocked(db.listEmailMessages).mockResolvedValue([]);
-    vi.mocked(db.listEvents).mockResolvedValue([{ startAt: new Date("2026-08-24T03:00:00.000Z"), endAt: new Date("2026-08-24T04:00:00.000Z") }] as never);
-    vi.mocked(summarizeGmailEmailWithGemini).mockResolvedValue({ summary: "- Họp khách hàng lúc 10:30.", model: "gemini-3.5-flash-lite", eventStartAt: new Date("2026-08-24T03:30:00.000Z"), eventEndAt: new Date("2026-08-24T04:00:00.000Z") });
+    vi.mocked(db.listEvents).mockResolvedValue([{ startAt: existingStartAt, endAt: existingEndAt }] as never);
+    vi.mocked(summarizeGmailEmailWithGemini).mockResolvedValue({ summary: "- Họp khách hàng lúc 10:30.", model: "gemini-3.5-flash-lite", eventStartAt: proposedStartAt, eventEndAt: existingEndAt });
     vi.mocked(db.createEmailGeminiSummary).mockResolvedValue({ id: 62, summary: "Tóm tắt đã lưu." } as never);
     const caller = appRouter.createCaller(createUserContext(73));
 
