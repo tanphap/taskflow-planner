@@ -264,3 +264,5 @@
 - [x] Cho phép chủ sở hữu Timesheet cấp hoặc thu hồi quyền Admin Timesheet cho tài khoản khác; Admin được ủy quyền chỉ quản lý quyền xem để tránh leo thang đặc quyền; migration, kiểm thử và xác minh responsive đã hoàn tất.
 - [x] Cho phép Admin Timesheet tải ảnh lịch trực, trích xuất ca bằng AI thành lịch hẹn đề xuất để rà soát trước khi lưu; bảo vệ tệp, phân quyền và kiểm thử/xuất bản.
 - [x] Kiểm chứng giao diện tải ảnh lịch trực trong Hồ sơ trên desktop và điện thoại: vùng chọn tệp, giới hạn định dạng/dung lượng và quyền Admin Timesheet hiển thị phù hợp.
+- [x] Bổ sung thông tin nhận diện và tìm kiếm/lọc tài khoản trong danh sách cấp quyền Timesheet để Admin cấp quyền chính xác, kèm kiểm thử và xuất bản.
+- [x] Kiểm chứng desktop và điện thoại: thanh tìm tên/email, trạng thái quyền và ngày đăng nhập gần nhất hiển thị rõ trong danh sách Timesheet.

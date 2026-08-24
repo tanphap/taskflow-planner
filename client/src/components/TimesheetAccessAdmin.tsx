@@ -1,13 +1,16 @@
-import { Check, Eye, Loader2, ShieldCheck, ShieldPlus, UserRound, X } from "lucide-react";
+import { useState } from "react";
+import { Check, Eye, Loader2, Search, ShieldCheck, ShieldPlus, UserRound, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
+import { matchesTimesheetAccountSearch } from "@shared/timesheetAccountSearch";
 
 type AccessRole = "viewer" | "admin" | null;
 
 export function TimesheetAccessAdmin() {
   const { language } = useLanguage();
   const isEnglish = language === "en";
+  const [accountQuery, setAccountQuery] = useState("");
   const access = trpc.timesheet.access.useQuery();
   const accounts = trpc.timesheet.accounts.useQuery(undefined, { enabled: access.data?.canManage === true });
   const updateAccess = trpc.timesheet.setAccess.useMutation({
@@ -34,6 +37,18 @@ export function TimesheetAccessAdmin() {
 
   const actionClass = "inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--terracotta)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
   const isPendingFor = (userId: number, accessRole: AccessRole) => updateAccess.isPending && updateAccess.variables?.userId === userId && updateAccess.variables?.accessRole === accessRole;
+  const allAccounts = accounts.data ?? [];
+  const visibleAccounts = allAccounts.filter(account => matchesTimesheetAccountSearch(account, accountQuery));
+  const permissionCounts = {
+    admins: allAccounts.filter(account => account.accessRole === "admin").length,
+    viewers: allAccounts.filter(account => account.accessRole === "viewer").length,
+  };
+  const formatLastSignedIn = (value: Date | string | null | undefined) => {
+    if (!value) return isEnglish ? "No activity recorded" : "Chưa có hoạt động ghi nhận";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return isEnglish ? "No activity recorded" : "Chưa có hoạt động ghi nhận";
+    return new Intl.DateTimeFormat(isEnglish ? "en-GB" : "vi-VN", { dateStyle: "medium" }).format(date);
+  };
 
   return (
     <section className="mt-8 border-t border-[var(--line)] pt-6">
@@ -59,8 +74,26 @@ export function TimesheetAccessAdmin() {
       ) : accounts.isError ? (
         <p className="mt-4 text-sm text-[var(--terracotta-dark)]">{accounts.error.message}</p>
       ) : (
-        <div className="mt-4 divide-y divide-[var(--line)] border-y border-[var(--line)]">
-          {(accounts.data ?? []).map(account => {
+        <div className="mt-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-xs text-[var(--ink-muted)]">
+              <Users className="h-4 w-4 text-[var(--terracotta)]" aria-hidden="true" />
+              <span>{isEnglish ? `${allAccounts.length} accounts · ${permissionCounts.admins} admins · ${permissionCounts.viewers} viewers` : `${allAccounts.length} tài khoản · ${permissionCounts.admins} Admin · ${permissionCounts.viewers} người xem`}</span>
+            </div>
+            <label className="relative block sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ink-muted)]" aria-hidden="true" />
+              <input
+                type="search"
+                value={accountQuery}
+                onChange={event => setAccountQuery(event.target.value)}
+                placeholder={isEnglish ? "Search name or email" : "Tìm tên hoặc email"}
+                aria-label={isEnglish ? "Search Timesheet accounts by name or email" : "Tìm tài khoản Timesheet theo tên hoặc email"}
+                className="min-h-10 w-full rounded-lg border border-[var(--line-strong)] bg-white py-2 pl-9 pr-3 text-sm text-[var(--ink)] outline-none transition placeholder:text-[var(--ink-muted)] focus:border-[var(--terracotta)] focus:ring-2 focus:ring-[var(--terracotta-soft)]"
+              />
+            </label>
+          </div>
+          <div className="mt-3 divide-y divide-[var(--line)] border-y border-[var(--line)]">
+          {visibleAccounts.map(account => {
             const canChange = !account.isRoot;
             const canManageAccount = access.data.isRoot || account.accessRole !== "admin";
             const canManageView = canChange && canManageAccount;
@@ -70,6 +103,7 @@ export function TimesheetAccessAdmin() {
                 <div className="min-w-0 flex-1 basis-40">
                   <p className="truncate text-sm font-semibold">{account.name || (isEnglish ? "Unnamed account" : "Tài khoản chưa đặt tên")}</p>
                   <p className="truncate text-xs text-[var(--ink-muted)]">{account.email || (isEnglish ? "No email" : "Chưa có email")}</p>
+                  <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">{isEnglish ? "Last sign-in: " : "Đăng nhập gần nhất: "}{formatLastSignedIn(account.lastSignedIn)}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${account.isRoot ? "bg-[var(--sage-soft)] text-[var(--sage)]" : account.accessRole === "admin" ? "bg-[var(--terracotta-soft)] text-[var(--terracotta-dark)]" : account.accessRole === "viewer" ? "bg-[var(--surface-soft)] text-[var(--ink-muted)]" : "bg-[var(--surface-soft)] text-[var(--ink-muted)]"}`}>
                   {roleLabel(account.accessRole, account.isRoot)}
@@ -105,6 +139,12 @@ export function TimesheetAccessAdmin() {
               </div>
             );
           })}
+          {visibleAccounts.length === 0 && (
+            <div className="px-1 py-5 text-sm text-[var(--ink-muted)]">
+              {isEnglish ? "No account matches this name or email." : "Không tìm thấy tài khoản khớp với tên hoặc email này."}
+            </div>
+          )}
+          </div>
         </div>
       )}
     </section>
