@@ -268,3 +268,6 @@
 - [x] Kiểm chứng desktop và điện thoại: thanh tìm tên/email, trạng thái quyền và ngày đăng nhập gần nhất hiển thị rõ trong danh sách Timesheet.
 - [x] Chuyển lịch trực thành lịch dùng chung cho mọi tài khoản xem, không ghi vào lịch hẹn cá nhân; cho phép Admin Timesheet thêm/sửa/xóa trực tiếp các ca, kèm migration, kiểm thử và xuất bản.
 - [x] Kiểm chứng desktop: lịch trực dùng chung xuất hiện trong màn hình Chấm công, điều hướng tháng và điều khiển thêm ca của Admin hiển thị đúng.
+- [x] Thêm bộ lọc lịch trực theo tên nhân sự và loại ca, đồng thời thu gọn chiều cao lịch khoảng 50% để xem nhanh; kiểm thử, xác minh responsive và xuất bản.
+- [x] Kiểm tra nhật ký khi xác minh lịch trực sau HMR: không có lỗi Timesheet mới; lần chụp đầu ghi nhận trạng thái tải nên tiếp tục xác nhận giao diện sau khi dữ liệu hoàn tất.
+- [x] Kiểm chứng desktop/mobile: tìm tên người trực, lọc loại ca và lịch nén theo chiều dọc hiển thị rõ; trên điện thoại ca được rút gọn để giữ lịch trong vùng xem nhanh.
