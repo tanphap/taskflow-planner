@@ -156,6 +156,53 @@ export async function createEvent(userId: number, input: EventInput) {
   const result = await db.insert(calendarEvents).values({ userId, title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, recurrenceRule: input.recurrenceRule ?? null, telegramReminder: input.telegramReminder });
   return Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
 }
+export type TimesheetShiftEventInput = {
+  date: string;
+  shift: "S" | "D";
+  assignment: string;
+};
+
+function timesheetShiftRange(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const startAt = new Date(Date.UTC(year, month - 1, day, -7, 0, 0));
+  const endAt = new Date(Date.UTC(year, month - 1, day, 16, 59, 0));
+  return { startAt, endAt };
+}
+
+function timesheetShiftMarker(shift: "S" | "D", assignment: string) {
+  return `[timesheet-image:${shift}:${assignment.replace(/\s+/g, " ").trim().toLocaleLowerCase("vi")}]`;
+}
+
+export async function createTimesheetShiftEvents(userId: number, scheduleTitle: string, entries: TimesheetShiftEventInput[], locale: "vi" | "en") {
+  const db = await requireDb();
+  const candidates = entries.map(entry => {
+    const { startAt, endAt } = timesheetShiftRange(entry.date);
+    const marker = timesheetShiftMarker(entry.shift, entry.assignment);
+    const shiftTitle = locale === "en" ? `Duty shift ${entry.shift} · ${entry.assignment}` : `Trực ca ${entry.shift} · ${entry.assignment}`;
+    const description = locale === "en"
+      ? `${marker}\nRoster: ${scheduleTitle}\nShift: ${entry.shift}\nDate: ${entry.date}\n\nExtracted from a roster image and reviewed by a Timesheet administrator. No reminder was enabled.`
+      : `${marker}\nLịch trực: ${scheduleTitle}\nCa: ${entry.shift}\nNgày: ${entry.date}\n\nDữ liệu được trích xuất từ ảnh lịch trực và đã được Admin Timesheet rà soát. Hệ thống không bật nhắc việc.`;
+    return { ...entry, startAt, endAt, marker, title: shiftTitle.slice(0, 240), description };
+  });
+  const existing = candidates.length
+    ? await db.select({ startAt: calendarEvents.startAt, description: calendarEvents.description }).from(calendarEvents).where(and(eq(calendarEvents.userId, userId), inArray(calendarEvents.startAt, candidates.map(candidate => candidate.startAt))))
+    : [];
+  const existingMarkers = new Set(existing.flatMap(event => candidates.filter(candidate => event.startAt.getTime() === candidate.startAt.getTime() && event.description?.includes(candidate.marker)).map(candidate => candidate.marker)));
+  const newEvents = candidates.filter(candidate => !existingMarkers.has(candidate.marker));
+  if (newEvents.length) {
+    await db.insert(calendarEvents).values(newEvents.map(event => ({
+      userId,
+      title: event.title,
+      description: event.description,
+      startAt: event.startAt,
+      endAt: event.endAt,
+      reminderAt: null,
+      recurrenceRule: null,
+      telegramReminder: false,
+    })));
+  }
+  return { created: newEvents.length, skipped: candidates.length - newEvents.length };
+}
 export async function getEvent(userId: number, eventId: number) {
   const db = await requireDb();
   return (await db.select().from(calendarEvents).where(and(eq(calendarEvents.id, eventId), eq(calendarEvents.userId, userId))).limit(1))[0];

@@ -262,3 +262,5 @@
 - [x] Đổi chữ ký thành RIO_Design và hiển thị mã phiên bản phát hành để dễ quản lý; đã kiểm tra responsive và sẵn sàng xuất bản.
 - [x] Thêm cơ chế Admin Timesheet để chủ sở hữu cấp hoặc thu hồi quyền xem chấm công cho từng tài khoản; migration, kiểm thử quyền, desktop/mobile và build đã hoàn tất.
 - [x] Cho phép chủ sở hữu Timesheet cấp hoặc thu hồi quyền Admin Timesheet cho tài khoản khác; Admin được ủy quyền chỉ quản lý quyền xem để tránh leo thang đặc quyền; migration, kiểm thử và xác minh responsive đã hoàn tất.
+- [x] Cho phép Admin Timesheet tải ảnh lịch trực, trích xuất ca bằng AI thành lịch hẹn đề xuất để rà soát trước khi lưu; bảo vệ tệp, phân quyền và kiểm thử/xuất bản.
+- [x] Kiểm chứng giao diện tải ảnh lịch trực trong Hồ sơ trên desktop và điện thoại: vùng chọn tệp, giới hạn định dạng/dung lượng và quyền Admin Timesheet hiển thị phù hợp.

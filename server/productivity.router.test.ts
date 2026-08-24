@@ -9,6 +9,7 @@ vi.mock("./db", () => ({
   deleteTask: vi.fn(),
   listEvents: vi.fn(),
   createEvent: vi.fn(),
+  createTimesheetShiftEvents: vi.fn(),
   updateEvent: vi.fn(),
   deleteEvent: vi.fn(),
   syncDueNotifications: vi.fn(),
@@ -64,6 +65,9 @@ vi.mock("./timesheet", () => ({
   getTimesheetPeople: vi.fn(),
   getTimesheetStats: vi.fn(),
 }));
+vi.mock("./timesheetImageSchedule", () => ({
+  extractTimesheetScheduleFromImage: vi.fn(),
+}));
 
 import { appRouter } from "./routers";
 import * as db from "./db";
@@ -71,6 +75,7 @@ import { ENV } from "./_core/env";
 import { summarizeGmailEmailWithGemini, verifyGeminiConnection } from "./geminiEmailSummary";
 import { getTimesheetPeople } from "./timesheet";
 import { fetchOlderMailboxMessages, fetchMailboxMessageForGeminiSummary, inspectMailboxSpreadsheetsForGemini } from "./emailSync";
+import { extractTimesheetScheduleFromImage } from "./timesheetImageSchedule";
 
 function createUserContext(userId = 42): TrpcContext {
   return {
@@ -231,6 +236,44 @@ describe("productivity router data isolation", () => {
 
     await expect(viewer.timesheet.setAccess({ userId: 75, accessRole: "viewer" })).rejects.toThrow("Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập");
     expect(db.setTimesheetAccess).not.toHaveBeenCalled();
+  });
+
+  it("lets a Timesheet admin extract a roster image but keeps the image flow unavailable to viewers", async () => {
+    const imageDataUrl = `data:image/png;base64,${Buffer.from("roster-image").toString("base64")}`;
+    vi.mocked(extractTimesheetScheduleFromImage).mockResolvedValue({
+      scheduleTitle: "Lịch trực tháng 8",
+      entries: [{ date: "2026-08-03", shift: "S", assignment: "Trung-Minh" }],
+      model: "gemini-3.5-flash-lite",
+    });
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("admin");
+    const admin = appRouter.createCaller(createUserContext(74));
+
+    await expect(admin.timesheet.extractScheduleFromImage({ imageDataUrl, locale: "vi", acknowledgeUnpaidDataUse: true })).resolves.toEqual({
+      scheduleTitle: "Lịch trực tháng 8",
+      entries: [{ date: "2026-08-03", shift: "S", assignment: "Trung-Minh" }],
+      model: "gemini-3.5-flash-lite",
+    });
+    expect(db.getUserGeminiModel).toHaveBeenCalledWith(74);
+    expect(extractTimesheetScheduleFromImage).toHaveBeenCalledWith(expect.objectContaining({ mimeType: "image/png", bytes: expect.any(Buffer) }), "vi", "gemini-3.5-flash-lite");
+
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("viewer");
+    const viewer = appRouter.createCaller(createUserContext(75));
+    await expect(viewer.timesheet.extractScheduleFromImage({ imageDataUrl, locale: "vi", acknowledgeUnpaidDataUse: true })).rejects.toThrow("Chỉ quản trị viên Timesheet mới có thể thay đổi quyền truy cập");
+  });
+
+  it("creates reviewed roster shifts only in the acting Timesheet admin's calendar", async () => {
+    vi.mocked(db.getTimesheetAccessRole).mockResolvedValue("admin");
+    vi.mocked(db.createTimesheetShiftEvents).mockResolvedValue({ created: 2, skipped: 1 });
+    const admin = appRouter.createCaller(createUserContext(74));
+    const entries = [
+      { date: "2026-08-03", shift: "S" as const, assignment: "Trung-Minh" },
+      { date: "2026-08-03", shift: "D" as const, assignment: "Linh-Minh" },
+      { date: "2026-02-30", shift: "S" as const, assignment: "Không hợp lệ" },
+    ];
+
+    await expect(admin.timesheet.createScheduleEvents({ scheduleTitle: "Lịch trực tháng 8", entries: entries.slice(0, 2), locale: "vi" })).resolves.toEqual({ created: 2, skipped: 1 });
+    expect(db.createTimesheetShiftEvents).toHaveBeenCalledWith(74, "Lịch trực tháng 8", entries.slice(0, 2), "vi");
+    await expect(admin.timesheet.createScheduleEvents({ scheduleTitle: "Lịch trực tháng 8", entries, locale: "vi" })).rejects.toThrow("Ngày trực không hợp lệ");
   });
 
   it("rejects an event that ends before it begins without creating data", async () => {

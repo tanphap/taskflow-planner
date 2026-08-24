@@ -19,6 +19,7 @@ import { isGeminiTemporaryError, summarizeGmailEmailWithGemini, verifyGeminiConn
 import { getTaskFlowHelpResponse } from "./helpAssistant";
 import { GEMINI_MODELS } from "../shared/geminiModels";
 import { getTimesheetPeople, getTimesheetStats } from "./timesheet";
+import { extractTimesheetScheduleFromImage } from "./timesheetImageSchedule";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -38,6 +39,25 @@ const eventInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên sự kiện").max(240), description: z.string().max(2000).nullable().optional(),
   startAt: z.coerce.date(), endAt: z.coerce.date(), reminderAt: z.coerce.date().nullable().optional(), recurrenceRule: recurrenceRuleInput.nullable().optional(), telegramReminder: z.boolean().default(false),
 }).refine(value => value.endAt > value.startAt, { message: "Thời gian kết thúc phải sau thời gian bắt đầu", path: ["endAt"] });
+const timesheetImageInput = z.object({
+  imageDataUrl: z.string().max(7_000_000),
+  locale: z.enum(["vi", "en"]),
+  acknowledgeUnpaidDataUse: z.literal(true),
+});
+const timesheetScheduleEntryInput = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
+    const [year, month, day] = value.split("-").map(Number);
+    const check = new Date(Date.UTC(year, month - 1, day));
+    return year >= 2000 && year <= 2100 && check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day;
+  }, "Ngày trực không hợp lệ"),
+  shift: z.enum(["S", "D"]),
+  assignment: z.string().trim().min(1).max(240),
+});
+const timesheetScheduleSaveInput = z.object({
+  scheduleTitle: z.string().trim().min(1).max(240),
+  entries: z.array(timesheetScheduleEntryInput).min(1).max(180),
+  locale: z.enum(["vi", "en"]),
+});
 const emailNoteInput = z.object({
   title: z.string().trim().min(1, "Hãy nhập tiêu đề ghi chú").max(240),
   body: z.string().trim().max(4000).nullable().optional(),
@@ -53,6 +73,13 @@ function serializeEventInput(input: z.infer<typeof eventInput>): db.EventInput {
 
 function normalizeConversationSubject(subject: string) {
   return subject.replace(/^\s*(?:(?:re|fw|fwd)\s*:\s*)+/i, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+function decodeTimesheetImageDataUrl(value: string) {
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([a-zA-Z0-9+/=\s]+)$/.exec(value);
+  if (!match) throw new TRPCError({ code: "BAD_REQUEST", message: "Chỉ hỗ trợ ảnh PNG, JPG hoặc WebP hợp lệ." });
+  const bytes = Buffer.from(match[2].replace(/\s/g, ""), "base64");
+  if (!bytes.length || bytes.length > 5_000_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Ảnh lịch trực phải có dung lượng tối đa 5 MB." });
+  return { mimeType: match[1] as "image/png" | "image/jpeg" | "image/webp", bytes };
 }
 function isTimesheetRoot(user: { openId: string; role?: string }) {
   return ENV.ownerOpenId ? user.openId === ENV.ownerOpenId : user.role === "admin";
@@ -129,6 +156,22 @@ export const appRouter = router({
       if (!actorPermission.isRoot && account.accessRole === "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin Timesheet được ủy quyền không thể thay đổi quyền của Admin Timesheet khác." });
       if (!await db.setTimesheetAccess(ctx.user.id, input.userId, input.accessRole)) throw new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy tài khoản cần cấp quyền." });
       return { success: true as const, ...input };
+    }),
+    extractScheduleFromImage: protectedProcedure.input(timesheetImageInput).mutation(async ({ ctx, input }) => {
+      await requireTimesheetManager(ctx.user);
+      try {
+        const result = await extractTimesheetScheduleFromImage(decodeTimesheetImageDataUrl(input.imageDataUrl), input.locale, await db.getUserGeminiModel(ctx.user.id));
+        return { scheduleTitle: result.scheduleTitle, entries: result.entries, model: result.model };
+      } catch (error) {
+        if (isGeminiTemporaryError(error)) throw new TRPCError({ code: error.status === 429 ? "TOO_MANY_REQUESTS" : "SERVICE_UNAVAILABLE", message: error.message });
+        if (error instanceof TRPCError) throw error;
+        console.error("[Timesheet] image schedule extraction failed", { reason: error instanceof Error ? error.message : String(error) });
+        throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Không thể đọc ảnh lịch trực." });
+      }
+    }),
+    createScheduleEvents: protectedProcedure.input(timesheetScheduleSaveInput).mutation(async ({ ctx, input }) => {
+      await requireTimesheetManager(ctx.user);
+      return db.createTimesheetShiftEvents(ctx.user.id, input.scheduleTitle, input.entries, input.locale);
     }),
     people: protectedProcedure.query(async ({ ctx }) => {
       await requireTimesheetViewer(ctx.user);
