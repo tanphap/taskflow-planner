@@ -1051,6 +1051,10 @@ export default function Home() {
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{user.name || "Tài khoản của bạn"}</span><span className="mt-1 block truncate text-[11px] text-[var(--ink-muted)]">{user.email || "Chưa có email"}</span></span>
               <ChevronDown className="h-4 w-4 text-[var(--ink-muted)]" />
             </button>
+            <div className="mt-3 border-t border-[var(--line)] px-2 pt-3 text-[10px] leading-4 text-[var(--ink-muted)]">
+              <span className="mono-label block tracking-[0.14em]">ntphap design</span>
+              <a href="mailto:tanphap101@gmail.com" className="mt-0.5 block w-fit break-all text-[11px] normal-case tracking-normal transition hover:text-[var(--terracotta)] hover:underline" aria-label="Liên hệ ntphap design qua email tanphap101@gmail.com">tanphap101@gmail.com</a>
+            </div>
           </div>
         </aside>
         {sidebarOpen && <button type="button" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/25 lg:hidden" aria-label="Đóng lớp phủ" />}
