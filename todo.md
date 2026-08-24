@@ -280,3 +280,4 @@
 - [x] Kiểm chứng desktop/mobile: ô “Tìm một người trong ca” và lọc ca hiển thị gọn trong lịch trực; các kiểm thử xác nhận tên thứ nhất hoặc thứ hai đều trả về đúng ca.
 - [x] Căn S/D về trái, căn giữa tên nhân sự trong ô ca và đổi màu lịch trực sang bảng màu cảm hứng Claude; kiểm chứng responsive và xuất bản.
 - [x] Kiểm chứng desktop/mobile: ký hiệu S/D ở mép trái, tên nhân sự căn giữa và màu kem–cam đất vẫn rõ trên các ô lịch thu gọn.
+- [x] Khắc phục lịch trực không hiển thị hoặc khó xem trên điện thoại; tái hiện lỗi, sửa bố cục/hành vi, kiểm thử và xuất bản.
