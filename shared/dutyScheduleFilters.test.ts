@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listDutySchedulePeople, matchesDutyScheduleFilters } from "./dutyScheduleFilters";
+import { listDutySchedulePeople, matchesDutyScheduleFilters, splitDutyAssignmentPeople } from "./dutyScheduleFilters";
 
 describe("duty schedule filters", () => {
   const entries = [
@@ -21,5 +21,19 @@ describe("duty schedule filters", () => {
 
   it("lists unique assigned people for input suggestions", () => {
     expect(listDutySchedulePeople(entries)).toEqual(["Linh-Thiện", "Trung-Minh"]);
+  });
+
+  it("finds a shift when either person is searched and lists individual people", () => {
+    const twoPeopleShift = { assignment: "Ca sáng Linh-Thiện - Pháp-Vương", shift: "S" as const };
+
+    expect(splitDutyAssignmentPeople(twoPeopleShift.assignment)).toEqual(["Linh-Thiện", "Pháp-Vương"]);
+    expect(matchesDutyScheduleFilters(twoPeopleShift, "linh thien", "all")).toBe(true);
+    expect(matchesDutyScheduleFilters(twoPeopleShift, "phap vuong", "S")).toBe(true);
+    expect(matchesDutyScheduleFilters(twoPeopleShift, "phap vuong", "D")).toBe(false);
+    expect(listDutySchedulePeople([twoPeopleShift])).toEqual(["Linh-Thiện", "Pháp-Vương"]);
+  });
+
+  it("does not mistake a person's name starting with D for a shift prefix", () => {
+    expect(splitDutyAssignmentPeople("Dương Anh - Minh")).toEqual(["Dương Anh", "Minh"]);
   });
 });

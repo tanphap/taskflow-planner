@@ -275,3 +275,6 @@
 - [x] Kiểm chứng desktop/mobile: các ca được thu nhỏ, rút gọn theo chiều ngang và ô lịch không còn thanh cuộn nội bộ.
 - [x] Thêm chú thích/lưu vết khi Admin đổi ca và màu trạng thái rõ ràng để người xem dễ theo dõi; migration, kiểm thử, xác minh responsive và xuất bản.
 - [x] Kiểm chứng desktop: ca S/D có màu phân biệt, chú giải màu hiển thị dưới lịch và dấu trạng thái Admin điều chỉnh có vị trí riêng.
+- [x] Cập nhật bộ lọc lịch trực để ca chứa nhiều tên theo cú pháp “Ca sáng/đêm Tên 1 – Tên 2” hiển thị khi tìm bất kỳ một tên nào; kiểm thử, xác minh và xuất bản.
+- [x] Kiểm tra ban đầu desktop: điều hướng tới Chấm công hoạt động; ảnh chụp lúc dữ liệu đang tải nên tiếp tục xác minh sau khi trạng thái tải hoàn tất.
+- [x] Kiểm chứng desktop/mobile: ô “Tìm một người trong ca” và lọc ca hiển thị gọn trong lịch trực; các kiểm thử xác nhận tên thứ nhất hoặc thứ hai đều trả về đúng ca.

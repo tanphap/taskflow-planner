@@ -12,14 +12,28 @@ function normalizeDutyAssignment(value: string) {
     .trim();
 }
 
+export function splitDutyAssignmentPeople(assignment: string) {
+  const withoutShiftPrefix = assignment
+    .trim()
+    .replace(/^(?:ca\s*(?:sang|sáng|dem|đêm)|(?:ca\s*)?(?:s|d|đ)(?=\s|[:\-–—]|$))\s*[:\-–—]?\s*/i, "");
+
+  return withoutShiftPrefix
+    .split(/\s+(?:[-–—]|,|\/|\||&|va|và)\s+/i)
+    .map(person => person.trim())
+    .filter(Boolean);
+}
+
 export function matchesDutyScheduleFilters(entry: DutyScheduleFilterEntry, personQuery: string, shiftFilter: "all" | "S" | "D") {
   const normalizedQuery = normalizeDutyAssignment(personQuery);
-  const matchesPerson = !normalizedQuery || normalizeDutyAssignment(entry.assignment).includes(normalizedQuery);
+  const assignedPeople = splitDutyAssignmentPeople(entry.assignment);
+  const matchesPerson = !normalizedQuery
+    || normalizeDutyAssignment(entry.assignment).includes(normalizedQuery)
+    || assignedPeople.some(person => normalizeDutyAssignment(person).includes(normalizedQuery));
   const matchesShift = shiftFilter === "all" || entry.shift === shiftFilter;
   return matchesPerson && matchesShift;
 }
 
 export function listDutySchedulePeople(entries: DutyScheduleFilterEntry[]) {
-  return Array.from(new Set(entries.map(entry => entry.assignment.trim()).filter(Boolean)))
+  return Array.from(new Set(entries.flatMap(entry => splitDutyAssignmentPeople(entry.assignment))))
     .sort((left, right) => left.localeCompare(right, "vi"));
 }
