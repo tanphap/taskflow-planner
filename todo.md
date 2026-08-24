@@ -271,3 +271,5 @@
 - [x] Thêm bộ lọc lịch trực theo tên nhân sự và loại ca, đồng thời thu gọn chiều cao lịch khoảng 50% để xem nhanh; kiểm thử, xác minh responsive và xuất bản.
 - [x] Kiểm tra nhật ký khi xác minh lịch trực sau HMR: không có lỗi Timesheet mới; lần chụp đầu ghi nhận trạng thái tải nên tiếp tục xác nhận giao diện sau khi dữ liệu hoàn tất.
 - [x] Kiểm chứng desktop/mobile: tìm tên người trực, lọc loại ca và lịch nén theo chiều dọc hiển thị rõ; trên điện thoại ca được rút gọn để giữ lịch trong vùng xem nhanh.
+- [x] Thu nhỏ chữ và khoảng cách trong ô lịch trực để tên ca vừa ô, không cần cuộn; kiểm chứng desktop/mobile và xuất bản.
+- [x] Kiểm chứng desktop/mobile: các ca được thu nhỏ, rút gọn theo chiều ngang và ô lịch không còn thanh cuộn nội bộ.
