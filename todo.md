@@ -287,3 +287,5 @@
 - [x] Chuyển các luồng câu trích dẫn hằng ngày và đề xuất lịch từ email sang Gemini, cập nhật kiểm thử và loại bỏ phụ thuộc AI hệ thống Manus không còn dùng.
 - [x] Khắc phục câu trích dẫn hằng ngày không tự thay đổi theo ngày; tái hiện, sửa luồng tạo/hiển thị, kiểm thử và xuất bản.
 - [x] Khôi phục tác vụ nền tạo câu trích dẫn hằng ngày bằng lịch còn hiệu lực sau khi xuất bản bản sửa.
+- [x] Điều chỉnh Email mới nhất ở Tổng quan: hiển thị tiêu đề email vừa đồng bộ và chỉ gọi tóm tắt AI khi người dùng bấm nút Tóm tắt. (Được thay thế bằng yêu cầu mở tóm tắt AI đã lưu.)
+- [x] Điều chỉnh Email mới nhất theo yêu cầu thay thế: hiển thị tiêu đề thư vừa đồng bộ và mở trực tiếp tóm tắt AI đã có sẵn khi người dùng bấm vào.
