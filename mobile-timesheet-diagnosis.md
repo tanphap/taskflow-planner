@@ -7,3 +7,5 @@ Ngày kiểm tra: 24/08/2026.
 Hướng sửa: hiển thị lịch trực trước, không phụ thuộc vào các truy vấn chấm công chi tiết; giữ lưới tháng trên màn hình từ `sm` trở lên và dùng danh sách theo ngày có thể đọc được ở màn hình nhỏ.
 
 Kết quả xác minh sau sửa: ở 375 px, lịch trực hiển thị đầu trang theo các ngày với thẻ ca S/Đ, tên nhân sự và dấu điều chỉnh có thể đọc được; ở desktop, lưới tháng bảy cột vẫn được giữ nguyên. Danh sách lịch trực được tải và hiển thị trước phần thống kê Google Sheets.
+
+Cập nhật 25/08/2026: ngày hiện tại dùng múi giờ Việt Nam được đánh dấu bằng viền cam đất và số ngày nền cam trên lưới desktop. Trong danh sách điện thoại, ngày đó có nền nổi bật cùng nhãn “Hôm nay”, giúp nhận diện nhanh mà không làm thay đổi màu ca S/Đ hoặc trạng thái điều chỉnh.
