@@ -282,3 +282,4 @@
 - [x] Kiểm chứng desktop/mobile: ký hiệu S/D ở mép trái, tên nhân sự căn giữa và màu kem–cam đất vẫn rõ trên các ô lịch thu gọn.
 - [x] Khắc phục lịch trực không hiển thị hoặc khó xem trên điện thoại; tái hiện lỗi, sửa bố cục/hành vi, kiểm thử và xuất bản.
 - [x] Làm nổi bật ngày trực hiện tại trên lịch trực, bảo đảm dễ nhận biết ở điện thoại và desktop.
+- [x] Nới ô lịch trực và điều chỉnh xuống dòng để hiển thị đầy đủ tên ca trên điện thoại và desktop.
