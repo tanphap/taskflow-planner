@@ -3,14 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./db", () => ({
   listEmailMessagesForAiAnalysis: vi.fn(),
   getEmailSuggestionForMessage: vi.fn(),
+  getUserGeminiModel: vi.fn(),
   createEmailEventSuggestion: vi.fn(),
   markEmailMessageAiAnalyzed: vi.fn(),
 }));
-vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
+vi.mock("./geminiJson", () => ({ invokeGeminiJson: vi.fn() }));
 
 import * as db from "./db";
 import { analyzeMailboxForEmailEvents, normalizeEmailEventExtraction } from "./emailAi";
-import { invokeLLM } from "./_core/llm";
+import { invokeGeminiJson } from "./geminiJson";
 
 const source = {
   id: 81,
@@ -47,17 +48,19 @@ describe("email AI event proposal deduplication", () => {
   it("does not create a second suggestion when a repeated scan encounters the same email", async () => {
     vi.mocked(db.listEmailMessagesForAiAnalysis).mockResolvedValue([source] as never);
     vi.mocked(db.getEmailSuggestionForMessage).mockResolvedValueOnce(null).mockResolvedValue({ id: 501 } as never);
+    vi.mocked(db.getUserGeminiModel).mockResolvedValue("gemini-3.5-flash-lite");
     vi.mocked(db.createEmailEventSuggestion).mockResolvedValue({ id: 501 } as never);
     vi.mocked(db.markEmailMessageAiAnalyzed).mockResolvedValue(undefined);
-    vi.mocked(invokeLLM).mockResolvedValue({
-      choices: [{ message: { content: JSON.stringify({ isEvent: true, title: "Họp kế hoạch", description: "", startAt: "2026-08-24T09:00:00+07:00", endAt: "2026-08-24T10:00:00+07:00", reminderMinutes: 15, planLink: "", confidence: 88 }) } }],
+    vi.mocked(invokeGeminiJson).mockResolvedValue({
+      model: "gemini-3.5-flash-lite",
+      value: { isEvent: true, title: "Họp kế hoạch", description: "", startAt: "2026-08-24T09:00:00+07:00", endAt: "2026-08-24T10:00:00+07:00", reminderMinutes: 15, planLink: "", confidence: 88 },
     } as never);
 
     await expect(analyzeMailboxForEmailEvents(73, 18)).resolves.toEqual({ analyzed: 1, suggested: 1, failed: 0 });
     await expect(analyzeMailboxForEmailEvents(73, 18)).resolves.toEqual({ analyzed: 0, suggested: 0, failed: 0 });
 
     expect(db.createEmailEventSuggestion).toHaveBeenCalledTimes(1);
-    expect(invokeLLM).toHaveBeenCalledTimes(1);
+    expect(invokeGeminiJson).toHaveBeenCalledTimes(1);
     expect(db.markEmailMessageAiAnalyzed).toHaveBeenCalledTimes(2);
   });
 });

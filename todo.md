@@ -283,3 +283,5 @@
 - [x] Khắc phục lịch trực không hiển thị hoặc khó xem trên điện thoại; tái hiện lỗi, sửa bố cục/hành vi, kiểm thử và xuất bản.
 - [x] Làm nổi bật ngày trực hiện tại trên lịch trực, bảo đảm dễ nhận biết ở điện thoại và desktop.
 - [x] Nới ô lịch trực và điều chỉnh xuống dòng để hiển thị đầy đủ tên ca trên điện thoại và desktop.
+- [x] Rà soát toàn bộ dự án để xác định các luồng dùng AI hệ thống Manus, Gemini và các phần không dùng AI.
+- [x] Chuyển các luồng câu trích dẫn hằng ngày và đề xuất lịch từ email sang Gemini, cập nhật kiểm thử và loại bỏ phụ thuộc AI hệ thống Manus không còn dùng.
