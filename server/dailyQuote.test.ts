@@ -26,4 +26,15 @@ describe("daily AI quote generator", () => {
     await expect(generateDailyAiQuote(new Date("2026-08-20T17:05:00.000Z"))).resolves.toMatchObject({ created: true, dayKey: "2026-08-21" });
     expect(db.createDailyAiQuote).toHaveBeenCalledWith(expect.objectContaining({ dayKey: "2026-08-21", model: "gemini-3.5-flash-lite" }));
   });
+
+  it("uses the new Vietnam calendar date after midnight instead of reusing yesterday's quote", async () => {
+    vi.mocked(db.getDailyAiQuote).mockResolvedValue(undefined);
+    vi.mocked(invokeGeminiJson).mockResolvedValue({ model: "gemini-3.5-flash-lite", value: { vi: "Bắt đầu ngày mới với việc quan trọng nhất.", en: "Begin the new day with the most important work." } } as never);
+    vi.mocked(db.createDailyAiQuote).mockResolvedValue({ dayKey: "2026-08-22", quoteVi: "Bắt đầu ngày mới với việc quan trọng nhất.", quoteEn: "Begin the new day with the most important work.", model: "gemini-3.5-flash-lite" } as never);
+
+    await generateDailyAiQuote(new Date("2026-08-21T17:05:00.000Z"));
+
+    expect(db.getDailyAiQuote).toHaveBeenCalledWith("2026-08-22");
+    expect(db.createDailyAiQuote).toHaveBeenCalledWith(expect.objectContaining({ dayKey: "2026-08-22" }));
+  });
 });

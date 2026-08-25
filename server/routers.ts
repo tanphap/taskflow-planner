@@ -20,6 +20,7 @@ import { getTaskFlowHelpResponse } from "./helpAssistant";
 import { GEMINI_MODELS } from "../shared/geminiModels";
 import { getTimesheetPeople, getTimesheetStats } from "./timesheet";
 import { extractTimesheetScheduleFromImage } from "./timesheetImageSchedule";
+import { generateDailyAiQuote } from "./dailyQuote";
 
 const taskInput = z.object({
   title: z.string().trim().min(1, "Vui lòng nhập tên công việc").max(240), description: z.string().max(2000).nullable().optional(),
@@ -133,6 +134,19 @@ async function validateTelegramReminder(userId: number, input: db.EventInput) {
   if (!input.reminderAt || input.reminderAt.getTime() < Date.now() + 60_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Nhắc Telegram phải cách thời điểm hiện tại ít nhất một phút." });
   if (!(await db.getTelegramConnection(userId))?.chatId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Hãy liên kết Telegram trong Hồ sơ trước khi bật nhắc." });
 }
+
+async function getDashboardOverview(userId: number) {
+  const overview = await db.getDashboardData(userId);
+  if (overview.dailyQuote) return overview;
+
+  try {
+    const { quote } = await generateDailyAiQuote();
+    return { ...overview, dailyQuote: quote };
+  } catch (error) {
+    console.error("[Dashboard] daily quote fallback failed", { reason: error instanceof Error ? error.message : String(error) });
+    return overview;
+  }
+}
 async function createEventJob(userId: number, eventId: number, reminderAt: Date, headers: { cookie?: string; authorization?: string }) {
   const event = await db.getEvent(userId, eventId);
   const job = await createHeartbeatJob({ name: `telegram-event-${eventId}`, cron: cronFor(reminderAt, event?.recurrenceRule), path: "/api/scheduled/telegram-event-reminder", description: `Nhắc Telegram cho lịch hẹn #${eventId}` }, getRequestSessionToken(headers));
@@ -142,7 +156,7 @@ async function createEventJob(userId: number, eventId: number, reminderAt: Date,
 export const appRouter = router({
   system: systemRouter,
   auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
-  dashboard: router({ overview: protectedProcedure.query(({ ctx }) => db.getDashboardData(ctx.user.id)) }),
+  dashboard: router({ overview: protectedProcedure.query(({ ctx }) => getDashboardOverview(ctx.user.id)) }),
   timesheet: router({
     access: protectedProcedure.query(async ({ ctx }) => getTimesheetPermission(ctx.user)),
     accounts: protectedProcedure.query(async ({ ctx }) => {

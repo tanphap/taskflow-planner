@@ -767,7 +767,7 @@ export default function Home() {
     }
   }, [helpAssistantHistoryLocale, helpAssistantMessages, language]);
 
-  const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
+  const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated, refetchInterval: 60_000 });
   const helpAssistant = trpc.helpAssistant.chat.useMutation({
     onSuccess: (data, variables) => {
       const locale = variables.locale ?? "vi";
