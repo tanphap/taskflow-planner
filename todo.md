@@ -285,5 +285,5 @@
 - [x] Nới ô lịch trực và điều chỉnh xuống dòng để hiển thị đầy đủ tên ca trên điện thoại và desktop.
 - [x] Rà soát toàn bộ dự án để xác định các luồng dùng AI hệ thống Manus, Gemini và các phần không dùng AI.
 - [x] Chuyển các luồng câu trích dẫn hằng ngày và đề xuất lịch từ email sang Gemini, cập nhật kiểm thử và loại bỏ phụ thuộc AI hệ thống Manus không còn dùng.
-- [ ] Khắc phục câu trích dẫn hằng ngày không tự thay đổi theo ngày; tái hiện, sửa luồng tạo/hiển thị, kiểm thử và xuất bản.
-- [ ] Khôi phục tác vụ nền tạo câu trích dẫn hằng ngày bằng lịch còn hiệu lực sau khi xuất bản bản sửa.
+- [x] Khắc phục câu trích dẫn hằng ngày không tự thay đổi theo ngày; tái hiện, sửa luồng tạo/hiển thị, kiểm thử và xuất bản.
+- [x] Khôi phục tác vụ nền tạo câu trích dẫn hằng ngày bằng lịch còn hiệu lực sau khi xuất bản bản sửa.
