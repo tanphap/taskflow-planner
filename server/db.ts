@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   calendarEvents,
@@ -374,6 +374,21 @@ export async function removeEmailAccount(userId: number, accountId: number) {
   await db.delete(emailNotes).where(and(eq(emailNotes.emailAccountId, accountId), eq(emailNotes.userId, userId)));
   await db.delete(emailMessages).where(and(eq(emailMessages.emailAccountId, accountId), eq(emailMessages.userId, userId)));
   await db.delete(emailAccounts).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
+}
+
+/** Removes only TaskFlow's local email cache and derived AI records older than the cutoff. */
+export async function deleteEmailDataOlderThan(cutoff: Date) {
+  const db = await requireDb();
+  const oldMessages = await db.select({ id: emailMessages.id }).from(emailMessages).where(lt(emailMessages.receivedAt, cutoff));
+  if (!oldMessages.length) return { messages: 0, summaries: 0, suggestions: 0 };
+
+  const messageIds = oldMessages.map(message => message.id);
+  const oldSummaries = await db.select({ id: emailGeminiSummaries.id }).from(emailGeminiSummaries).where(inArray(emailGeminiSummaries.emailMessageId, messageIds));
+  const oldSuggestions = await db.select({ id: emailEventSuggestions.id }).from(emailEventSuggestions).where(inArray(emailEventSuggestions.emailMessageId, messageIds));
+  await db.delete(emailEventSuggestions).where(inArray(emailEventSuggestions.emailMessageId, messageIds));
+  await db.delete(emailGeminiSummaries).where(inArray(emailGeminiSummaries.emailMessageId, messageIds));
+  await db.delete(emailMessages).where(inArray(emailMessages.id, messageIds));
+  return { messages: oldMessages.length, summaries: oldSummaries.length, suggestions: oldSuggestions.length };
 }
 
 export async function upsertEmailMessages(userId: number, accountId: number, messages: Array<{ providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null }>) {

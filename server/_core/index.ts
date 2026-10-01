@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { sendTelegramEventReminder } from "../telegramReminder";
 import { registerEmailOAuthRoutes } from "../emailOAuth";
 import { runEmailAiSyncReminder } from "../emailAiReminder";
+import { runEmailRetentionReminder } from "../emailRetentionReminder";
 import { runDailyQuoteReminder } from "../dailyQuoteReminder";
 import { serveStatic, setupVite } from "./vite";
 
@@ -43,6 +44,7 @@ async function startServer() {
   registerEmailOAuthRoutes(app);
   app.post("/api/scheduled/telegram-event-reminder", sendTelegramEventReminder);
   app.post("/api/scheduled/email-ai-sync", runEmailAiSyncReminder);
+  app.post("/api/scheduled/email-retention", runEmailRetentionReminder);
   app.post("/api/scheduled/daily-ai-quote", runDailyQuoteReminder);
   // tRPC API
   app.use(
