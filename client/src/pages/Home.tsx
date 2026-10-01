@@ -548,7 +548,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
   const [copiedSummaryMessageId, setCopiedSummaryMessageId] = useState<number | null>(null);
   const [originalDialogMessageId, setOriginalDialogMessageId] = useState<number | null>(null);
   const [originalContent, setOriginalContent] = useState<EmailOriginalContent | null>(null);
-  const intervalFor = (account: EmailAccountRecord) => intervals[account.id] ?? account.aiSyncIntervalMinutes;
+  const intervalFor = (account: EmailAccountRecord) => Math.max(60, intervals[account.id] ?? account.aiSyncIntervalMinutes);
   const geminiSummaryByMessage = new Map(geminiSummaries.map(summary => [summary.emailMessageId, summary]));
   const selectedGeminiSummary = summaryDialogMessageId === null ? undefined : geminiSummaryByMessage.get(summaryDialogMessageId);
   const selectedSummaryMessage = summaryDialogMessageId === null ? undefined : messages.find(message => message.id === summaryDialogMessageId);
@@ -630,7 +630,7 @@ function EmailManager({ configuration, accounts, messages, suggestions, geminiSu
       {accounts.length === 0 ? <div className="p-8 text-center"><Mail className="mx-auto h-8 w-8 text-neutral-400" /><p className="mt-3 font-bold">Chưa có hộp thư nào được kết nối</p><p className="mt-1 text-sm text-neutral-500">Chọn Gmail hoặc Webmail / IMAP SSL ở trên để bắt đầu.</p></div> : <div className="divide-y divide-[#18211b]/15">
         {accounts.map(account => <div key={account.id} className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="mono-label border border-[#18211b] px-2 py-1">{providerLabel(account.provider)}</span><span className="mono-label border border-[#18211b] px-2 py-1">IMAP · {account.authMethod === "oauth2" ? "OAUTH2" : "APP PASSWORD"}</span><span className={`mono-label px-2 py-1 ${account.connectionStatus === "connected" ? "bg-[#e4ff3f]" : "bg-[#ff5d3d] text-white"}`}>{account.connectionStatus === "connected" ? "ĐÃ KẾT NỐI" : "CẦN KẾT NỐI LẠI"}</span></div><p className="mt-2 truncate font-bold">{account.displayName || account.email}</p><p className="truncate text-sm text-neutral-500">{account.email}</p>{account.lastSyncedAt && <p className="mt-1 text-xs text-neutral-500">Đồng bộ gần nhất: {formatDate(account.lastSyncedAt)} · {formatTime(account.lastSyncedAt)}</p>}{account.mailboxMessageCount === null ? <p className="mt-2 text-xs text-neutral-500">{t("Chưa có số liệu đồng bộ")}</p> : <div className="mt-2 flex w-fit items-baseline gap-2 border-l-2 border-[#e23221] bg-[#fff2ef] px-3 py-2"><span className="mono-label text-[10px] text-[#e23221]">{t("Thư mới / Tổng thư")}</span><span className="text-sm font-extrabold">{account.lastSyncNewCount ?? 0} / {account.mailboxMessageCount}</span><span className="text-xs text-neutral-500">{t("Trong lần đồng bộ gần nhất")}</span></div>}{account.lastSyncError && <p className="mt-1 text-xs text-[#e23221]">{account.lastSyncError}</p>}
-            <div className="mt-4 grid gap-2 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3 sm:grid-cols-[auto_minmax(160px,1fr)_auto] sm:items-center"><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={account.aiSyncEnabled} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => onConfigureAiSync(account.id, event.target.checked, intervalFor(account))} /> Bật quét AI tự động</label><select className="input-swiss h-9 text-xs" value={intervalFor(account)} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => setIntervals(previous => ({ ...previous, [account.id]: Number(event.target.value) }))}>{[[15, "Mỗi 15 phút"], [30, "Mỗi 30 phút"], [60, "Mỗi giờ"], [120, "Mỗi 2 giờ"], [240, "Mỗi 4 giờ"], [720, "Mỗi 12 giờ"], [1440, "Mỗi ngày"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="swiss-button-outline h-9 justify-center text-xs" onClick={() => onConfigureAiSync(account.id, account.aiSyncEnabled, intervalFor(account))} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id}>{configuringAccountId === account.id ? "Đang lưu…" : "Lưu chu kỳ"}</button></div>
+            <div className="mt-4 grid gap-2 border-l-2 border-[#e23221] bg-[#fbfbfa] p-3 sm:grid-cols-[auto_minmax(160px,1fr)_auto] sm:items-center"><label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={account.aiSyncEnabled} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => onConfigureAiSync(account.id, event.target.checked, intervalFor(account))} /> Bật quét AI tự động</label><select className="input-swiss h-9 text-xs" value={intervalFor(account)} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id} onChange={event => setIntervals(previous => ({ ...previous, [account.id]: Number(event.target.value) }))}>{[[60, "Mỗi giờ"], [120, "Mỗi 2 giờ"], [240, "Mỗi 4 giờ"], [720, "Mỗi 12 giờ"], [1440, "Mỗi ngày"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><button className="swiss-button-outline h-9 justify-center text-xs" onClick={() => onConfigureAiSync(account.id, account.aiSyncEnabled, intervalFor(account))} disabled={account.connectionStatus !== "connected" || configuringAccountId === account.id}>{configuringAccountId === account.id ? "Đang lưu…" : "Lưu chu kỳ"}</button></div>
             {account.aiSyncLastRunAt && <p className="mt-2 text-xs text-neutral-500">AI quét gần nhất: {formatDate(account.aiSyncLastRunAt)} · {formatTime(account.aiSyncLastRunAt)}</p>}{account.aiSyncLastError && <p className="mt-1 text-xs text-[#e23221]">{account.aiSyncLastError}</p>}</div>
           <div className="flex flex-wrap gap-2 xl:justify-end"><button className="swiss-button-outline" onClick={() => onSync(account.id)} disabled={syncingAccountId === account.id}>{syncingAccountId === account.id ? "Đang đồng bộ…" : "Đồng bộ"}</button><button className="swiss-button bg-black text-white hover:bg-[#e23221]" onClick={() => onAnalyze(account.id)} disabled={account.connectionStatus !== "connected" || analyzingAccountId === account.id}>{analyzingAccountId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} {analyzingAccountId === account.id ? "AI đang quét…" : "Quét AI ngay"}</button><button className="swiss-button-outline text-[#e23221]" onClick={() => onDisconnect(account.id)} disabled={disconnectingAccountId === account.id}>{disconnectingAccountId === account.id ? "Đang ngắt…" : "Ngắt kết nối"}</button></div>
         </div>)}
@@ -768,7 +768,7 @@ export default function Home() {
     }
   }, [helpAssistantHistoryLocale, helpAssistantMessages, language]);
 
-  const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated, refetchInterval: 60_000 });
+  const dashboard = trpc.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated, refetchInterval: 300_000 });
   const helpAssistant = trpc.helpAssistant.chat.useMutation({
     onSuccess: (data, variables) => {
       const locale = variables.locale ?? "vi";
@@ -789,7 +789,7 @@ export default function Home() {
   const eventQuery = trpc.calendar.list.useQuery(undefined, { enabled: isAuthenticated });
   const notifications = trpc.notifications.due.useQuery(undefined, {
     enabled: isAuthenticated,
-    refetchInterval: 30000,
+    refetchInterval: 300_000,
     refetchOnWindowFocus: true,
   });
   const notifiedIds = useRef(new Set<number>());
@@ -847,17 +847,18 @@ export default function Home() {
   });
   const telegramStatus = trpc.telegram.status.useQuery(undefined, { enabled: isAuthenticated });
   const telegramHistory = trpc.telegram.deliveryHistory.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
-  const emailConfiguration = trpc.email.configuration.useQuery(undefined, { enabled: isAuthenticated });
-  const emailAccounts = trpc.email.accounts.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
+  const emailViewOpen = isAuthenticated && view === "email";
+  const emailConfiguration = trpc.email.configuration.useQuery(undefined, { enabled: emailViewOpen });
+  const emailAccounts = trpc.email.accounts.useQuery(undefined, { enabled: emailViewOpen, refetchOnWindowFocus: true });
   const emailMessagesInput = useMemo(() => ({
     accountId: emailAccountFilter === "all" ? undefined : emailAccountFilter,
     status: emailStatusFilter === "all" ? undefined : emailStatusFilter,
     limit: 100,
   }), [emailAccountFilter, emailStatusFilter]);
-  const emailMessages = trpc.email.messages.useQuery(emailMessagesInput, { enabled: isAuthenticated, refetchInterval: 30000, refetchOnWindowFocus: true });
-  const emailSuggestions = trpc.email.suggestions.useQuery({ status: "pending" }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
-  const emailGeminiSummaries = trpc.email.geminiSummaries.useQuery({ limit: 100 }, { enabled: isAuthenticated, refetchOnWindowFocus: true });
-  const emailAiOverview = trpc.email.aiOverview.useQuery(undefined, { enabled: isAuthenticated, refetchOnWindowFocus: true });
+  const emailMessages = trpc.email.messages.useQuery(emailMessagesInput, { enabled: emailViewOpen, refetchOnWindowFocus: true });
+  const emailSuggestions = trpc.email.suggestions.useQuery({ status: "pending" }, { enabled: emailViewOpen, refetchOnWindowFocus: true });
+  const emailGeminiSummaries = trpc.email.geminiSummaries.useQuery({ limit: 100 }, { enabled: emailViewOpen, refetchOnWindowFocus: true });
+  const emailAiOverview = trpc.email.aiOverview.useQuery(undefined, { enabled: emailViewOpen, refetchOnWindowFocus: true });
   const beginTelegramLink = trpc.telegram.beginLink.useMutation({
     onSuccess: async data => { setTelegramLinkCode(data.code); await telegramStatus.refetch(); toast.success("Đã tạo mã liên kết Telegram"); },
     onError: error => toast.error(error.message),
@@ -1069,7 +1070,7 @@ export default function Home() {
           </header>
 
           <div className="mx-auto w-full max-w-[1440px] p-4 pb-10 md:p-8 lg:p-10">
-            {view === "dashboard" && <DashboardView data={dashboard.data} aiOverview={emailAiOverview.data as EmailAiOverviewData | undefined} emails={(emailMessages.data ?? []) as EmailMessageRecord[]} geminiSummaries={(emailGeminiSummaries.data ?? []) as EmailGeminiSummaryRecord[]} loading={dashboard.isLoading || emailAiOverview.isLoading || emailMessages.isLoading || emailGeminiSummaries.isLoading} quoteMode={dailyQuoteMode} onQuoteModeChange={setDailyQuoteMode} onOpenTasks={() => setView("tasks")} onOpenCalendar={() => setView("calendar")} onOpenEmail={() => setView("email")} onCreateTask={openCreateTask} onEditTask={openEditTask} />}
+            {view === "dashboard" && <DashboardView data={dashboard.data} aiOverview={emailAiOverview.data as EmailAiOverviewData | undefined} emails={(emailMessages.data ?? []) as EmailMessageRecord[]} geminiSummaries={(emailGeminiSummaries.data ?? []) as EmailGeminiSummaryRecord[]} loading={dashboard.isLoading} quoteMode={dailyQuoteMode} onQuoteModeChange={setDailyQuoteMode} onOpenTasks={() => setView("tasks")} onOpenCalendar={() => setView("calendar")} onOpenEmail={() => setView("email")} onCreateTask={openCreateTask} onEditTask={openEditTask} />}
             {view === "timesheet" && <TimesheetDashboard />}
             {view === "tasks" && <TasksView tasks={taskData} onCreate={openCreateTask} onEdit={openEditTask} onSchedule={openCreateEventFromTask} onDelete={id => deleteTask.mutate({ id })} onToggleDone={task => updateTask.mutate({ id: task.id, data: { title: task.title, description: task.description, status: task.status === "done" ? "todo" : "done", priority: task.priority, dueAt: asDate(task.dueAt), reminderAt: asDate(task.reminderAt) } })} />}
             {view === "calendar" && <CalendarView events={eventData} tasks={taskData} onCreate={openCreateEvent} onEdit={openEditEvent} onDelete={id => deleteEvent.mutate({ id })} />}

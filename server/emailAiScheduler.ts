@@ -4,13 +4,11 @@ import * as db from "./db";
 import { analyzeMailboxForEmailEvents } from "./emailAi";
 import { syncMailbox } from "./emailSync";
 
-export const EMAIL_AI_SYNC_INTERVALS = [15, 30, 60, 120, 240, 720, 1440] as const;
+export const EMAIL_AI_SYNC_INTERVALS = [60, 120, 240, 720, 1440] as const;
 export type EmailAiSyncInterval = typeof EMAIL_AI_SYNC_INTERVALS[number];
 
 export function cronForEmailAiSync(intervalMinutes: EmailAiSyncInterval) {
   const cron: Record<EmailAiSyncInterval, string> = {
-    15: "0 */15 * * * *",
-    30: "0 */30 * * * *",
     60: "0 0 * * * *",
     120: "0 0 */2 * * *",
     240: "0 0 */4 * * *",
