@@ -1,43 +1,43 @@
 import {
   boolean,
   index,
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  pgTable,
+  serial,
   text,
   timestamp,
   uniqueIndex,
   varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
 
 /** Core identity table populated by Manus OAuth. */
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   geminiModel: varchar("geminiModel", { length: 80 }).default("gemini-3.5-flash-lite").notNull(),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: varchar("role", { length: 20 }).$type<"user" | "admin">().default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
-export const tasks = mysqlTable(
+export const tasks = pgTable(
   "tasks",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
     title: varchar("title", { length: 240 }).notNull(),
     description: text("description"),
-    status: mysqlEnum("status", ["todo", "in_progress", "done"]).default("todo").notNull(),
-    priority: mysqlEnum("priority", ["low", "medium", "high"]).default("medium").notNull(),
+    status: varchar("status", { length: 20 }).$type<"todo" | "in_progress" | "done">().default("todo").notNull(),
+    priority: varchar("priority", { length: 20 }).$type<"low" | "medium" | "high">().default("medium").notNull(),
     dueAt: timestamp("dueAt"),
     reminderAt: timestamp("reminderAt"),
     completedAt: timestamp("completedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     index("tasks_user_status_idx").on(table.userId, table.status),
@@ -46,11 +46,11 @@ export const tasks = mysqlTable(
   ],
 );
 
-export const calendarEvents = mysqlTable(
+export const calendarEvents = pgTable(
   "calendar_events",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
     title: varchar("title", { length: 240 }).notNull(),
     description: text("description"),
     startAt: timestamp("startAt").notNull(),
@@ -62,7 +62,7 @@ export const calendarEvents = mysqlTable(
     telegramSentAt: timestamp("telegramSentAt"),
     telegramDeliveryError: text("telegramDeliveryError"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     index("events_user_start_idx").on(table.userId, table.startAt),
@@ -71,15 +71,15 @@ export const calendarEvents = mysqlTable(
   ],
 );
 
-export const telegramDeliveryLogs = mysqlTable(
+export const telegramDeliveryLogs = pgTable(
   "telegram_delivery_logs",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    eventId: int("eventId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    eventId: integer("eventId").notNull(),
     eventTitle: varchar("eventTitle", { length: 240 }).notNull(),
     sentAt: timestamp("sentAt").defaultNow().notNull(),
-    status: mysqlEnum("status", ["success", "error"]).notNull(),
+    status: varchar("status", { length: 20 }).$type<"success" | "error">().notNull(),
     errorMessage: varchar("errorMessage", { length: 500 }),
   },
   table => [
@@ -88,17 +88,17 @@ export const telegramDeliveryLogs = mysqlTable(
   ],
 );
 
-export const telegramConnections = mysqlTable(
+export const telegramConnections = pgTable(
   "telegram_connections",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
     chatId: varchar("chatId", { length: 64 }),
     linkToken: varchar("linkToken", { length: 96 }),
     linkTokenExpiresAt: timestamp("linkTokenExpiresAt"),
     connectedAt: timestamp("connectedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     uniqueIndex("telegram_connections_user_uq").on(table.userId),
@@ -107,17 +107,17 @@ export const telegramConnections = mysqlTable(
 );
 
 /** IMAP credentials and Outlook OAuth2 tokens remain encrypted server-side and are never exposed to the client. */
-export const emailAccounts = mysqlTable(
+export const emailAccounts = pgTable(
   "email_accounts",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    provider: mysqlEnum("provider", ["google", "microsoft", "webmail"]).notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    provider: varchar("provider", { length: 20 }).$type<"google" | "microsoft" | "webmail">().notNull(),
     email: varchar("email", { length: 320 }).notNull(),
     displayName: varchar("displayName", { length: 240 }),
-    authMethod: mysqlEnum("authMethod", ["app_password", "oauth2"]).default("app_password").notNull(),
+    authMethod: varchar("authMethod", { length: 20 }).$type<"app_password" | "oauth2">().default("app_password").notNull(),
     imapHost: varchar("imapHost", { length: 255 }),
-    imapPort: int("imapPort").default(993),
+    imapPort: integer("imapPort").default(993),
     imapSecure: boolean("imapSecure").default(true).notNull(),
     imapUsername: varchar("imapUsername", { length: 320 }),
     imapPasswordCiphertext: text("imapPasswordCiphertext"),
@@ -126,19 +126,19 @@ export const emailAccounts = mysqlTable(
     refreshTokenCiphertext: text("refreshTokenCiphertext"),
     tokenExpiresAt: timestamp("tokenExpiresAt"),
     scopes: varchar("scopes", { length: 1000 }),
-    connectionStatus: mysqlEnum("connectionStatus", ["connected", "needs_reconnect", "error"]).default("connected").notNull(),
+    connectionStatus: varchar("connectionStatus", { length: 20 }).$type<"connected" | "needs_reconnect" | "error">().default("connected").notNull(),
     lastSyncedAt: timestamp("lastSyncedAt"),
     lastSyncError: text("lastSyncError"),
-    lastSyncFetchedCount: int("lastSyncFetchedCount").default(0).notNull(),
-    lastSyncNewCount: int("lastSyncNewCount").default(0).notNull(),
-    mailboxMessageCount: int("mailboxMessageCount").default(0).notNull(),
+    lastSyncFetchedCount: integer("lastSyncFetchedCount").default(0).notNull(),
+    lastSyncNewCount: integer("lastSyncNewCount").default(0).notNull(),
+    mailboxMessageCount: integer("mailboxMessageCount").default(0).notNull(),
     aiSyncEnabled: boolean("aiSyncEnabled").default(false).notNull(),
-    aiSyncIntervalMinutes: int("aiSyncIntervalMinutes").default(60).notNull(),
+    aiSyncIntervalMinutes: integer("aiSyncIntervalMinutes").default(60).notNull(),
     aiSyncJobUid: varchar("aiSyncJobUid", { length: 65 }),
     aiSyncLastRunAt: timestamp("aiSyncLastRunAt"),
     aiSyncLastError: text("aiSyncLastError"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     uniqueIndex("email_accounts_user_provider_email_uq").on(table.userId, table.provider, table.email),
@@ -148,12 +148,12 @@ export const emailAccounts = mysqlTable(
 );
 
 /** One-time OAuth state records bind callbacks to a TaskFlow user and PKCE verifier. */
-export const emailOAuthSessions = mysqlTable(
+export const emailOAuthSessions = pgTable(
   "email_oauth_sessions",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    provider: mysqlEnum("provider", ["google", "microsoft"]).notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    provider: varchar("provider", { length: 20 }).$type<"google" | "microsoft">().notNull(),
     stateHash: varchar("stateHash", { length: 64 }).notNull(),
     codeVerifier: varchar("codeVerifier", { length: 128 }).notNull(),
     expiresAt: timestamp("expiresAt").notNull(),
@@ -166,12 +166,12 @@ export const emailOAuthSessions = mysqlTable(
 );
 
 /** Metadata-only inbox cache. Raw credentials remain encrypted on emailAccounts. */
-export const emailMessages = mysqlTable(
+export const emailMessages = pgTable(
   "email_messages",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    emailAccountId: int("emailAccountId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    emailAccountId: integer("emailAccountId").notNull(),
     providerMessageId: varchar("providerMessageId", { length: 255 }).notNull(),
     threadId: varchar("threadId", { length: 255 }),
     subject: varchar("subject", { length: 500 }).notNull(),
@@ -180,12 +180,12 @@ export const emailMessages = mysqlTable(
     snippet: text("snippet"),
     receivedAt: timestamp("receivedAt").notNull(),
     isRead: boolean("isRead").default(false).notNull(),
-    status: mysqlEnum("status", ["new", "in_progress", "done", "archived"]).default("new").notNull(),
+    status: varchar("status", { length: 20 }).$type<"new" | "in_progress" | "done" | "archived">().default("new").notNull(),
     labels: varchar("labels", { length: 1000 }),
     webLink: varchar("webLink", { length: 1000 }),
     aiAnalyzedAt: timestamp("aiAnalyzedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     uniqueIndex("email_messages_account_provider_message_uq").on(table.emailAccountId, table.providerMessageId),
@@ -195,24 +195,24 @@ export const emailMessages = mysqlTable(
 );
 
 /** Opt-in Gemini summaries. Only user-selected message metadata is sent to the unpaid Gemini API. */
-export const emailGeminiSummaries = mysqlTable(
+export const emailGeminiSummaries = pgTable(
   "email_gemini_summaries",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    emailAccountId: int("emailAccountId").notNull(),
-    emailMessageId: int("emailMessageId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    emailAccountId: integer("emailAccountId").notNull(),
+    emailMessageId: integer("emailMessageId").notNull(),
     summary: text("summary").notNull(),
     eventStartAt: timestamp("eventStartAt"),
     eventEndAt: timestamp("eventEndAt"),
     locale: varchar("locale", { length: 12 }).default("vi").notNull(),
     model: varchar("model", { length: 120 }).notNull(),
-    status: mysqlEnum("status", ["ready", "error"]).default("ready").notNull(),
+    status: varchar("status", { length: 20 }).$type<"ready" | "error">().default("ready").notNull(),
     errorMessage: varchar("errorMessage", { length: 1000 }),
     consentedAt: timestamp("consentedAt").defaultNow().notNull(),
     generatedAt: timestamp("generatedAt").defaultNow().notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     uniqueIndex("email_gemini_summaries_message_uq").on(table.emailMessageId),
@@ -222,18 +222,18 @@ export const emailGeminiSummaries = mysqlTable(
 );
 
 /** User-owned notes can optionally point back to a synced message or mailbox. */
-export const emailNotes = mysqlTable(
+export const emailNotes = pgTable(
   "email_notes",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    emailAccountId: int("emailAccountId"),
-    emailMessageId: int("emailMessageId"),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    emailAccountId: integer("emailAccountId"),
+    emailMessageId: integer("emailMessageId"),
     title: varchar("title", { length: 240 }).notNull(),
     body: text("body"),
     isPinned: boolean("isPinned").default(false).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     index("email_notes_user_updated_idx").on(table.userId, table.updatedAt),
@@ -244,28 +244,28 @@ export const emailNotes = mysqlTable(
 );
 
 /** AI-extracted, user-reviewable event proposals. One proposal may exist for one synced message. */
-export const emailEventSuggestions = mysqlTable(
+export const emailEventSuggestions = pgTable(
   "email_event_suggestions",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    emailAccountId: int("emailAccountId").notNull(),
-    emailMessageId: int("emailMessageId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    emailAccountId: integer("emailAccountId").notNull(),
+    emailMessageId: integer("emailMessageId").notNull(),
     title: varchar("title", { length: 240 }).notNull(),
     description: text("description"),
     startAt: timestamp("startAt").notNull(),
     endAt: timestamp("endAt").notNull(),
-    reminderMinutes: int("reminderMinutes").default(15).notNull(),
+    reminderMinutes: integer("reminderMinutes").default(15).notNull(),
     planLink: varchar("planLink", { length: 1000 }),
     sourceExcerpt: varchar("sourceExcerpt", { length: 1000 }),
-    confidence: int("confidence").notNull(),
+    confidence: integer("confidence").notNull(),
     model: varchar("model", { length: 80 }).notNull(),
-    status: mysqlEnum("status", ["pending", "accepted", "dismissed", "error"]).default("pending").notNull(),
-    calendarEventId: int("calendarEventId"),
+    status: varchar("status", { length: 20 }).$type<"pending" | "accepted" | "dismissed" | "error">().default("pending").notNull(),
+    calendarEventId: integer("calendarEventId"),
     errorMessage: varchar("errorMessage", { length: 1000 }),
     analyzedAt: timestamp("analyzedAt").defaultNow().notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     uniqueIndex("email_event_suggestions_message_uq").on(table.emailMessageId),
@@ -274,13 +274,13 @@ export const emailEventSuggestions = mysqlTable(
   ],
 );
 
-export const notifications = mysqlTable(
+export const notifications = pgTable(
   "notifications",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
     sourceKey: varchar("sourceKey", { length: 96 }).notNull(),
-    kind: mysqlEnum("kind", ["task", "event"]).notNull(),
+    kind: varchar("kind", { length: 20 }).$type<"task" | "event">().notNull(),
     title: varchar("title", { length: 240 }).notNull(),
     body: text("body"),
     scheduledFor: timestamp("scheduledFor").notNull(),
@@ -294,7 +294,7 @@ export const notifications = mysqlTable(
 );
 
 /** A shared, bilingual AI quote generated once per Vietnam calendar day. */
-export const dailyAiQuotes = mysqlTable("daily_ai_quotes", {
+export const dailyAiQuotes = pgTable("daily_ai_quotes", {
   dayKey: varchar("dayKey", { length: 10 }).primaryKey(),
   quoteVi: varchar("quoteVi", { length: 280 }).notNull(),
   quoteEn: varchar("quoteEn", { length: 280 }).notNull(),
@@ -303,25 +303,25 @@ export const dailyAiQuotes = mysqlTable("daily_ai_quotes", {
 });
 
 /** Durable project-level schedule ownership for non-user-facing Heartbeat jobs. */
-export const scheduledJobs = mysqlTable(
+export const scheduledJobs = pgTable(
   "scheduled_jobs",
   {
     key: varchar("jobKey", { length: 80 }).primaryKey(),
     taskUid: varchar("taskUid", { length: 65 }).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [index("scheduled_jobs_task_uid_idx").on(table.taskUid)],
 );
 
 /** Owner-managed allowlist for the shared Timesheet source. The owner is never represented by a grant row. */
-export const timesheetAccess = mysqlTable(
+export const timesheetAccess = pgTable(
   "timesheet_access",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull(),
-    grantedByUserId: int("grantedByUserId").notNull(),
-    accessRole: mysqlEnum("accessRole", ["viewer", "admin"]).default("viewer").notNull(),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    grantedByUserId: integer("grantedByUserId").notNull(),
+    accessRole: varchar("accessRole", { length: 20 }).$type<"viewer" | "admin">().default("viewer").notNull(),
     grantedAt: timestamp("grantedAt").defaultNow().notNull(),
   },
   table => [
@@ -331,20 +331,20 @@ export const timesheetAccess = mysqlTable(
 );
 
 /** Shared duty roster. It is intentionally separate from each account's personal calendar. */
-export const timesheetDutySchedules = mysqlTable(
+export const timesheetDutySchedules = pgTable(
   "timesheet_duty_schedules",
   {
-    id: int("id").autoincrement().primaryKey(),
+    id: serial("id").primaryKey(),
     dutyDate: varchar("dutyDate", { length: 10 }).notNull(),
-    shift: mysqlEnum("shift", ["S", "D"]).notNull(),
+    shift: varchar("shift", { length: 1 }).$type<"S" | "D">().notNull(),
     assignment: varchar("assignment", { length: 240 }).notNull(),
     sourceTitle: varchar("sourceTitle", { length: 240 }).notNull(),
     changeNote: varchar("changeNote", { length: 400 }),
     isChanged: boolean("isChanged").default(false).notNull(),
-    createdByUserId: int("createdByUserId").notNull(),
-    updatedByUserId: int("updatedByUserId").notNull(),
+    createdByUserId: integer("createdByUserId").notNull(),
+    updatedByUserId: integer("updatedByUserId").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   table => [
     uniqueIndex("timesheet_duty_schedules_date_shift_uq").on(table.dutyDate, table.shift),
