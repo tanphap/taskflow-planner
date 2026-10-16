@@ -30,6 +30,8 @@ TaskFlow uses Supabase Auth, PostgreSQL, and private Supabase Storage while keep
 
 Keep the existing integration configuration for email IMAP/OAuth, Gemini, Telegram, timesheets, and token encryption where those features are used.
 
+The existing Forge Heartbeat scheduler and several Manus-backed AI/map/voice integrations are not replaced by this migration. Keep `BUILT_IN_FORGE_API_URL` and `BUILT_IN_FORGE_API_KEY` configured for those features; replacing scheduled jobs with a Supabase-native or Node-hosted scheduler is a separate follow-up.
+
 ## Existing data
 
 The generated migration creates the PostgreSQL schema for a new Supabase database; it does not copy records from the existing MySQL database. Before cutover, export and import the MySQL data, preserve each application user ID used by related rows, and map each account to its Supabase Auth UUID in `users.openId`. Do not point production traffic at an empty database if existing TaskFlow data must be retained. The migration requires access to the source database and Supabase project, neither of which is stored in this repository.
