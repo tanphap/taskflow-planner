@@ -1,8 +1,8 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { startLogin } from "@/const";
 import { type Language } from "@/contexts/languageStore";
 import { useLanguage } from "@/hooks/useLanguage";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AIChatBox } from "@/components/AIChatBox";
 import { GeminiModelSettings } from "@/components/GeminiModelSettings";
@@ -50,7 +50,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -1151,6 +1151,29 @@ export default function Home() {
 }
 
 function LoginLanding() {
+  const [email, setEmail] = useState("");
+  const [sendingLink, setSendingLink] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
+
+  const sendLoginLink = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) {
+      toast.error("Máy chủ chưa cấu hình Supabase Auth.");
+      return;
+    }
+    setSendingLink(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setSendingLink(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setLinkSent(true);
+  };
+
   return <div className="login-shell min-h-screen p-4 md:p-8">
     <div className="login-card mx-auto grid min-h-[calc(100vh-64px)] max-w-7xl grid-cols-1 overflow-hidden rounded-[28px] lg:grid-cols-[1.15fr_0.85fr]">
       <section className="relative flex flex-col justify-between overflow-hidden border-b border-[var(--line)] p-7 md:p-12 lg:border-b-0 lg:border-r">
@@ -1159,7 +1182,7 @@ function LoginLanding() {
         <div className="relative py-16 lg:py-20"><p className="mono-label mb-6 text-[var(--sage)]">Lập kế hoạch cá nhân — 01</p><h1 className="max-w-2xl font-display text-5xl leading-[0.96] tracking-[-0.05em] text-[var(--ink)] md:text-7xl">Tổ chức công việc.<br /><span className="italic text-[var(--terracotta)]">Rõ ràng</span> từng ngày.</h1><p className="mt-8 max-w-lg text-base leading-7 text-[var(--ink-muted)]">Không gian cá nhân cho công việc, lịch hẹn và nhắc việc — được thiết kế trên một hệ lưới trực quan và chính xác.</p><div className="mt-10 flex flex-wrap gap-2"><span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--ink-muted)]">Công việc</span><span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--ink-muted)]">Lịch hẹn</span><span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--ink-muted)]">Nhắc việc</span></div></div>
         <p className="mono-label relative text-[var(--ink-muted)]">TaskFlow / 2026</p>
       </section>
-      <section className="flex flex-col justify-center bg-[var(--ink)] p-8 text-white md:p-12 lg:p-14"><span className="mb-10 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--terracotta)] shadow-[0_12px_30px_rgb(0_0_0/0.18)]"><ShieldCheck className="h-5 w-5" /></span><p className="mono-label text-white/50">Đăng nhập an toàn</p><h2 className="mt-3 font-display text-4xl tracking-[-0.035em] text-white">Sẵn sàng bắt đầu?</h2><p className="mt-4 max-w-sm text-sm leading-6 text-white/65">Dữ liệu công việc và lịch hẹn được tách biệt theo tài khoản Manus của bạn.</p><button type="button" onClick={() => startLogin()} className="mt-10 flex min-h-14 w-full items-center justify-between rounded-xl border border-white/10 bg-[#fdfcf9] px-5 py-4 text-left text-sm font-semibold text-[var(--ink)] shadow-lg transition hover:-translate-y-0.5 hover:bg-[var(--terracotta-soft)]"><span>Tiếp tục với Manus</span><ArrowRight className="h-5 w-5 text-[var(--terracotta)]" /></button><p className="mt-5 text-[11px] leading-5 text-white/45">Bằng việc tiếp tục, bạn sử dụng luồng xác thực Manus OAuth để truy cập không gian cá nhân của mình.</p></section>
+      <section className="flex flex-col justify-center bg-[var(--ink)] p-8 text-white md:p-12 lg:p-14"><span className="mb-10 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--terracotta)] shadow-[0_12px_30px_rgb(0_0_0/0.18)]"><ShieldCheck className="h-5 w-5" /></span><p className="mono-label text-white/50">Đăng nhập an toàn</p><h2 className="mt-3 font-display text-4xl tracking-[-0.035em] text-white">Sẵn sàng bắt đầu?</h2><p className="mt-4 max-w-sm text-sm leading-6 text-white/65">Nhập email để nhận liên kết đăng nhập an toàn từ Supabase Auth.</p><form onSubmit={sendLoginLink} className="mt-10 space-y-3"><input type="email" required autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="Địa chỉ email" className="min-h-12 w-full rounded-xl border border-white/20 bg-white/10 px-4 text-white placeholder:text-white/50" /><button type="submit" disabled={sendingLink || !supabase} className="flex min-h-14 w-full items-center justify-between rounded-xl border border-white/10 bg-[#fdfcf9] px-5 py-4 text-left text-sm font-semibold text-[var(--ink)] shadow-lg transition hover:-translate-y-0.5 hover:bg-[var(--terracotta-soft)] disabled:cursor-not-allowed disabled:opacity-60"><span>{sendingLink ? "Đang gửi…" : "Gửi liên kết đăng nhập"}</span><ArrowRight className="h-5 w-5 text-[var(--terracotta)]" /></button></form>{linkSent && <p role="status" className="mt-4 text-sm text-emerald-200">Đã gửi liên kết. Hãy kiểm tra email của bạn.</p>}<p className="mt-5 text-[11px] leading-5 text-white/45">Xác thực tài khoản được quản lý bởi Supabase Auth.</p></section>
     </div>
   </div>;
 }
