@@ -1,11 +1,18 @@
 import type { Request, Response } from "express";
 import { DAILY_QUOTE_SCHEDULE_KEY } from "../shared/dailyQuote";
+import { isCronSecretRequest } from "./cronAuth";
 import { sdk } from "./_core/sdk";
 import * as db from "./db";
 import { generateDailyAiQuote } from "./dailyQuote";
 
 export async function runDailyQuoteReminder(req: Request, res: Response) {
   try {
+    // Poll mode (self-hosted): CRON_SECRET instead of Manus Heartbeat.
+    if (isCronSecretRequest(req)) {
+      const result = await generateDailyAiQuote();
+      return res.json({ ok: true, mode: "poll", ...result });
+    }
+
     const user = await sdk.authenticateRequest(req);
     if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only" });
     if (!(await db.isScheduledJobTask(DAILY_QUOTE_SCHEDULE_KEY, user.taskUid))) {

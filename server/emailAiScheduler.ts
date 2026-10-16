@@ -32,8 +32,10 @@ export async function configureEmailAiSync(userId: number, accountId: number, in
   let taskUid = account.aiSyncJobUid;
   if (taskUid) await updateHeartbeatJob(taskUid, { cron, enable: true }, sessionToken);
   else {
+    // Poll mode (no Heartbeat): no per-account job — the GitHub Actions
+    // poller syncs every enabled account on its own schedule.
     const job = await createHeartbeatJob({ name: `email-ai-sync-${accountId}`, cron, path: "/api/scheduled/email-ai-sync", description: `AI email sync for mailbox #${accountId}` }, sessionToken);
-    taskUid = job.taskUid;
+    taskUid = job?.taskUid ?? null;
   }
   await db.updateEmailAiSyncSettings(userId, accountId, { enabled: true, intervalMinutes: input.intervalMinutes, taskUid });
   return { enabled: true as const, taskUid };

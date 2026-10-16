@@ -1,0 +1,18 @@
+# AI email sync for all enabled mailboxes (replaces Manus Heartbeat jobs).
+# Hourly, matching the app's minimum 60-minute AI sync interval.
+name: Cron - Email AI sync
+
+on:
+  schedule:
+    - cron: "10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger email AI sync
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.BACKEND_URL }}/api/scheduled/email-ai-sync"

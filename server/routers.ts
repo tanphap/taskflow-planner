@@ -1,8 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
 import { createHeartbeatJob, deleteHeartbeatJob, updateHeartbeatJob } from "./_core/heartbeat";
 import { getRequestSessionToken } from "./_core/sessionToken";
@@ -150,12 +148,17 @@ async function getDashboardOverview(userId: number) {
 async function createEventJob(userId: number, eventId: number, reminderAt: Date, headers: { cookie?: string; authorization?: string }) {
   const event = await db.getEvent(userId, eventId);
   const job = await createHeartbeatJob({ name: `telegram-event-${eventId}`, cron: cronFor(reminderAt, event?.recurrenceRule), path: "/api/scheduled/telegram-event-reminder", description: `Nhắc Telegram cho lịch hẹn #${eventId}` }, getRequestSessionToken(headers));
+  // Poll mode (no Heartbeat): job is null — the GitHub Actions poller claims
+  // due events directly, so there is no per-event taskUid to persist.
+  if (!job) return;
   await db.setEventTelegramJob(userId, eventId, job.taskUid);
 }
 
 export const appRouter = router({
   system: systemRouter,
-  auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
+  // Supabase sessions live client-side (supabase-js); logout just clears local
+  // storage there. This mutation is kept as a harmless no-op for existing callers.
+  auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(() => { return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => getDashboardOverview(ctx.user.id)) }),
   timesheet: router({
     access: protectedProcedure.query(async ({ ctx }) => getTimesheetPermission(ctx.user)),

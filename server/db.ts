@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   calendarEvents,
   dailyAiQuotes,
@@ -28,7 +29,10 @@ let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
-    try { _db = drizzle(process.env.DATABASE_URL); } catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
+    try {
+      const client = postgres(process.env.DATABASE_URL, { prepare: false });
+      _db = drizzle(client);
+    } catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
   }
   return _db;
 }
@@ -44,13 +48,13 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   const db = await getDb();
   if (!db) return;
   const values: InsertUser = { openId: user.openId, lastSignedIn: new Date() };
-  const updateSet: Record<string, unknown> = { lastSignedIn: new Date() };
+  const updateSet: Partial<InsertUser> = { lastSignedIn: new Date() };
   (["name", "email", "loginMethod"] as const).forEach(field => {
     if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
   });
   values.role = user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user");
   updateSet.role = values.role;
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -119,7 +123,7 @@ export async function setTimesheetAccess(grantedByUserId: number, userId: number
   const exists = (await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1))[0];
   if (!exists) return false;
   if (accessRole) {
-    await db.insert(timesheetAccess).values({ userId, grantedByUserId, accessRole }).onDuplicateKeyUpdate({ set: { grantedByUserId, accessRole, grantedAt: new Date() } });
+    await db.insert(timesheetAccess).values({ userId, grantedByUserId, accessRole }).onConflictDoUpdate({ target: timesheetAccess.userId, set: { grantedByUserId, accessRole, grantedAt: new Date() } });
   } else {
     await db.delete(timesheetAccess).where(eq(timesheetAccess.userId, userId));
   }
@@ -156,8 +160,8 @@ export async function listEvents(userId: number) {
 }
 export async function createEvent(userId: number, input: EventInput) {
   const db = await requireDb();
-  const result = await db.insert(calendarEvents).values({ userId, title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, recurrenceRule: input.recurrenceRule ?? null, telegramReminder: input.telegramReminder });
-  return Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
+  const result = await db.insert(calendarEvents).values({ userId, title: input.title.trim(), description: input.description?.trim() || null, startAt: input.startAt, endAt: input.endAt, reminderAt: input.reminderAt ?? null, recurrenceRule: input.recurrenceRule ?? null, telegramReminder: input.telegramReminder }).returning({ id: calendarEvents.id });
+  return Number(result[0]?.id);
 }
 export type TimesheetDutyScheduleInput = {
   date: string;
@@ -197,8 +201,8 @@ export async function createTimesheetDutySchedule(actorUserId: number, input: Ti
   const existing = await db.select({ id: timesheetDutySchedules.id }).from(timesheetDutySchedules)
     .where(and(eq(timesheetDutySchedules.dutyDate, input.date), eq(timesheetDutySchedules.shift, input.shift))).limit(1);
   if (existing[0]) return null;
-  const result = await db.insert(timesheetDutySchedules).values({ dutyDate: input.date, shift: input.shift, assignment: input.assignment.trim(), sourceTitle: sourceTitle.trim(), createdByUserId: actorUserId, updatedByUserId: actorUserId });
-  return Number((result as unknown as [{ insertId?: number }])[0]?.insertId) || null;
+  const result = await db.insert(timesheetDutySchedules).values({ dutyDate: input.date, shift: input.shift, assignment: input.assignment.trim(), sourceTitle: sourceTitle.trim(), createdByUserId: actorUserId, updatedByUserId: actorUserId }).returning({ id: timesheetDutySchedules.id });
+  return result[0]?.id ?? null;
 }
 
 export async function updateTimesheetDutySchedule(actorUserId: number, id: number, input: TimesheetDutyScheduleUpdateInput, sourceTitle: string) {
@@ -246,7 +250,7 @@ export async function getTelegramConnection(userId: number) {
 }
 export async function createTelegramLink(userId: number, linkToken: string, expiresAt: Date) {
   const db = await requireDb();
-  await db.insert(telegramConnections).values({ userId, linkToken, linkTokenExpiresAt: expiresAt }).onDuplicateKeyUpdate({ set: { linkToken, linkTokenExpiresAt: expiresAt, chatId: null, connectedAt: null } });
+  await db.insert(telegramConnections).values({ userId, linkToken, linkTokenExpiresAt: expiresAt }).onConflictDoUpdate({ target: telegramConnections.userId, set: { linkToken, linkTokenExpiresAt: expiresAt, chatId: null, connectedAt: null } });
 }
 export async function completeTelegramLink(userId: number, linkToken: string, chatId: string) {
   const db = await requireDb();
@@ -263,9 +267,55 @@ export async function claimTelegramEventByTaskUid(taskUid: string) {
   const result = await db.update(calendarEvents).set({ telegramSentAt: sentMarker, telegramDeliveryError: null }).where(and(
     eq(calendarEvents.id, event.id),
     isRecurring ? or(isNull(calendarEvents.telegramSentAt), ne(calendarEvents.telegramSentAt, sentMarker)) : isNull(calendarEvents.telegramSentAt),
-  ));
-  if ((result as unknown as [{ affectedRows?: number }])[0]?.affectedRows !== 1) return undefined;
+  )).returning({ id: calendarEvents.id });
+  if (!result[0]?.id) return undefined;
   return dueOccurrence ? { ...event, startAt: dueOccurrence.startAt, endAt: dueOccurrence.endAt, reminderAt: dueOccurrence.reminderAt } : event;
+}
+/**
+ * Poll-mode claim for self-hosted deployments (no Manus Heartbeat).
+ * Atomically claims every event whose reminder time has arrived and has not
+ * been sent yet. Recurring events use the same per-occurrence dedupe as
+ * `claimTelegramEventByTaskUid` via `telegramSentAt` markers.
+ */
+export async function claimDueTelegramEvents(now = new Date()) {
+  const db = await requireDb();
+  const candidates = await db
+    .select()
+    .from(calendarEvents)
+    .where(
+      and(
+        eq(calendarEvents.telegramReminder, true),
+        lte(calendarEvents.reminderAt, now),
+        isNull(calendarEvents.telegramSentAt)
+      )
+    );
+  const claimed: typeof candidates = [];
+  for (const event of candidates) {
+    const isRecurring = Boolean(parseRecurrenceRule(event.recurrenceRule));
+    const dueOccurrence = isRecurring ? getTelegramOccurrenceDueAt(event, now) : null;
+    if (isRecurring && !dueOccurrence?.reminderAt) continue;
+    const sentMarker = dueOccurrence?.reminderAt ?? now;
+    const result = await db
+      .update(calendarEvents)
+      .set({ telegramSentAt: sentMarker, telegramDeliveryError: null })
+      .where(
+        and(
+          eq(calendarEvents.id, event.id),
+          isRecurring
+            ? or(isNull(calendarEvents.telegramSentAt), ne(calendarEvents.telegramSentAt, sentMarker))
+            : isNull(calendarEvents.telegramSentAt)
+        )
+      )
+      .returning({ id: calendarEvents.id });
+    if (result[0]?.id) {
+      claimed.push(
+        dueOccurrence
+          ? { ...event, startAt: dueOccurrence.startAt, endAt: dueOccurrence.endAt, reminderAt: dueOccurrence.reminderAt }
+          : event
+      );
+    }
+  }
+  return claimed;
 }
 export async function setTelegramEventDeliveryError(eventId: number, message: string) {
   const db = await requireDb();
@@ -349,12 +399,13 @@ export async function upsertImapEmailAccount(userId: number, input: ImapAccountI
     connectionStatus: "connected" as const,
     lastSyncError: null,
   };
-  await db.insert(emailAccounts).values(values).onDuplicateKeyUpdate({ set: { ...values, userId: undefined } });
+  const { userId: _userId, ...updateValues } = values;
+  await db.insert(emailAccounts).values(values).onConflictDoUpdate({ target: [emailAccounts.userId, emailAccounts.provider, emailAccounts.email], set: updateValues });
 }
 
 export async function upsertEmailAccount(userId: number, input: { provider: EmailOAuthProvider; email: string; displayName?: string | null; accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null; scopes?: string | null }) {
   const db = await requireDb();
-  await db.insert(emailAccounts).values({ userId, provider: input.provider, email: input.email.toLowerCase(), displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null }).onDuplicateKeyUpdate({ set: { displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", imapPasswordCiphertext: null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null } });
+  await db.insert(emailAccounts).values({ userId, provider: input.provider, email: input.email.toLowerCase(), displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null }).onConflictDoUpdate({ target: [emailAccounts.userId, emailAccounts.provider, emailAccounts.email], set: { displayName: input.displayName ?? null, authMethod: "oauth2", imapHost: "outlook.office365.com", imapPort: 993, imapSecure: true, imapUsername: input.email.toLowerCase(), imapMailbox: "INBOX", imapPasswordCiphertext: null, accessTokenCiphertext: input.accessTokenCiphertext, refreshTokenCiphertext: input.refreshTokenCiphertext ?? null, tokenExpiresAt: input.tokenExpiresAt ?? null, scopes: input.scopes ?? null, connectionStatus: "connected", lastSyncError: null } });
 }
 
 export async function updateEmailAccountTokens(userId: number, accountId: number, input: { accessTokenCiphertext: string; refreshTokenCiphertext?: string | null; tokenExpiresAt?: Date | null }) {
@@ -393,7 +444,7 @@ export async function deleteEmailDataOlderThan(cutoff: Date) {
 
 export async function upsertEmailMessages(userId: number, accountId: number, messages: Array<{ providerMessageId: string; threadId?: string | null; subject: string; senderName?: string | null; senderEmail?: string | null; snippet?: string | null; receivedAt: Date; isRead: boolean; labels?: string | null; webLink?: string | null }>) {
   const db = await requireDb();
-  for (const message of messages) await db.insert(emailMessages).values({ userId, emailAccountId: accountId, providerMessageId: message.providerMessageId, threadId: message.threadId ?? null, subject: message.subject.slice(0, 500) || "(Không có tiêu đề)", senderName: message.senderName?.slice(0, 240) || null, senderEmail: message.senderEmail?.slice(0, 320) || null, snippet: message.snippet ?? null, receivedAt: message.receivedAt, isRead: message.isRead, labels: message.labels?.slice(0, 1000) || null, webLink: message.webLink?.slice(0, 1000) || null }).onDuplicateKeyUpdate({ set: { threadId: message.threadId ?? null, subject: message.subject.slice(0, 500) || "(Không có tiêu đề)", senderName: message.senderName?.slice(0, 240) || null, senderEmail: message.senderEmail?.slice(0, 320) || null, snippet: message.snippet ?? null, receivedAt: message.receivedAt, isRead: message.isRead, labels: message.labels?.slice(0, 1000) || null, webLink: message.webLink?.slice(0, 1000) || null } });
+  for (const message of messages) await db.insert(emailMessages).values({ userId, emailAccountId: accountId, providerMessageId: message.providerMessageId, threadId: message.threadId ?? null, subject: message.subject.slice(0, 500) || "(Không có tiêu đề)", senderName: message.senderName?.slice(0, 240) || null, senderEmail: message.senderEmail?.slice(0, 320) || null, snippet: message.snippet ?? null, receivedAt: message.receivedAt, isRead: message.isRead, labels: message.labels?.slice(0, 1000) || null, webLink: message.webLink?.slice(0, 1000) || null }).onConflictDoUpdate({ target: [emailMessages.emailAccountId, emailMessages.providerMessageId], set: { threadId: message.threadId ?? null, subject: message.subject.slice(0, 500) || "(Không có tiêu đề)", senderName: message.senderName?.slice(0, 240) || null, senderEmail: message.senderEmail?.slice(0, 320) || null, snippet: message.snippet ?? null, receivedAt: message.receivedAt, isRead: message.isRead, labels: message.labels?.slice(0, 1000) || null, webLink: message.webLink?.slice(0, 1000) || null } });
 }
 
 export async function listEmailMessages(userId: number, input?: { accountId?: number; status?: EmailMessageStatus; limit?: number }) {
@@ -577,8 +628,8 @@ export async function createEmailNote(userId: number, input: EmailNoteInput) {
     title: input.title.trim().slice(0, 240),
     body: input.body?.trim().slice(0, 4000) || null,
     isPinned: input.isPinned ?? false,
-  });
-  const id = Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
+  }).returning({ id: emailNotes.id });
+  const id = Number(result[0]?.id);
   return (await listEmailNotes(userId, 100)).find(note => note.id === id);
 }
 
@@ -640,6 +691,12 @@ export async function getEmailAccountByAiSyncJob(taskUid: string) {
   return (await db.select().from(emailAccounts).where(eq(emailAccounts.aiSyncJobUid, taskUid)).limit(1))[0];
 }
 
+/** Poll-mode: every mailbox with AI sync enabled, regardless of Heartbeat jobs. */
+export async function listEmailAiSyncEnabledAccounts() {
+  const db = await requireDb();
+  return db.select().from(emailAccounts).where(eq(emailAccounts.aiSyncEnabled, true));
+}
+
 export async function setEmailAiSyncRunState(userId: number, accountId: number, error?: string | null) {
   const db = await requireDb();
   await db.update(emailAccounts).set({ aiSyncLastRunAt: new Date(), aiSyncLastError: error?.slice(0, 1000) || null }).where(and(eq(emailAccounts.id, accountId), eq(emailAccounts.userId, userId)));
@@ -696,10 +753,10 @@ export async function syncDueNotifications(userId: number) {
   ]);
   const recurrenceCutoff = new Date(now.getTime() - 24 * 60 * 60_000);
   const dueEvents = userEvents.filter(event => event.reminderAt && event.reminderAt <= now && event.reminderAt >= recurrenceCutoff);
-  for (const task of dueTasks) await db.insert(notifications).values({ userId, sourceKey: `task:${task.id}`, kind: "task", title: "Nhắc việc đến hạn", body: task.title, scheduledFor: task.reminderAt ?? now }).onDuplicateKeyUpdate({ set: { scheduledFor: task.reminderAt ?? now } });
+  for (const task of dueTasks) await db.insert(notifications).values({ userId, sourceKey: `task:${task.id}`, kind: "task", title: "Nhắc việc đến hạn", body: task.title, scheduledFor: task.reminderAt ?? now }).onConflictDoUpdate({ target: notifications.sourceKey, set: { scheduledFor: task.reminderAt ?? now } });
   for (const event of dueEvents) {
     const sourceKey = event.isRecurringOccurrence ? `event:${event.id}:${event.startAt.getTime()}` : `event:${event.id}`;
-    await db.insert(notifications).values({ userId, sourceKey, kind: "event", title: "Sự kiện sắp bắt đầu", body: event.title, scheduledFor: event.reminderAt ?? now }).onDuplicateKeyUpdate({ set: { scheduledFor: event.reminderAt ?? now } });
+    await db.insert(notifications).values({ userId, sourceKey, kind: "event", title: "Sự kiện sắp bắt đầu", body: event.title, scheduledFor: event.reminderAt ?? now }).onConflictDoUpdate({ target: notifications.sourceKey, set: { scheduledFor: event.reminderAt ?? now } });
   }
   return db.select().from(notifications).where(and(eq(notifications.userId, userId), isNull(notifications.readAt))).orderBy(desc(notifications.scheduledFor));
 }
@@ -707,7 +764,7 @@ export async function markNotificationRead(userId: number, notificationId: numbe
 export async function markAllNotificationsRead(userId: number) { const db = await requireDb(); await db.update(notifications).set({ readAt: new Date() }).where(and(eq(notifications.userId, userId), isNull(notifications.readAt))); }
 export async function updateUserProfile(userId: number, input: { name: string; email: string }) { const db = await requireDb(); await db.update(users).set({ name: input.name.trim() || null, email: input.email.trim() || null }).where(eq(users.id, userId)); }
 export async function getDailyAiQuote(dayKey: string) { const db = await requireDb(); return (await db.select().from(dailyAiQuotes).where(eq(dailyAiQuotes.dayKey, dayKey)).limit(1))[0]; }
-export async function createDailyAiQuote(input: { dayKey: string; quoteVi: string; quoteEn: string; model: string }) { const db = await requireDb(); await db.insert(dailyAiQuotes).values({ dayKey: input.dayKey, quoteVi: input.quoteVi.slice(0, 280), quoteEn: input.quoteEn.slice(0, 280), model: input.model.slice(0, 120) }).onDuplicateKeyUpdate({ set: { dayKey: input.dayKey } }); return getDailyAiQuote(input.dayKey); }
+export async function createDailyAiQuote(input: { dayKey: string; quoteVi: string; quoteEn: string; model: string }) { const db = await requireDb(); await db.insert(dailyAiQuotes).values({ dayKey: input.dayKey, quoteVi: input.quoteVi.slice(0, 280), quoteEn: input.quoteEn.slice(0, 280), model: input.model.slice(0, 120) }).onConflictDoUpdate({ target: dailyAiQuotes.dayKey, set: { dayKey: input.dayKey } }); return getDailyAiQuote(input.dayKey); }
 export async function isScheduledJobTask(key: string, taskUid: string) { const db = await requireDb(); return Boolean((await db.select({ key: scheduledJobs.key }).from(scheduledJobs).where(and(eq(scheduledJobs.key, key), eq(scheduledJobs.taskUid, taskUid))).limit(1))[0]); }
 export async function getDashboardData(userId: number) {
   const [userTasks, userEvents, dailyQuote] = await Promise.all([listTasks(userId), listEvents(userId), getDailyAiQuote(getVietnamDateKey())]); const now = new Date(); const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()); const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);

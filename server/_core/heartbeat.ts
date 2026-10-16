@@ -134,13 +134,25 @@ const validateCallbackPath = (path: string): void => {
 };
 
 /**
+ * True when the Manus Heartbeat/Forge scheduler is configured. When false
+ * (e.g. self-hosted on ntpha), scheduled work runs in poll mode: external
+ * cron (GitHub Actions) hits `/api/scheduled/*` with CRON_SECRET instead of
+ * per-row Heartbeat jobs.
+ */
+export function isHeartbeatAvailable(): boolean {
+  return Boolean(ENV.forgeApiUrl && ENV.forgeApiKey);
+}
+
+/**
  * Create a new HTTP cron job. Returns the assigned `taskUid` to persist on
- * your business row so callbacks can dereference it.
+ * your business row so callbacks can dereference it. Returns null when the
+ * Heartbeat service is not configured (poll mode — no per-row job needed).
  */
 export async function createHeartbeatJob(
   job: HeartbeatJob,
   userSession: string
-): Promise<{ taskUid: string; nextExecutionAt?: string | null }> {
+): Promise<{ taskUid: string; nextExecutionAt?: string | null } | null> {
+  if (!isHeartbeatAvailable()) return null;
   validateCallbackPath(job.path);
   return callForge<{ taskUid: string; nextExecutionAt?: string | null }>(
     "CreateHeartbeatJob",
@@ -165,6 +177,7 @@ export async function updateHeartbeatJob(
   patch: HeartbeatJobUpdate,
   userSession: string
 ): Promise<{ nextExecutionAt?: string | null }> {
+  if (!isHeartbeatAvailable()) return {};
   if (patch.path !== undefined) validateCallbackPath(patch.path);
   const body: Record<string, unknown> = { taskUid };
   if (patch.cron !== undefined) body.cronExpression = patch.cron;
@@ -187,6 +200,7 @@ export async function deleteHeartbeatJob(
   taskUid: string,
   userSession: string
 ): Promise<void> {
+  if (!isHeartbeatAvailable()) return;
   await callForge("DeleteHeartbeatJob", { taskUid }, userSession);
 }
 

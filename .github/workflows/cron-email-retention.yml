@@ -1,0 +1,18 @@
+# Daily cleanup of email cache older than 30 days (02:00 +07 = 19:00 UTC).
+# Never touches messages on the upstream mailbox.
+name: Cron - Email retention cleanup
+
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger retention cleanup
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.BACKEND_URL }}/api/scheduled/email-retention"
