@@ -1,8 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
 import { createHeartbeatJob, deleteHeartbeatJob, updateHeartbeatJob } from "./_core/heartbeat";
 import { getRequestSessionToken } from "./_core/sessionToken";
@@ -155,7 +153,9 @@ async function createEventJob(userId: number, eventId: number, reminderAt: Date,
 
 export const appRouter = router({
   system: systemRouter,
-  auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(({ ctx }) => { const options = getSessionCookieOptions(ctx.req); ctx.res.clearCookie(COOKIE_NAME, { ...options, maxAge: -1 }); return { success: true } as const; }) }),
+  // Supabase sessions live client-side (supabase-js); logout just clears local
+  // storage there. This mutation is kept as a harmless no-op for existing callers.
+  auth: router({ me: publicProcedure.query(opts => opts.ctx.user), logout: publicProcedure.mutation(() => { return { success: true } as const; }) }),
   dashboard: router({ overview: protectedProcedure.query(({ ctx }) => getDashboardOverview(ctx.user.id)) }),
   timesheet: router({
     access: protectedProcedure.query(async ({ ctx }) => getTimesheetPermission(ctx.user)),

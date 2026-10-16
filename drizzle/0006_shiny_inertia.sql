@@ -1,1 +1,0 @@
-ALTER TABLE `email_messages` ADD `aiAnalyzedAt` timestamp;

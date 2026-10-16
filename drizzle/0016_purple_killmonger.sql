@@ -1,1 +1,0 @@
-ALTER TABLE `timesheet_access` ADD `accessRole` enum('viewer','admin') DEFAULT 'viewer' NOT NULL;
