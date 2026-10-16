@@ -148,6 +148,9 @@ async function getDashboardOverview(userId: number) {
 async function createEventJob(userId: number, eventId: number, reminderAt: Date, headers: { cookie?: string; authorization?: string }) {
   const event = await db.getEvent(userId, eventId);
   const job = await createHeartbeatJob({ name: `telegram-event-${eventId}`, cron: cronFor(reminderAt, event?.recurrenceRule), path: "/api/scheduled/telegram-event-reminder", description: `Nhắc Telegram cho lịch hẹn #${eventId}` }, getRequestSessionToken(headers));
+  // Poll mode (no Heartbeat): job is null — the GitHub Actions poller claims
+  // due events directly, so there is no per-event taskUid to persist.
+  if (!job) return;
   await db.setEventTelegramJob(userId, eventId, job.taskUid);
 }
 

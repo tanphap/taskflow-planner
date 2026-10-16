@@ -153,6 +153,10 @@ function vitePluginManusDebugCollector(): Plugin {
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
 
 export default defineConfig({
+  // GitHub Pages project site lives under /<repo>/ — set VITE_BASE_PATH in
+  // the Pages workflow (e.g. "/taskflow-planner/"). Backend-served builds
+  // keep the default "/".
+  base: process.env.VITE_BASE_PATH ?? "/",
   plugins,
   resolve: {
     alias: {

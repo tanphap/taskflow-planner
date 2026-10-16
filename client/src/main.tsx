@@ -34,10 +34,14 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+// Self-hosted: VITE_API_URL points at the backend (e.g. Cloudflare Tunnel
+// URL of ntpha). Empty = same origin (Manus / backend-served frontend).
+const apiBaseUrl = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      url: `${apiBaseUrl}/api/trpc`,
       transformer: superjson,
       async headers() {
         // Attach the current Supabase session's access token so the server

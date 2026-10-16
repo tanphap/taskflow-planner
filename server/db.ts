@@ -271,6 +271,52 @@ export async function claimTelegramEventByTaskUid(taskUid: string) {
   if (!result[0]?.id) return undefined;
   return dueOccurrence ? { ...event, startAt: dueOccurrence.startAt, endAt: dueOccurrence.endAt, reminderAt: dueOccurrence.reminderAt } : event;
 }
+/**
+ * Poll-mode claim for self-hosted deployments (no Manus Heartbeat).
+ * Atomically claims every event whose reminder time has arrived and has not
+ * been sent yet. Recurring events use the same per-occurrence dedupe as
+ * `claimTelegramEventByTaskUid` via `telegramSentAt` markers.
+ */
+export async function claimDueTelegramEvents(now = new Date()) {
+  const db = await requireDb();
+  const candidates = await db
+    .select()
+    .from(calendarEvents)
+    .where(
+      and(
+        eq(calendarEvents.telegramReminder, true),
+        lte(calendarEvents.reminderAt, now),
+        isNull(calendarEvents.telegramSentAt)
+      )
+    );
+  const claimed: typeof candidates = [];
+  for (const event of candidates) {
+    const isRecurring = Boolean(parseRecurrenceRule(event.recurrenceRule));
+    const dueOccurrence = isRecurring ? getTelegramOccurrenceDueAt(event, now) : null;
+    if (isRecurring && !dueOccurrence?.reminderAt) continue;
+    const sentMarker = dueOccurrence?.reminderAt ?? now;
+    const result = await db
+      .update(calendarEvents)
+      .set({ telegramSentAt: sentMarker, telegramDeliveryError: null })
+      .where(
+        and(
+          eq(calendarEvents.id, event.id),
+          isRecurring
+            ? or(isNull(calendarEvents.telegramSentAt), ne(calendarEvents.telegramSentAt, sentMarker))
+            : isNull(calendarEvents.telegramSentAt)
+        )
+      )
+      .returning({ id: calendarEvents.id });
+    if (result[0]?.id) {
+      claimed.push(
+        dueOccurrence
+          ? { ...event, startAt: dueOccurrence.startAt, endAt: dueOccurrence.endAt, reminderAt: dueOccurrence.reminderAt }
+          : event
+      );
+    }
+  }
+  return claimed;
+}
 export async function setTelegramEventDeliveryError(eventId: number, message: string) {
   const db = await requireDb();
   await db.update(calendarEvents).set({ telegramDeliveryError: message.slice(0, 500) }).where(eq(calendarEvents.id, eventId));
@@ -643,6 +689,12 @@ export async function updateEmailAiSyncSettings(userId: number, accountId: numbe
 export async function getEmailAccountByAiSyncJob(taskUid: string) {
   const db = await requireDb();
   return (await db.select().from(emailAccounts).where(eq(emailAccounts.aiSyncJobUid, taskUid)).limit(1))[0];
+}
+
+/** Poll-mode: every mailbox with AI sync enabled, regardless of Heartbeat jobs. */
+export async function listEmailAiSyncEnabledAccounts() {
+  const db = await requireDb();
+  return db.select().from(emailAccounts).where(eq(emailAccounts.aiSyncEnabled, true));
 }
 
 export async function setEmailAiSyncRunState(userId: number, accountId: number, error?: string | null) {
