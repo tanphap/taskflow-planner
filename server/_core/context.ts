@@ -33,17 +33,20 @@ export async function createContext(
     const { data, error } = await supabase.auth.getUser(accessToken);
     if (!error && data.user) {
       const authUser = data.user;
-      await db.upsertUser({
-        openId: authUser.id,
-        name:
-          authUser.user_metadata.full_name ??
-          authUser.user_metadata.name ??
-          null,
-        email: authUser.email ?? null,
-        loginMethod: authUser.app_metadata.provider ?? "supabase",
-        lastSignedIn: new Date(),
-      });
       user = (await db.getUserByOpenId(authUser.id)) ?? null;
+      if (!user) {
+        await db.upsertUser({
+          openId: authUser.id,
+          name:
+            authUser.user_metadata.full_name ??
+            authUser.user_metadata.name ??
+            null,
+          email: authUser.email ?? null,
+          loginMethod: authUser.app_metadata.provider ?? "supabase",
+          lastSignedIn: new Date(),
+        });
+        user = (await db.getUserByOpenId(authUser.id)) ?? null;
+      }
     }
   }
 

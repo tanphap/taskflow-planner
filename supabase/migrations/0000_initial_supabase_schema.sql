@@ -262,3 +262,43 @@ CREATE UNIQUE INDEX "timesheet_access_user_uq" ON "timesheet_access" USING btree
 CREATE INDEX "timesheet_access_granted_by_idx" ON "timesheet_access" USING btree ("grantedByUserId");--> statement-breakpoint
 CREATE UNIQUE INDEX "timesheet_duty_schedules_date_shift_uq" ON "timesheet_duty_schedules" USING btree ("dutyDate","shift");--> statement-breakpoint
 CREATE INDEX "timesheet_duty_schedules_date_idx" ON "timesheet_duty_schedules" USING btree ("dutyDate");
+
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can access their own profile" ON public.users
+  FOR ALL TO authenticated
+  USING ("openId" = auth.uid()::text)
+  WITH CHECK ("openId" = auth.uid()::text);
+
+DO $$
+DECLARE
+  table_name text;
+BEGIN
+  FOREACH table_name IN ARRAY ARRAY[
+    'tasks',
+    'calendar_events',
+    'telegram_delivery_logs',
+    'telegram_connections',
+    'email_accounts',
+    'email_oauth_sessions',
+    'email_messages',
+    'email_gemini_summaries',
+    'email_notes',
+    'email_event_suggestions',
+    'notifications',
+    'timesheet_access'
+  ]
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', table_name);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users AS owner WHERE owner.id = %I."userId" AND owner."openId" = auth.uid()::text)) WITH CHECK (EXISTS (SELECT 1 FROM public.users AS owner WHERE owner.id = %I."userId" AND owner."openId" = auth.uid()::text))',
+      table_name || '_owner_access',
+      table_name,
+      table_name,
+      table_name
+    );
+  END LOOP;
+END $$;
+
+ALTER TABLE public.daily_ai_quotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scheduled_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.timesheet_duty_schedules ENABLE ROW LEVEL SECURITY;

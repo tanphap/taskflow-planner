@@ -3,8 +3,6 @@ import express from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
-import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sendTelegramEventReminder } from "../telegramReminder";
@@ -13,6 +11,7 @@ import { runEmailAiSyncReminder } from "../emailAiReminder";
 import { runEmailRetentionReminder } from "../emailRetentionReminder";
 import { runDailyQuoteReminder } from "../dailyQuoteReminder";
 import { serveStatic, setupVite } from "./vite";
+import { ENV } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,11 +35,29 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  const allowedOrigins = new Set(
+    [ENV.frontendUrl, ...(process.env.NODE_ENV === "development" ? ["http://localhost:5173", "http://127.0.0.1:5173"] : [])]
+      .filter(Boolean)
+      .map(value => new URL(value).origin),
+  );
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Vary", "Origin");
+    }
+    if (req.method === "OPTIONS") {
+      res.sendStatus(origin && !allowedOrigins.has(origin) ? 403 : 204);
+      return;
+    }
+    next();
+  });
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  registerStorageProxy(app);
-  registerOAuthRoutes(app);
   registerEmailOAuthRoutes(app);
   app.post("/api/scheduled/telegram-event-reminder", sendTelegramEventReminder);
   app.post("/api/scheduled/email-ai-sync", runEmailAiSyncReminder);
