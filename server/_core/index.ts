@@ -35,6 +35,32 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // Minimal CORS: the frontend is hosted on GitHub Pages (cross-origin)
+  // while this backend runs on ntpha behind a Cloudflare Tunnel.
+  // Without these headers the browser blocks tRPC calls, so auth.me
+  // never resolves and the app stays on the login screen.
+  const allowedOrigins = (process.env.CORS_ORIGINS || "https://tanphap.github.io")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.use((req, res, next) => {
+    const origin = req.headers.origin as string | undefined;
+    if (origin && (allowedOrigins.includes("*") || allowedOrigins.includes(origin))) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+    if (req.method === "OPTIONS") {
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        (req.headers["access-control-request-headers"] as string) || "Authorization, Content-Type"
+      );
+      res.setHeader("Access-Control-Max-Age", "86400");
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
